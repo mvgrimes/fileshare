@@ -69,6 +69,21 @@ func RequireRole(role string) echo.MiddlewareFunc {
 	}
 }
 
+func RequireCapability(capability Capability) echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			principal, ok := c.Get(principalKey).(Principal)
+			if !ok {
+				return c.String(http.StatusUnauthorized, "authentication required")
+			}
+			if err := AuthorizeCapability(principal, capability); err != nil {
+				return c.String(http.StatusForbidden, "forbidden")
+			}
+			return next(c)
+		}
+	}
+}
+
 func PrincipalFromContext(c echo.Context) (Principal, bool) {
 	p, ok := c.Get(principalKey).(Principal)
 	return p, ok

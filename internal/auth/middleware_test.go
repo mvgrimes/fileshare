@@ -67,6 +67,56 @@ func TestLoadSessionIgnoresInvalidSessionToken(t *testing.T) {
 	}
 }
 
+func TestRequireCapability(t *testing.T) {
+	e := echo.New()
+	e.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			role := c.Request().Header.Get("X-Test-Role")
+			if role != "" {
+				c.Set(principalKey, Principal{ActorType: "user", ActorID: "u-1", Roles: []string{role}})
+			}
+			return next(c)
+		}
+	})
+	e.GET("/", func(c echo.Context) error {
+		return c.String(http.StatusOK, "ok")
+	}, RequireCapability(CapabilityManageClients))
+
+	t.Run("allows principal with capability", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		rec := httptest.NewRecorder()
+
+		req.Header.Set("X-Test-Role", "account_manager")
+		e.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusOK {
+			t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+		}
+	})
+
+	t.Run("denies principal without capability", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		rec := httptest.NewRecorder()
+
+		req.Header.Set("X-Test-Role", "uploader")
+		e.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusForbidden {
+			t.Fatalf("status = %d, want %d", rec.Code, http.StatusForbidden)
+		}
+	})
+
+	t.Run("requires authentication", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		rec := httptest.NewRecorder()
+		e.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusUnauthorized {
+			t.Fatalf("status = %d, want %d", rec.Code, http.StatusUnauthorized)
+		}
+	})
+}
+
 func setupSessionManager(t *testing.T) *Manager {
 	t.Helper()
 

@@ -296,19 +296,11 @@ func New(cfg *config.Config, log *slog.Logger) *Server {
 		})
 	})
 	user.GET("/uploads", func(c echo.Context) error {
-		principal, _ := auth.PrincipalFromContext(c)
-		if !auth.CanUploadFiles(principal) {
-			return c.String(http.StatusForbidden, "forbidden")
-		}
 		return c.String(http.StatusOK, "uploader access granted")
-	})
+	}, auth.RequireCapability(auth.CapabilityUploadFiles))
 	user.GET("/clients", func(c echo.Context) error {
-		principal, _ := auth.PrincipalFromContext(c)
-		if !auth.CanManageClients(principal) {
-			return c.String(http.StatusForbidden, "forbidden")
-		}
 		return c.String(http.StatusOK, "account manager access granted")
-	})
+	}, auth.RequireCapability(auth.CapabilityManageClients))
 
 	client := e.Group("/client")
 	client.Use(auth.RequireAuth(), auth.RequireActorType("client"))
@@ -334,12 +326,8 @@ func New(cfg *config.Config, log *slog.Logger) *Server {
 		})
 	})
 	admin.GET("/users", func(c echo.Context) error {
-		principal, _ := auth.PrincipalFromContext(c)
-		if !auth.CanManageUsers(principal) {
-			return c.String(http.StatusForbidden, "forbidden")
-		}
 		return c.String(http.StatusOK, "admin access granted")
-	})
+	}, auth.RequireCapability(auth.CapabilityManageUsers))
 
 	return srv
 }
