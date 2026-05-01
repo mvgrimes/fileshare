@@ -94,9 +94,13 @@ func New(cfg *config.Config, log *slog.Logger) *Server {
 	if err := ensureSessionTable(sqlDB); err != nil {
 		panic(err)
 	}
+    if err := ensureMagicLinkTable(sqlDB); err != nil {
+		panic(err)
+	}
 
-	sessions := auth.NewManager(db.New(sqlDB), 12*time.Hour)
-	magic := auth.NewMagicManager(15*time.Minute, 60*time.Second)
+	queries := db.New(sqlDB)
+	sessions := auth.NewManager(queries, 12*time.Hour)
+	magic := auth.NewMagicManager(queries, 15*time.Minute, 60*time.Second)
 	magicSend := auth.NoopSender{}
 	srv := &Server{e: e, cfg: cfg, log: log, sessions: sessions, magic: magic, magicSend: magicSend}
 	e.Use(auth.LoadSession(sessions))
@@ -317,6 +321,20 @@ CREATE TABLE IF NOT EXISTS sessions (
   expires_at TEXT NOT NULL,
   created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
   revoked_at TEXT
+);
+`)
+	return err
+}
+
+func ensureMagicLinkTable(sqlDB *sql.DB) error {
+	_, err := sqlDB.Exec(`
+CREATE TABLE IF NOT EXISTS magic_links (
+  id TEXT PRIMARY KEY,
+  client_id TEXT NOT NULL,
+  token_hash TEXT NOT NULL UNIQUE,
+  expires_at TEXT NOT NULL,
+  consumed_at TEXT,
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );
 `)
 	return err
