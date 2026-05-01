@@ -36,7 +36,7 @@ release:
   just fmt
   just build
   git diff --exit-code
-  git tag "{{VERSION}}"
+  git tag --points-at HEAD | grep -qx {{VERSION}} || git tag {{VERSION}}
   git push
   git release
   git push --tags
