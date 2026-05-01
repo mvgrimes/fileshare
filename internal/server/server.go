@@ -9,6 +9,8 @@ import (
 	"log/slog"
 	"net/http"
 	"path/filepath"
+	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -91,10 +93,7 @@ func New(cfg *config.Config, log *slog.Logger) *Server {
 	if err != nil {
 		panic(err)
 	}
-	if err := ensureSessionTable(sqlDB); err != nil {
-		panic(err)
-	}
-    if err := ensureMagicLinkTable(sqlDB); err != nil {
+	if err := verifySchemaUpToDate(sqlDB); err != nil {
 		panic(err)
 	}
 
@@ -309,35 +308,75 @@ func New(cfg *config.Config, log *slog.Logger) *Server {
 	return srv
 }
 
-func ensureSessionTable(sqlDB *sql.DB) error {
-	_, err := sqlDB.Exec(`
-CREATE TABLE IF NOT EXISTS sessions (
-  id TEXT PRIMARY KEY,
-  actor_type TEXT NOT NULL CHECK (actor_type IN ('user', 'client')),
-  actor_id TEXT NOT NULL,
-  token_hash TEXT NOT NULL UNIQUE,
-  ip_address TEXT,
-  user_agent TEXT,
-  expires_at TEXT NOT NULL,
-  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
-  revoked_at TEXT
-);
+func verifySchemaUpToDate(sqlDB *sql.DB) error {
+	latest, err := latestMigrationVersion()
+	if err != nil {
+		return err
+	}
+
+	var current int64
+	row := sqlDB.QueryRow(`
+SELECT version_id
+FROM goose_db_version
+WHERE is_applied = 1
+ORDER BY id DESC
+LIMIT 1;
 `)
-	return err
+	if err := row.Scan(&current); err != nil {
+		if err == sql.ErrNoRows {
+			return fmt.Errorf("database schema is not migrated: run `go run . migrate up`")
+		}
+		return fmt.Errorf("read goose version: %w", err)
+	}
+
+	if current < latest {
+		return fmt.Errorf("database schema is out of date (current=%d, latest=%d): run `go run . migrate up`", current, latest)
+	}
+
+	return nil
 }
 
-func ensureMagicLinkTable(sqlDB *sql.DB) error {
-	_, err := sqlDB.Exec(`
-CREATE TABLE IF NOT EXISTS magic_links (
-  id TEXT PRIMARY KEY,
-  client_id TEXT NOT NULL,
-  token_hash TEXT NOT NULL UNIQUE,
-  expires_at TEXT NOT NULL,
-  consumed_at TEXT,
-  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
-);
-`)
-	return err
+func latestMigrationVersion() (int64, error) {
+	patterns := []string{
+		"migrations/*.sql",
+		"../migrations/*.sql",
+		"../../migrations/*.sql",
+	}
+
+	re := regexp.MustCompile(`^(\d+)_.*\.sql$`)
+	var latest int64
+	var found bool
+
+	for _, pattern := range patterns {
+		matches, err := filepath.Glob(pattern)
+		if err != nil {
+			return 0, fmt.Errorf("glob migrations with pattern %q: %w", pattern, err)
+		}
+		for _, m := range matches {
+			base := filepath.Base(m)
+			parts := re.FindStringSubmatch(base)
+			if len(parts) != 2 {
+				continue
+			}
+			v, err := strconv.ParseInt(parts[1], 10, 64)
+			if err != nil {
+				return 0, fmt.Errorf("parse migration version from %q: %w", base, err)
+			}
+			if !found || v > latest {
+				latest = v
+				found = true
+			}
+		}
+		if found {
+			break
+		}
+	}
+
+	if !found {
+		return 0, fmt.Errorf("no migrations found in known locations")
+	}
+
+	return latest, nil
 }
 
 func sCookieSecure(environment string) bool {

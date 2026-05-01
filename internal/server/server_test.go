@@ -3,21 +3,56 @@ package server
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/pressly/goose/v3"
 	"github.com/labstack/echo/v4"
 
 	"sharefile/internal/config"
+
+	_ "modernc.org/sqlite"
 )
+
+func TestMain(m *testing.M) {
+	_ = os.Remove("test.db")
+	if err := migrateTestDB("test.db"); err != nil {
+		panic(err)
+	}
+	code := m.Run()
+	_ = os.Remove("test.db")
+	os.Exit(code)
+}
+
+func migrateTestDB(path string) error {
+	sqlDB, err := sql.Open("sqlite", path)
+	if err != nil {
+		return err
+	}
+	defer sqlDB.Close()
+
+	if err := goose.SetDialect("sqlite3"); err != nil {
+		return err
+	}
+
+	migrationsDir := filepath.Join("..", "..", "migrations")
+	if err := goose.Up(sqlDB, migrationsDir); err != nil {
+		return err
+	}
+
+	return nil
+}
 
 func testConfig() *config.Config {
 	return &config.Config{
