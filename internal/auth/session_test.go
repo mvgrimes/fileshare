@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"testing"
 	"time"
 
@@ -75,6 +76,24 @@ func TestSessionPersistsAcrossManagerInstances(t *testing.T) {
 	}
 	if loaded.TokenHash != created.TokenHash {
 		t.Fatalf("loaded token hash = %q, want %q", loaded.TokenHash, created.TokenHash)
+	}
+}
+
+func TestCreateSessionRejectsInvalidPrincipal(t *testing.T) {
+	q := setupSessionQueries(t)
+	m := NewManager(q, time.Hour)
+
+	tests := []Principal{
+		{ActorType: "", ActorID: "u1"},
+		{ActorType: "admin", ActorID: "u1"},
+		{ActorType: "user", ActorID: ""},
+	}
+
+	for _, principal := range tests {
+		_, _, err := m.CreateSession(context.Background(), principal)
+		if !errors.Is(err, ErrInvalidPrincipal) {
+			t.Fatalf("CreateSession(%+v) err = %v, want %v", principal, err, ErrInvalidPrincipal)
+		}
 	}
 }
 

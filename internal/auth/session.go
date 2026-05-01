@@ -15,6 +15,7 @@ import (
 )
 
 var ErrSessionNotFound = errors.New("session not found")
+var ErrInvalidPrincipal = errors.New("invalid principal")
 
 type Principal struct {
 	ActorType string
@@ -53,6 +54,13 @@ func NewManager(queries sessionQuerier, ttl time.Duration) *Manager {
 }
 
 func (m *Manager) CreateSession(ctx context.Context, p Principal) (string, Session, error) {
+	if p.ActorID == "" {
+		return "", Session{}, ErrInvalidPrincipal
+	}
+	if p.ActorType != "user" && p.ActorType != "client" {
+		return "", Session{}, ErrInvalidPrincipal
+	}
+
 	token, err := randomToken()
 	if err != nil {
 		return "", Session{}, err
