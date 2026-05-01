@@ -2,6 +2,8 @@ package server
 
 import (
 	"bytes"
+	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -197,6 +199,101 @@ func TestSSOLoginRejectsInvalidToken(t *testing.T) {
 	}
 }
 
+func TestMagicLinkRequestThrottled(t *testing.T) {
+	s := New(testConfig(), slog.Default())
+	body := bytes.NewBufferString("client_id=client-1")
+	req1 := httptest.NewRequest(http.MethodPost, "/auth/magic/request", body)
+	req1.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
+	rec1 := httptest.NewRecorder()
+	s.e.ServeHTTP(rec1, req1)
+	if rec1.Code != http.StatusNoContent {
+		t.Fatalf("first request status = %d, want %d", rec1.Code, http.StatusNoContent)
+	}
+
+	body2 := bytes.NewBufferString("client_id=client-1")
+	req2 := httptest.NewRequest(http.MethodPost, "/auth/magic/request", body2)
+	req2.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
+	rec2 := httptest.NewRecorder()
+	s.e.ServeHTTP(rec2, req2)
+	if rec2.Code != http.StatusTooManyRequests {
+		t.Fatalf("second request status = %d, want %d", rec2.Code, http.StatusTooManyRequests)
+	}
+}
+
+func TestMagicLinkVerifyCreatesClientSession(t *testing.T) {
+	s := New(testConfig(), slog.Default())
+	token, _, err := s.magic.Create(context.Background(), "client-verify")
+	if err != nil {
+		t.Fatalf("Create() unexpected error: %v", err)
+	}
+
+	body := bytes.NewBufferString(fmt.Sprintf("client_id=client-verify&token=%s", token))
+	req := httptest.NewRequest(http.MethodPost, "/auth/magic/verify", body)
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
+	rec := httptest.NewRecorder()
+	s.e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("verify status = %d, want %d, body=%q", rec.Code, http.StatusNoContent, rec.Body.String())
+	}
+
+	var sessionCookie *http.Cookie
+	for _, c := range rec.Result().Cookies() {
+		if c.Name == "sharefile_session" {
+			sessionCookie = c
+			break
+		}
+	}
+	if sessionCookie == nil {
+		t.Fatal("expected sharefile_session cookie")
+	}
+
+	clientReq := httptest.NewRequest(http.MethodGet, "/client/dashboard", nil)
+	clientReq.AddCookie(sessionCookie)
+	clientRec := httptest.NewRecorder()
+	s.e.ServeHTTP(clientRec, clientReq)
+	if clientRec.Code != http.StatusOK {
+		t.Fatalf("client dashboard status = %d, want %d", clientRec.Code, http.StatusOK)
+	}
+}
+
+func TestMagicLinkVerifySingleUse(t *testing.T) {
+	s := New(testConfig(), slog.Default())
+	token, _, err := s.magic.Create(context.Background(), "client-once")
+	if err != nil {
+		t.Fatalf("Create() unexpected error: %v", err)
+	}
+
+	for i := 0; i < 2; i++ {
+		body := bytes.NewBufferString(fmt.Sprintf("client_id=client-once&token=%s", token))
+		req := httptest.NewRequest(http.MethodPost, "/auth/magic/verify", body)
+		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
+		rec := httptest.NewRecorder()
+		s.e.ServeHTTP(rec, req)
+		if i == 0 && rec.Code != http.StatusNoContent {
+			t.Fatalf("first verify status = %d, want %d", rec.Code, http.StatusNoContent)
+		}
+		if i == 1 && rec.Code != http.StatusUnauthorized {
+			t.Fatalf("second verify status = %d, want %d", rec.Code, http.StatusUnauthorized)
+		}
+	}
+}
+
+func TestMagicLinkRequestDeliveryFailure(t *testing.T) {
+	s := New(testConfig(), slog.Default())
+	s.magicSend = failingSender{}
+
+	body := bytes.NewBufferString("client_id=client-fail")
+	req := httptest.NewRequest(http.MethodPost, "/auth/magic/request", body)
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
+	rec := httptest.NewRecorder()
+	s.e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadGateway {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusBadGateway)
+	}
+}
+
 func TestTemplateRendererAddsPath(t *testing.T) {
 	s := New(testConfig(), slog.Default())
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
@@ -249,4 +346,10 @@ func signedSSOToken(t *testing.T, secret, issuer, audience, userID, subject stri
 		t.Fatalf("SignedString() error: %v", err)
 	}
 	return signed
+}
+
+type failingSender struct{}
+
+func (failingSender) SendMagicLink(_ context.Context, _ string, _ string) error {
+	return errors.New("smtp down")
 }

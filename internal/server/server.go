@@ -18,10 +18,12 @@ import (
 )
 
 type Server struct {
-	e        *echo.Echo
-	cfg      *config.Config
-	log      *slog.Logger
-	sessions *auth.Manager
+	e         *echo.Echo
+	cfg       *config.Config
+	log       *slog.Logger
+	sessions  *auth.Manager
+	magic     *auth.MagicManager
+	magicSend auth.MagicSender
 }
 
 type TemplateRenderer struct {
@@ -75,12 +77,15 @@ func New(cfg *config.Config, log *slog.Logger) *Server {
 	e.Use(middleware.Secure())
 	e.Use(middleware.CSRFWithConfig(middleware.CSRFConfig{
 		Skipper: func(c echo.Context) bool {
-			return c.Path() == "/auth/session" || c.Path() == "/auth/logout" || c.Path() == "/auth/sso/login"
+			return c.Path() == "/auth/session" || c.Path() == "/auth/logout" || c.Path() == "/auth/sso/login" || c.Path() == "/auth/magic/request" || c.Path() == "/auth/magic/verify"
 		},
 	}))
 	e.Use(middleware.RateLimiter(middleware.NewRateLimiterMemoryStore(20)))
 
 	sessions := auth.NewManager(12 * time.Hour)
+	magic := auth.NewMagicManager(15*time.Minute, 60*time.Second)
+	magicSend := auth.NoopSender{}
+	srv := &Server{e: e, cfg: cfg, log: log, sessions: sessions, magic: magic, magicSend: magicSend}
 	e.Use(auth.LoadSession(sessions))
 
 	e.GET("/healthz", func(c echo.Context) error {
@@ -172,6 +177,59 @@ func New(cfg *config.Config, log *slog.Logger) *Server {
 
 		return c.NoContent(http.StatusNoContent)
 	})
+	public.POST("/auth/magic/request", func(c echo.Context) error {
+		clientID := c.FormValue("client_id")
+		if clientID == "" {
+			return c.String(http.StatusBadRequest, "client_id is required")
+		}
+
+		token, _, err := magic.Create(c.Request().Context(), clientID)
+		if err != nil {
+			if err == auth.ErrMagicLinkThrottled {
+				return c.String(http.StatusTooManyRequests, "magic link request throttled")
+			}
+			return c.String(http.StatusInternalServerError, "failed to create magic link")
+		}
+
+		if err := srv.magicSend.SendMagicLink(c.Request().Context(), clientID, token); err != nil {
+			log.Error("magic link delivery failed", "client_id", clientID, "error", err.Error())
+			return c.String(http.StatusBadGateway, "failed to deliver magic link")
+		}
+
+		return c.NoContent(http.StatusNoContent)
+	})
+	public.POST("/auth/magic/verify", func(c echo.Context) error {
+		clientID := c.FormValue("client_id")
+		token := c.FormValue("token")
+		if clientID == "" || token == "" {
+			return c.String(http.StatusBadRequest, "client_id and token are required")
+		}
+
+		_, err := magic.Consume(c.Request().Context(), clientID, token)
+		if err != nil {
+			switch err {
+			case auth.ErrMagicLinkExpired, auth.ErrMagicLinkConsumed, auth.ErrMagicLinkNotFound:
+				return c.String(http.StatusUnauthorized, "invalid or expired magic link")
+			default:
+				return c.String(http.StatusInternalServerError, "failed to verify magic link")
+			}
+		}
+
+		sessionToken, _, err := sessions.CreateSession(c.Request().Context(), auth.Principal{ActorType: "client", ActorID: clientID})
+		if err != nil {
+			return c.String(http.StatusInternalServerError, "failed to create session")
+		}
+		c.SetCookie(&http.Cookie{
+			Name:     auth.SessionCookieName,
+			Value:    sessionToken,
+			Path:     "/",
+			HttpOnly: true,
+			Secure:   sCookieSecure(cfg.Environment),
+			SameSite: http.SameSiteLaxMode,
+			MaxAge:   int((12 * time.Hour).Seconds()),
+		})
+		return c.NoContent(http.StatusNoContent)
+	})
 
 	user := e.Group("/user")
 	user.Use(auth.RequireAuth(), auth.RequireActorType("user"))
@@ -209,7 +267,7 @@ func New(cfg *config.Config, log *slog.Logger) *Server {
 		})
 	})
 
-	return &Server{e: e, cfg: cfg, log: log, sessions: sessions}
+	return srv
 }
 
 func sCookieSecure(environment string) bool {
