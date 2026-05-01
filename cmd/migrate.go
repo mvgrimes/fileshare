@@ -3,6 +3,7 @@ package cmd
 import (
 	"database/sql"
 	"fmt"
+	"io/fs"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -10,6 +11,8 @@ import (
 
 	"github.com/pressly/goose/v3"
 	"github.com/spf13/cobra"
+
+	"sharefile/migrations"
 
 	_ "modernc.org/sqlite"
 )
@@ -49,13 +52,19 @@ func init() {
 }
 
 func runMigrateUp(cmd *cobra.Command, args []string) error {
+	sourceDir, baseFS, err := migrationSource()
+	if err != nil {
+		return err
+	}
+	goose.SetBaseFS(baseFS)
+
 	db, err := openMigrationDB()
 	if err != nil {
 		return err
 	}
 	defer db.Close()
 
-	if err := goose.Up(db, migrationsDir); err != nil {
+	if err := goose.Up(db, sourceDir); err != nil {
 		return err
 	}
 
@@ -64,13 +73,19 @@ func runMigrateUp(cmd *cobra.Command, args []string) error {
 }
 
 func runMigrateDown(cmd *cobra.Command, args []string) error {
+	sourceDir, baseFS, err := migrationSource()
+	if err != nil {
+		return err
+	}
+	goose.SetBaseFS(baseFS)
+
 	db, err := openMigrationDB()
 	if err != nil {
 		return err
 	}
 	defer db.Close()
 
-	if err := goose.Down(db, migrationsDir); err != nil {
+	if err := goose.Down(db, sourceDir); err != nil {
 		return err
 	}
 
@@ -79,17 +94,31 @@ func runMigrateDown(cmd *cobra.Command, args []string) error {
 }
 
 func runMigrateStatus(cmd *cobra.Command, args []string) error {
+	sourceDir, baseFS, err := migrationSource()
+	if err != nil {
+		return err
+	}
+	goose.SetBaseFS(baseFS)
+
 	db, err := openMigrationDB()
 	if err != nil {
 		return err
 	}
 	defer db.Close()
 
-	if err := goose.Status(db, migrationsDir); err != nil {
+	if err := goose.Status(db, sourceDir); err != nil {
 		return err
 	}
 
 	return nil
+}
+
+func migrationSource() (string, fs.FS, error) {
+	if migrationsDir == "migrations" {
+		return ".", migrations.FS(), nil
+	}
+
+	return migrationsDir, nil, nil
 }
 
 func openMigrationDB() (*sql.DB, error) {

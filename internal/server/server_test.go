@@ -11,7 +11,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -21,6 +20,7 @@ import (
 	"github.com/labstack/echo/v4"
 
 	"sharefile/internal/config"
+	"sharefile/migrations"
 
 	_ "modernc.org/sqlite"
 )
@@ -46,8 +46,8 @@ func migrateTestDB(path string) error {
 		return err
 	}
 
-	migrationsDir := filepath.Join("..", "..", "migrations")
-	if err := goose.Up(sqlDB, migrationsDir); err != nil {
+	goose.SetBaseFS(migrations.FS())
+	if err := goose.Up(sqlDB, "."); err != nil {
 		return err
 	}
 

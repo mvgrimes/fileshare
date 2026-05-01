@@ -11,6 +11,7 @@ import (
 
 	"sharefile/internal/auth"
 	"sharefile/internal/db"
+	"sharefile/migrations"
 
 	_ "modernc.org/sqlite"
 )
@@ -91,8 +92,8 @@ func setupIntegrationDB(t *testing.T) *sql.DB {
 	if err := goose.SetDialect("sqlite3"); err != nil {
 		t.Fatalf("goose.SetDialect() unexpected error: %v", err)
 	}
-	migrationsDir := filepath.Join("..", "..", "migrations")
-	if err := goose.Up(sqlDB, migrationsDir); err != nil {
+	goose.SetBaseFS(migrations.FS())
+	if err := goose.Up(sqlDB, "."); err != nil {
 		t.Fatalf("goose.Up() unexpected error: %v", err)
 	}
 

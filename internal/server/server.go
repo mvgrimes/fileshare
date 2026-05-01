@@ -8,9 +8,6 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
-	"path/filepath"
-	"regexp"
-	"strconv"
 	"strings"
 	"time"
 
@@ -20,6 +17,8 @@ import (
 	"sharefile/internal/auth"
 	"sharefile/internal/config"
 	"sharefile/internal/db"
+	webtemplates "sharefile/internal/web/templates"
+	"sharefile/migrations"
 
 	_ "modernc.org/sqlite"
 )
@@ -309,9 +308,9 @@ func New(cfg *config.Config, log *slog.Logger) *Server {
 }
 
 func verifySchemaUpToDate(sqlDB *sql.DB) error {
-	latest, err := latestMigrationVersion()
+	latest, err := migrations.LatestVersion()
 	if err != nil {
-		return err
+		return fmt.Errorf("resolve latest migration version: %w", err)
 	}
 
 	var current int64
@@ -336,67 +335,12 @@ LIMIT 1;
 	return nil
 }
 
-func latestMigrationVersion() (int64, error) {
-	patterns := []string{
-		"migrations/*.sql",
-		"../migrations/*.sql",
-		"../../migrations/*.sql",
-	}
-
-	re := regexp.MustCompile(`^(\d+)_.*\.sql$`)
-	var latest int64
-	var found bool
-
-	for _, pattern := range patterns {
-		matches, err := filepath.Glob(pattern)
-		if err != nil {
-			return 0, fmt.Errorf("glob migrations with pattern %q: %w", pattern, err)
-		}
-		for _, m := range matches {
-			base := filepath.Base(m)
-			parts := re.FindStringSubmatch(base)
-			if len(parts) != 2 {
-				continue
-			}
-			v, err := strconv.ParseInt(parts[1], 10, 64)
-			if err != nil {
-				return 0, fmt.Errorf("parse migration version from %q: %w", base, err)
-			}
-			if !found || v > latest {
-				latest = v
-				found = true
-			}
-		}
-		if found {
-			break
-		}
-	}
-
-	if !found {
-		return 0, fmt.Errorf("no migrations found in known locations")
-	}
-
-	return latest, nil
-}
-
 func sCookieSecure(environment string) bool {
 	return environment != "development"
 }
 
 func loadTemplates() (*template.Template, error) {
-	patterns := []string{
-		"internal/web/templates/*.html",
-		"../web/templates/*.html",
-		"../../internal/web/templates/*.html",
-	}
-
-	for _, pattern := range patterns {
-		if matches, _ := filepath.Glob(pattern); len(matches) > 0 {
-			return template.ParseGlob(pattern)
-		}
-	}
-
-	return nil, fmt.Errorf("no templates found in known locations")
+	return template.ParseFS(webtemplates.Files, "*.html")
 }
 
 func parseRoles(value string) []string {
