@@ -98,6 +98,8 @@ func TestRouteGroupsRender(t *testing.T) {
 		wantBody   string
 	}{
 		{name: "public home", path: "/", wantStatus: http.StatusOK, wantBody: "ShareFile"},
+		{name: "login page", path: "/login", wantStatus: http.StatusOK, wantBody: "Client Password Login"},
+		{name: "request link page", path: "/request-link", wantStatus: http.StatusOK, wantBody: "Send Magic Link"},
 	}
 
 	for _, tc := range publicTests {
@@ -114,6 +116,65 @@ func TestRouteGroupsRender(t *testing.T) {
 				t.Fatalf("body = %q, want to contain %q", rec.Body.String(), tc.wantBody)
 			}
 		})
+	}
+}
+
+func TestAuthPagesContainFormTargets(t *testing.T) {
+	s := New(testConfig(), slog.Default())
+
+	loginReq := httptest.NewRequest(http.MethodGet, "/login", nil)
+	loginRec := httptest.NewRecorder()
+	s.e.ServeHTTP(loginRec, loginReq)
+	if loginRec.Code != http.StatusOK {
+		t.Fatalf("/login status = %d, want %d", loginRec.Code, http.StatusOK)
+	}
+	loginBody := loginRec.Body.String()
+	if !strings.Contains(loginBody, "action=\"/auth/sso/login\"") || !strings.Contains(loginBody, "action=\"/auth/password/login\"") {
+		t.Fatalf("/login body = %q, want auth form actions", loginBody)
+	}
+
+	requestReq := httptest.NewRequest(http.MethodGet, "/request-link", nil)
+	requestRec := httptest.NewRecorder()
+	s.e.ServeHTTP(requestRec, requestReq)
+	if requestRec.Code != http.StatusOK {
+		t.Fatalf("/request-link status = %d, want %d", requestRec.Code, http.StatusOK)
+	}
+	requestBody := requestRec.Body.String()
+	if !strings.Contains(requestBody, "action=\"/auth/magic/request\"") || !strings.Contains(requestBody, "action=\"/auth/magic/verify\"") {
+		t.Fatalf("/request-link body = %q, want magic-link form actions", requestBody)
+	}
+}
+
+func TestAuthFormPostsRedirectForHTMLRequests(t *testing.T) {
+	s := New(testConfig(), slog.Default())
+
+	reqBody := bytes.NewBufferString("client_id=")
+	req := httptest.NewRequest(http.MethodPost, "/auth/magic/request", reqBody)
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
+	req.Header.Set(echo.HeaderAccept, echo.MIMETextHTML)
+	rec := httptest.NewRecorder()
+	s.e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusSeeOther)
+	}
+	loc := rec.Result().Header.Get(echo.HeaderLocation)
+	if !strings.HasPrefix(loc, "/request-link?error=") {
+		t.Fatalf("location = %q, want request-link error redirect", loc)
+	}
+
+	req = httptest.NewRequest(http.MethodPost, "/auth/sso/login", nil)
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
+	req.Header.Set(echo.HeaderAccept, echo.MIMETextHTML)
+	rec = httptest.NewRecorder()
+	s.e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusSeeOther)
+	}
+	loc = rec.Result().Header.Get(echo.HeaderLocation)
+	if !strings.HasPrefix(loc, "/login?error=") {
+		t.Fatalf("location = %q, want login error redirect", loc)
 	}
 }
 

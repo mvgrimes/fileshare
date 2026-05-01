@@ -15,6 +15,10 @@
         {{template "home_content" .}}
       {{else if eq .ContentTemplate "dashboard_content"}}
         {{template "dashboard_content" .}}
+      {{else if eq .ContentTemplate "login_content"}}
+        {{template "login_content" .}}
+      {{else if eq .ContentTemplate "request_link_content"}}
+        {{template "request_link_content" .}}
       {{else}}
         <p>missing content template</p>
       {{end}}
