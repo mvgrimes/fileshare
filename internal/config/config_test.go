@@ -14,6 +14,9 @@ func TestLoadSuccess(t *testing.T) {
 	t.Setenv("DATABASE_URL", "sharefile.test.db")
 	t.Setenv("SESSION_SECRET", "session-secret")
 	t.Setenv("JWT_SECRET", "jwt-secret")
+	t.Setenv("MAILGUN_DOMAIN", "mg.example")
+	t.Setenv("MAILGUN_API_KEY", "key-123")
+	t.Setenv("MAILGUN_FROM_EMAIL", "noreply@example.com")
 
 	cfg, err := Load()
 	if err != nil {
@@ -34,6 +37,12 @@ func TestLoadSuccess(t *testing.T) {
 	}
 	if cfg.SessionTTL != 10 {
 		t.Fatalf("SessionTTL = %d, want %d", cfg.SessionTTL, 10)
+	}
+	if cfg.MailgunAPIBaseURL != "https://api.mailgun.net" {
+		t.Fatalf("MailgunAPIBaseURL = %q, want %q", cfg.MailgunAPIBaseURL, "https://api.mailgun.net")
+	}
+	if cfg.MailgunDomain != "mg.example" {
+		t.Fatalf("MailgunDomain = %q, want %q", cfg.MailgunDomain, "mg.example")
 	}
 }
 

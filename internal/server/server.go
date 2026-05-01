@@ -17,6 +17,7 @@ import (
 	"sharefile/internal/auth"
 	"sharefile/internal/config"
 	"sharefile/internal/db"
+	"sharefile/internal/mail"
 	webtemplates "sharefile/internal/web/templates"
 	"sharefile/migrations"
 
@@ -102,7 +103,14 @@ func New(cfg *config.Config, log *slog.Logger) *Server {
 	sessions := auth.NewManager(queries, sessionTTL)
 	userSync := auth.NewUserSyncer(queries)
 	magic := auth.NewMagicManager(queries, 15*time.Minute, 60*time.Second)
-	magicSend := auth.NoopSender{}
+	magicSend := auth.MagicSender(auth.NoopSender{})
+	if cfg.MailgunDomain != "" && cfg.MailgunAPIKey != "" && cfg.MailgunFromEmail != "" {
+		sender, senderErr := mail.NewMailgunSender(cfg.MailgunAPIBaseURL, cfg.MailgunDomain, cfg.MailgunAPIKey, cfg.MailgunFromEmail, nil)
+		if senderErr != nil {
+			panic(senderErr)
+		}
+		magicSend = sender
+	}
 	srv := &Server{e: e, cfg: cfg, log: log, sessions: sessions, userSync: userSync, magic: magic, magicSend: magicSend}
 	e.Use(auth.LoadSession(sessions))
 

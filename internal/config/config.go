@@ -20,21 +20,30 @@ type Config struct {
 	SSOCookieName string
 	SSOIssuer     string
 	SSOAudience   string
+
+	MailgunAPIBaseURL string
+	MailgunDomain     string
+	MailgunAPIKey     string
+	MailgunFromEmail  string
 }
 
 func Load() (*Config, error) {
 	cfg := &Config{
-		ServerAddress: envOrDefault("SERVER_ADDRESS", "0.0.0.0"),
-		ServerPort:    intEnvOrDefault("SERVER_PORT", 8080),
-		Environment:   envOrDefault("ENVIRONMENT", "development"),
-		LogLevel:      envOrDefault("LOG_LEVEL", "info"),
-		SessionTTL:    intEnvOrDefault("SESSION_TTL_HOURS", 12),
-		DatabaseURL:   os.Getenv("DATABASE_URL"),
-		SessionSecret: os.Getenv("SESSION_SECRET"),
-		JWTSecret:     os.Getenv("JWT_SECRET"),
-		SSOCookieName: envOrDefault("SSO_COOKIE_NAME", "sso_jwt"),
-		SSOIssuer:     envOrDefault("SSO_ISSUER", "sharefile-sso"),
-		SSOAudience:   envOrDefault("SSO_AUDIENCE", "sharefile"),
+		ServerAddress:     envOrDefault("SERVER_ADDRESS", "0.0.0.0"),
+		ServerPort:        intEnvOrDefault("SERVER_PORT", 8080),
+		Environment:       envOrDefault("ENVIRONMENT", "development"),
+		LogLevel:          envOrDefault("LOG_LEVEL", "info"),
+		SessionTTL:        intEnvOrDefault("SESSION_TTL_HOURS", 12),
+		DatabaseURL:       os.Getenv("DATABASE_URL"),
+		SessionSecret:     os.Getenv("SESSION_SECRET"),
+		JWTSecret:         os.Getenv("JWT_SECRET"),
+		SSOCookieName:     envOrDefault("SSO_COOKIE_NAME", "sso_jwt"),
+		SSOIssuer:         envOrDefault("SSO_ISSUER", "sharefile-sso"),
+		SSOAudience:       envOrDefault("SSO_AUDIENCE", "sharefile"),
+		MailgunAPIBaseURL: envOrDefault("MAILGUN_API_BASE_URL", "https://api.mailgun.net"),
+		MailgunDomain:     strings.TrimSpace(os.Getenv("MAILGUN_DOMAIN")),
+		MailgunAPIKey:     strings.TrimSpace(os.Getenv("MAILGUN_API_KEY")),
+		MailgunFromEmail:  strings.TrimSpace(os.Getenv("MAILGUN_FROM_EMAIL")),
 	}
 
 	if err := cfg.Validate(); err != nil {
