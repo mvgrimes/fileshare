@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"html/template"
 	"io"
@@ -11,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 
@@ -151,6 +153,9 @@ func New(cfg *config.Config, log *slog.Logger) *Server {
 	public.POST("/auth/logout", func(c echo.Context) error {
 		cookie, err := c.Cookie(auth.SessionCookieName)
 		if err == nil {
+			if session, loadErr := sessions.LoadSession(c.Request().Context(), cookie.Value); loadErr == nil {
+				auditAuthEvent(c, queries, "auth.logout", session.Principal.ActorType, session.Principal.ActorID, "session", session.TokenHash, map[string]any{"outcome": "success"})
+			}
 			_ = sessions.RevokeSession(c.Request().Context(), cookie.Value)
 		}
 		c.SetCookie(&http.Cookie{
@@ -167,25 +172,30 @@ func New(cfg *config.Config, log *slog.Logger) *Server {
 	public.POST("/auth/sso/login", func(c echo.Context) error {
 		ssoCookie, err := c.Cookie(cfg.SSOCookieName)
 		if err != nil || ssoCookie.Value == "" {
+			auditAuthEvent(c, queries, "auth.sso.login", "", "", "user", "", map[string]any{"outcome": "failure", "reason": "missing_cookie"})
 			return c.String(http.StatusUnauthorized, "missing sso cookie")
 		}
 
 		validator := auth.NewSSOValidator(cfg.JWTSecret, cfg.SSOIssuer, cfg.SSOAudience)
 		claims, err := validator.Validate(ssoCookie.Value)
 		if err != nil {
+			auditAuthEvent(c, queries, "auth.sso.login", "", "", "user", "", map[string]any{"outcome": "failure", "reason": "invalid_token"})
 			return c.String(http.StatusUnauthorized, "invalid sso token")
 		}
 
 		actorID, err := srv.userSync.UpsertFromSSOClaims(c.Request().Context(), claims)
 		if err != nil {
+			auditAuthEvent(c, queries, "auth.sso.login", "", "", "user", "", map[string]any{"outcome": "failure", "reason": "invalid_claims"})
 			return c.String(http.StatusUnauthorized, "invalid sso token")
 		}
 
 		token, _, err := sessions.CreateSession(c.Request().Context(), auth.Principal{ActorType: "user", ActorID: actorID, Roles: claims.Roles})
 		if err != nil {
+			auditAuthEvent(c, queries, "auth.sso.login", "user", actorID, "user", actorID, map[string]any{"outcome": "failure", "reason": "session_create_failed"})
 			return c.String(http.StatusInternalServerError, "failed to create session")
 		}
 
+		auditAuthEvent(c, queries, "auth.sso.login", "user", actorID, "user", actorID, map[string]any{"outcome": "success"})
 		setSessionCookie(c, cfg.Environment, token, sessionTTL)
 
 		return c.NoContent(http.StatusNoContent)
@@ -193,28 +203,34 @@ func New(cfg *config.Config, log *slog.Logger) *Server {
 	public.POST("/auth/magic/request", func(c echo.Context) error {
 		clientID := c.FormValue("client_id")
 		if clientID == "" {
+			auditAuthEvent(c, queries, "auth.magic.request", "", "", "client", "", map[string]any{"outcome": "failure", "reason": "missing_client_id"})
 			return c.String(http.StatusBadRequest, "client_id is required")
 		}
 
 		token, _, err := magic.Create(c.Request().Context(), clientID)
 		if err != nil {
 			if err == auth.ErrMagicLinkThrottled {
+				auditAuthEvent(c, queries, "auth.magic.request", "", "", "client", clientID, map[string]any{"outcome": "failure", "reason": "throttled"})
 				return c.String(http.StatusTooManyRequests, "magic link request throttled")
 			}
+			auditAuthEvent(c, queries, "auth.magic.request", "", "", "client", clientID, map[string]any{"outcome": "failure", "reason": "create_failed"})
 			return c.String(http.StatusInternalServerError, "failed to create magic link")
 		}
 
 		if err := srv.magicSend.SendMagicLink(c.Request().Context(), clientID, token); err != nil {
 			log.Error("magic link delivery failed", "client_id", clientID, "error", err.Error())
+			auditAuthEvent(c, queries, "auth.magic.request", "", "", "client", clientID, map[string]any{"outcome": "failure", "reason": "delivery_failed"})
 			return c.String(http.StatusBadGateway, "failed to deliver magic link")
 		}
 
+		auditAuthEvent(c, queries, "auth.magic.request", "", "", "client", clientID, map[string]any{"outcome": "success"})
 		return c.NoContent(http.StatusNoContent)
 	})
 	public.POST("/auth/magic/verify", func(c echo.Context) error {
 		clientID := c.FormValue("client_id")
 		token := c.FormValue("token")
 		if clientID == "" || token == "" {
+			auditAuthEvent(c, queries, "auth.magic.verify", "", "", "client", clientID, map[string]any{"outcome": "failure", "reason": "missing_input"})
 			return c.String(http.StatusBadRequest, "client_id and token are required")
 		}
 
@@ -222,16 +238,20 @@ func New(cfg *config.Config, log *slog.Logger) *Server {
 		if err != nil {
 			switch err {
 			case auth.ErrMagicLinkExpired, auth.ErrMagicLinkConsumed, auth.ErrMagicLinkNotFound:
+				auditAuthEvent(c, queries, "auth.magic.verify", "", "", "client", clientID, map[string]any{"outcome": "failure", "reason": "invalid_or_expired"})
 				return c.String(http.StatusUnauthorized, "invalid or expired magic link")
 			default:
+				auditAuthEvent(c, queries, "auth.magic.verify", "", "", "client", clientID, map[string]any{"outcome": "failure", "reason": "verify_failed"})
 				return c.String(http.StatusInternalServerError, "failed to verify magic link")
 			}
 		}
 
 		sessionToken, _, err := sessions.CreateSession(c.Request().Context(), auth.Principal{ActorType: "client", ActorID: clientID})
 		if err != nil {
+			auditAuthEvent(c, queries, "auth.magic.verify", "client", clientID, "client", clientID, map[string]any{"outcome": "failure", "reason": "session_create_failed"})
 			return c.String(http.StatusInternalServerError, "failed to create session")
 		}
+		auditAuthEvent(c, queries, "auth.magic.verify", "client", clientID, "client", clientID, map[string]any{"outcome": "success"})
 		setSessionCookie(c, cfg.Environment, sessionToken, sessionTTL)
 		return c.NoContent(http.StatusNoContent)
 	})
@@ -242,19 +262,24 @@ func New(cfg *config.Config, log *slog.Logger) *Server {
 		if err != nil {
 			switch err {
 			case auth.ErrClientPasswordDisabled:
+				auditAuthEvent(c, queries, "auth.password.login", "", "", "client", email, map[string]any{"outcome": "failure", "reason": "disabled"})
 				return c.String(http.StatusForbidden, "password auth disabled")
 			case auth.ErrInvalidClientCredentials:
+				auditAuthEvent(c, queries, "auth.password.login", "", "", "client", email, map[string]any{"outcome": "failure", "reason": "invalid_credentials"})
 				return c.String(http.StatusUnauthorized, "invalid credentials")
 			default:
+				auditAuthEvent(c, queries, "auth.password.login", "", "", "client", email, map[string]any{"outcome": "failure", "reason": "auth_failed"})
 				return c.String(http.StatusInternalServerError, "failed to authenticate")
 			}
 		}
 
 		token, _, err := sessions.CreateSession(c.Request().Context(), auth.Principal{ActorType: "client", ActorID: client.ID})
 		if err != nil {
+			auditAuthEvent(c, queries, "auth.password.login", "client", client.ID, "client", client.ID, map[string]any{"outcome": "failure", "reason": "session_create_failed"})
 			return c.String(http.StatusInternalServerError, "failed to create session")
 		}
 
+		auditAuthEvent(c, queries, "auth.password.login", "client", client.ID, "client", client.ID, map[string]any{"outcome": "success"})
 		setSessionCookie(c, cfg.Environment, token, sessionTTL)
 		return c.NoContent(http.StatusNoContent)
 	})
@@ -361,6 +386,27 @@ func setSessionCookie(c echo.Context, environment, token string, ttl time.Durati
 		SameSite: http.SameSiteLaxMode,
 		MaxAge:   int(ttl.Seconds()),
 	})
+}
+
+func auditAuthEvent(c echo.Context, queries *db.Queries, eventType, actorType, actorID, entityType, entityID string, metadata map[string]any) {
+	metadataJSON, _ := json.Marshal(metadata)
+	_ = queries.CreateAuditLog(c.Request().Context(), db.CreateAuditLogParams{
+		ID:           uuid.NewString(),
+		ActorType:    nullableString(actorType),
+		ActorID:      nullableString(actorID),
+		EventType:    eventType,
+		EntityType:   nullableString(entityType),
+		EntityID:     nullableString(entityID),
+		MetadataJson: sql.NullString{Valid: len(metadataJSON) > 0, String: string(metadataJSON)},
+	})
+}
+
+func nullableString(v string) sql.NullString {
+	v = strings.TrimSpace(v)
+	if v == "" {
+		return sql.NullString{}
+	}
+	return sql.NullString{Valid: true, String: v}
 }
 
 func loadTemplates() (*template.Template, error) {

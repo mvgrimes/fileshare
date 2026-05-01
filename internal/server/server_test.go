@@ -364,6 +364,11 @@ func TestMagicLinkRequestThrottled(t *testing.T) {
 	if rec2.Code != http.StatusTooManyRequests {
 		t.Fatalf("second request status = %d, want %d", rec2.Code, http.StatusTooManyRequests)
 	}
+
+	logs := listAuditLogsByEventType(t, "auth.magic.request")
+	if len(logs) < 2 {
+		t.Fatalf("audit log count = %d, want at least 2", len(logs))
+	}
 }
 
 func TestMagicLinkVerifyCreatesClientSession(t *testing.T) {
@@ -457,6 +462,11 @@ func TestMagicLinkVerifySingleUse(t *testing.T) {
 			t.Fatalf("second verify status = %d, want %d", rec.Code, http.StatusUnauthorized)
 		}
 	}
+
+	logs := listAuditLogsByEventType(t, "auth.magic.verify")
+	if len(logs) < 2 {
+		t.Fatalf("audit log count = %d, want at least 2", len(logs))
+	}
 }
 
 func TestMagicLinkRequestDeliveryFailure(t *testing.T) {
@@ -527,6 +537,28 @@ func TestClientPasswordLoginDisabledAndInvalidCredentials(t *testing.T) {
 				t.Fatalf("status = %d, want %d", rec.Code, tc.wantStatus)
 			}
 		})
+	}
+
+	logs := listAuditLogsByEventType(t, "auth.password.login")
+	if len(logs) < len(tests) {
+		t.Fatalf("audit log count = %d, want at least %d", len(logs), len(tests))
+	}
+}
+
+func TestSSOInvalidTokenWritesAuditEvent(t *testing.T) {
+	s := New(testConfig(), slog.Default())
+	req := httptest.NewRequest(http.MethodPost, "/auth/sso/login", nil)
+	req.AddCookie(&http.Cookie{Name: "sso_jwt", Value: "bad-token"})
+	rec := httptest.NewRecorder()
+	s.e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusUnauthorized)
+	}
+
+	logs := listAuditLogsByEventType(t, "auth.sso.login")
+	if len(logs) == 0 {
+		t.Fatal("expected auth.sso.login audit log")
 	}
 }
 
@@ -651,4 +683,23 @@ func createClientWithoutPassword(t *testing.T, id, email string, active bool) {
 	}); err != nil {
 		t.Fatalf("CreateClient() error: %v", err)
 	}
+}
+
+func listAuditLogsByEventType(t *testing.T, eventType string) []db.AuditLog {
+	t.Helper()
+	sqlDB, err := sql.Open("sqlite", testConfig().DatabaseURL)
+	if err != nil {
+		t.Fatalf("sql.Open() unexpected error: %v", err)
+	}
+	defer sqlDB.Close()
+
+	logs, err := db.New(sqlDB).ListAuditLogsByEventType(context.Background(), db.ListAuditLogsByEventTypeParams{
+		EventType: eventType,
+		Limit:     100,
+		Offset:    0,
+	})
+	if err != nil {
+		t.Fatalf("ListAuditLogsByEventType() error: %v", err)
+	}
+	return logs
 }
