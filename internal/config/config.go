@@ -16,6 +16,9 @@ type Config struct {
 	DatabaseURL   string
 	SessionSecret string
 	JWTSecret     string
+	SSOCookieName string
+	SSOIssuer     string
+	SSOAudience   string
 }
 
 func Load() (*Config, error) {
@@ -27,6 +30,9 @@ func Load() (*Config, error) {
 		DatabaseURL:   os.Getenv("DATABASE_URL"),
 		SessionSecret: os.Getenv("SESSION_SECRET"),
 		JWTSecret:     os.Getenv("JWT_SECRET"),
+		SSOCookieName: envOrDefault("SSO_COOKIE_NAME", "sso_jwt"),
+		SSOIssuer:     envOrDefault("SSO_ISSUER", "sharefile-sso"),
+		SSOAudience:   envOrDefault("SSO_AUDIENCE", "sharefile"),
 	}
 
 	if err := cfg.Validate(); err != nil {

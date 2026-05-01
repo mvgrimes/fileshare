@@ -75,7 +75,7 @@ func New(cfg *config.Config, log *slog.Logger) *Server {
 	e.Use(middleware.Secure())
 	e.Use(middleware.CSRFWithConfig(middleware.CSRFConfig{
 		Skipper: func(c echo.Context) bool {
-			return c.Path() == "/auth/session" || c.Path() == "/auth/logout"
+			return c.Path() == "/auth/session" || c.Path() == "/auth/logout" || c.Path() == "/auth/sso/login"
 		},
 	}))
 	e.Use(middleware.RateLimiter(middleware.NewRateLimiterMemoryStore(20)))
@@ -136,6 +136,40 @@ func New(cfg *config.Config, log *slog.Logger) *Server {
 			SameSite: http.SameSiteLaxMode,
 			MaxAge:   -1,
 		})
+		return c.NoContent(http.StatusNoContent)
+	})
+	public.POST("/auth/sso/login", func(c echo.Context) error {
+		ssoCookie, err := c.Cookie(cfg.SSOCookieName)
+		if err != nil || ssoCookie.Value == "" {
+			return c.String(http.StatusUnauthorized, "missing sso cookie")
+		}
+
+		validator := auth.NewSSOValidator(cfg.JWTSecret, cfg.SSOIssuer, cfg.SSOAudience)
+		claims, err := validator.Validate(ssoCookie.Value)
+		if err != nil {
+			return c.String(http.StatusUnauthorized, "invalid sso token")
+		}
+
+		actorID := claims.UserID
+		if actorID == "" {
+			actorID = claims.Subject
+		}
+
+		token, _, err := sessions.CreateSession(c.Request().Context(), auth.Principal{ActorType: "user", ActorID: actorID})
+		if err != nil {
+			return c.String(http.StatusInternalServerError, "failed to create session")
+		}
+
+		c.SetCookie(&http.Cookie{
+			Name:     auth.SessionCookieName,
+			Value:    token,
+			Path:     "/",
+			HttpOnly: true,
+			Secure:   sCookieSecure(cfg.Environment),
+			SameSite: http.SameSiteLaxMode,
+			MaxAge:   int((12 * time.Hour).Seconds()),
+		})
+
 		return c.NoContent(http.StatusNoContent)
 	})
 

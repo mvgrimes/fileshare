@@ -9,7 +9,9 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/labstack/echo/v4"
 
 	"sharefile/internal/config"
@@ -24,6 +26,9 @@ func testConfig() *config.Config {
 		DatabaseURL:   "test.db",
 		SessionSecret: "secret",
 		JWTSecret:     "secret",
+		SSOCookieName: "sso_jwt",
+		SSOIssuer:     "issuer-1",
+		SSOAudience:   "aud-1",
 	}
 }
 
@@ -143,6 +148,55 @@ func TestLogoutRevokesSession(t *testing.T) {
 	}
 }
 
+func TestSSOLoginCreatesUserSession(t *testing.T) {
+	s := New(testConfig(), slog.Default())
+	sso := signedSSOToken(t, "secret", "issuer-1", "aud-1", "user-from-sso", "")
+
+	req := httptest.NewRequest(http.MethodPost, "/auth/sso/login", nil)
+	req.AddCookie(&http.Cookie{Name: "sso_jwt", Value: sso})
+	rec := httptest.NewRecorder()
+	s.e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("status = %d, want %d, body=%q", rec.Code, http.StatusNoContent, rec.Body.String())
+	}
+
+	var appCookie *http.Cookie
+	for _, c := range rec.Result().Cookies() {
+		if c.Name == "sharefile_session" {
+			appCookie = c
+			break
+		}
+	}
+	if appCookie == nil {
+		t.Fatal("expected sharefile_session cookie")
+	}
+
+	userReq := httptest.NewRequest(http.MethodGet, "/user/dashboard", nil)
+	userReq.AddCookie(appCookie)
+	userRec := httptest.NewRecorder()
+	s.e.ServeHTTP(userRec, userReq)
+
+	if userRec.Code != http.StatusOK {
+		t.Fatalf("dashboard status = %d, want %d", userRec.Code, http.StatusOK)
+	}
+	if !strings.Contains(userRec.Body.String(), "Actor ID: <code>user-from-sso</code>") {
+		t.Fatalf("body = %q, want actor id from sso", userRec.Body.String())
+	}
+}
+
+func TestSSOLoginRejectsInvalidToken(t *testing.T) {
+	s := New(testConfig(), slog.Default())
+	req := httptest.NewRequest(http.MethodPost, "/auth/sso/login", nil)
+	req.AddCookie(&http.Cookie{Name: "sso_jwt", Value: "bad-token"})
+	rec := httptest.NewRecorder()
+	s.e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusUnauthorized)
+	}
+}
+
 func TestTemplateRendererAddsPath(t *testing.T) {
 	s := New(testConfig(), slog.Default())
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
@@ -179,4 +233,20 @@ func login(t *testing.T, s *Server, actorType, actorID string) *http.Cookie {
 	}
 	t.Fatal("session cookie not set")
 	return nil
+}
+
+func signedSSOToken(t *testing.T, secret, issuer, audience, userID, subject string) string {
+	t.Helper()
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"uid": userID,
+		"iss": issuer,
+		"aud": audience,
+		"exp": time.Now().Add(time.Hour).Unix(),
+		"sub": subject,
+	})
+	signed, err := token.SignedString([]byte(secret))
+	if err != nil {
+		t.Fatalf("SignedString() error: %v", err)
+	}
+	return signed
 }
