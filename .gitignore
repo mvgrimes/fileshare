@@ -9,8 +9,9 @@
 # tmp, system and ref files
 tmp/
 .DS_Store
-/trees/
+trees/
 .tickets/
+data/
 
 # Editor
 Session.vim
@@ -21,10 +22,10 @@ dist/
 # Samples
 
 # devcontainers (for now)
-/.devcontainer
+.devcontainer/
 
 # plans
-/docs/plan/
+docs/plan/
 
 # Build artifacts
 /sharefile
