@@ -747,6 +747,31 @@ func TestTemplateRendererAddsPath(t *testing.T) {
 	if !strings.Contains(string(body), "Current path: <code>/</code>") {
 		t.Fatalf("body = %q, want rendered request path", string(body))
 	}
+	if !strings.Contains(string(body), "href=\"/assets/app.css\"") {
+		t.Fatalf("body = %q, want stylesheet link", string(body))
+	}
+}
+
+func TestAssetsCSSIsServed(t *testing.T) {
+	s := New(testConfig(), slog.Default())
+	req := httptest.NewRequest(http.MethodGet, "/assets/app.css", nil)
+	rec := httptest.NewRecorder()
+
+	s.e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+	}
+	body, err := io.ReadAll(rec.Result().Body)
+	if err != nil {
+		t.Fatalf("reading body: %v", err)
+	}
+	if len(body) == 0 {
+		t.Fatal("expected non-empty CSS body")
+	}
+	if !strings.Contains(string(body), ".btn") {
+		t.Fatalf("body = %q, want daisyUI button styles", string(body))
+	}
 }
 
 func login(t *testing.T, s *Server, actorType, actorID, roles string) *http.Cookie {

@@ -29,3 +29,6 @@ docs/plan/
 
 # Build artifacts
 /sharefile
+
+# Frontend deps
+node_modules/

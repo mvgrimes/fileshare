@@ -5,17 +5,22 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{{.Title}}</title>
+    <link rel="stylesheet" href="/assets/app.css">
   </head>
-  <body>
-    <header>
-      <nav>
-        <a href="/">Home</a>
-        <a href="/user/dashboard">User</a>
-        <a href="/client/dashboard">Client</a>
-        <a href="/admin/dashboard">Admin</a>
+  <body class="min-h-screen bg-base-200 text-base-content">
+    <header class="border-b border-base-300 bg-base-100">
+      <nav class="navbar mx-auto max-w-5xl px-4">
+        <div class="flex-1 gap-2">
+          <a class="btn btn-ghost text-lg" href="/">ShareFile</a>
+        </div>
+        <div class="flex gap-2">
+          <a class="btn btn-sm btn-ghost" href="/user/dashboard">User</a>
+          <a class="btn btn-sm btn-ghost" href="/client/dashboard">Client</a>
+          <a class="btn btn-sm btn-ghost" href="/admin/dashboard">Admin</a>
+        </div>
       </nav>
     </header>
-    <main>
+    <main class="mx-auto max-w-5xl p-4">
       {{if eq .ContentTemplate "home_content"}}
         {{template "home_content" .}}
       {{else if eq .ContentTemplate "dashboard_content"}}

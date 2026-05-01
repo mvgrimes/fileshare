@@ -1,7 +1,11 @@
 {{define "home"}}{{template "base" .}}{{end}}
 
 {{define "home_content"}}
-<h1>ShareFile</h1>
-<p>Securely share files with your clients.</p>
-<p>Current path: <code>{{.Path}}</code></p>
+<section class="card bg-base-100 shadow-sm">
+  <div class="card-body gap-4">
+    <h1 class="card-title text-3xl">ShareFile</h1>
+    <p>Securely share files with your clients.</p>
+    <p class="text-sm opacity-70">Current path: <code>{{.Path}}</code></p>
+  </div>
+</section>
 {{end}}

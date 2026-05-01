@@ -14,6 +14,7 @@ ShareFile is a Go web application for secure file exchange between internal user
 - Backend: Go + Echo
 - Data: SQLite/Turso + Goose + sqlc
 - UI: `html/template` (server-rendered multi-page app)
+- Styling: TailwindCSS + daisyUI (compiled to `internal/web/assets/dist/app.css`)
 - Auth: session cookies, SSO JWT cookie bridge (users), magic-link flow (clients)
 
 ## Implemented Features (Sprint 01)
@@ -89,6 +90,19 @@ The app runs on `SERVER_ADDRESS:SERVER_PORT` (defaults: `0.0.0.0:8080`).
 
 ```bash
 go test ./...
+```
+
+### 6) Build Frontend CSS
+
+```bash
+npm install
+npm run build:css
+```
+
+For iterative UI work:
+
+```bash
+npm run watch:css
 ```
 
 ## CLI Commands

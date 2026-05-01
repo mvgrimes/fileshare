@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"html/template"
 	"io"
+	"io/fs"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -20,6 +21,7 @@ import (
 	"sharefile/internal/config"
 	"sharefile/internal/db"
 	"sharefile/internal/mail"
+	webassets "sharefile/internal/web/assets"
 	webtemplates "sharefile/internal/web/templates"
 	"sharefile/migrations"
 
@@ -64,6 +66,8 @@ func New(cfg *config.Config, log *slog.Logger) *Server {
 
 	t := template.Must(loadTemplates())
 	e.Renderer = &TemplateRenderer{templates: t}
+	assetsFS := mustSubFS(webassets.Files, "dist")
+	e.StaticFS("/assets", assetsFS)
 
 	e.Use(middleware.RequestID())
 	e.Use(middleware.RequestLoggerWithConfig(middleware.RequestLoggerConfig{
@@ -455,6 +459,14 @@ func parseRoles(value string) []string {
 		}
 	}
 	return roles
+}
+
+func mustSubFS(fsys fs.FS, dir string) fs.FS {
+	sub, err := fs.Sub(fsys, dir)
+	if err != nil {
+		panic(err)
+	}
+	return sub
 }
 
 func (s *Server) Start() error {
