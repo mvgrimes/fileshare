@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"html/template"
 	"io"
@@ -16,6 +17,9 @@ import (
 
 	"sharefile/internal/auth"
 	"sharefile/internal/config"
+	"sharefile/internal/db"
+
+	_ "modernc.org/sqlite"
 )
 
 type Server struct {
@@ -83,7 +87,15 @@ func New(cfg *config.Config, log *slog.Logger) *Server {
 	}))
 	e.Use(middleware.RateLimiter(middleware.NewRateLimiterMemoryStore(20)))
 
-	sessions := auth.NewManager(12 * time.Hour)
+	sqlDB, err := sql.Open("sqlite", cfg.DatabaseURL)
+	if err != nil {
+		panic(err)
+	}
+	if err := ensureSessionTable(sqlDB); err != nil {
+		panic(err)
+	}
+
+	sessions := auth.NewManager(db.New(sqlDB), 12*time.Hour)
 	magic := auth.NewMagicManager(15*time.Minute, 60*time.Second)
 	magicSend := auth.NoopSender{}
 	srv := &Server{e: e, cfg: cfg, log: log, sessions: sessions, magic: magic, magicSend: magicSend}
@@ -291,6 +303,23 @@ func New(cfg *config.Config, log *slog.Logger) *Server {
 	})
 
 	return srv
+}
+
+func ensureSessionTable(sqlDB *sql.DB) error {
+	_, err := sqlDB.Exec(`
+CREATE TABLE IF NOT EXISTS sessions (
+  id TEXT PRIMARY KEY,
+  actor_type TEXT NOT NULL CHECK (actor_type IN ('user', 'client')),
+  actor_id TEXT NOT NULL,
+  token_hash TEXT NOT NULL UNIQUE,
+  ip_address TEXT,
+  user_agent TEXT,
+  expires_at TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  revoked_at TEXT
+);
+`)
+	return err
 }
 
 func sCookieSecure(environment string) bool {

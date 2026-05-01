@@ -4,11 +4,14 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
+	"database/sql"
 	"encoding/base64"
 	"encoding/hex"
 	"errors"
 	"sync"
 	"time"
+
+	"sharefile/internal/db"
 )
 
 var ErrSessionNotFound = errors.New("session not found")
@@ -27,21 +30,29 @@ type Session struct {
 }
 
 type Manager struct {
-	mu       sync.RWMutex
-	sessions map[string]Session
-	now      func() time.Time
-	ttl      time.Duration
+	queries sessionQuerier
+	mu      sync.RWMutex
+	roles   map[string][]string
+	now     func() time.Time
+	ttl     time.Duration
 }
 
-func NewManager(ttl time.Duration) *Manager {
+type sessionQuerier interface {
+	CreateSession(ctx context.Context, arg db.CreateSessionParams) error
+	GetSessionByTokenHash(ctx context.Context, tokenHash string) (db.Session, error)
+	RevokeSessionByID(ctx context.Context, id string) error
+}
+
+func NewManager(queries sessionQuerier, ttl time.Duration) *Manager {
 	return &Manager{
-		sessions: make(map[string]Session),
-		now:      time.Now,
-		ttl:      ttl,
+		queries: queries,
+		roles:   map[string][]string{},
+		now:     time.Now,
+		ttl:     ttl,
 	}
 }
 
-func (m *Manager) CreateSession(_ context.Context, p Principal) (string, Session, error) {
+func (m *Manager) CreateSession(ctx context.Context, p Principal) (string, Session, error) {
 	token, err := randomToken()
 	if err != nil {
 		return "", Session{}, err
@@ -54,38 +65,86 @@ func (m *Manager) CreateSession(_ context.Context, p Principal) (string, Session
 		ExpiresAt: m.now().Add(m.ttl),
 	}
 
+	if err := m.queries.CreateSession(ctx, db.CreateSessionParams{
+		ID:        hash,
+		ActorType: p.ActorType,
+		ActorID:   p.ActorID,
+		TokenHash: hash,
+		IpAddress: sql.NullString{},
+		UserAgent: sql.NullString{},
+		ExpiresAt: s.ExpiresAt.Format(time.RFC3339Nano),
+		RevokedAt: sql.NullString{},
+	}); err != nil {
+		return "", Session{}, err
+	}
+
 	m.mu.Lock()
-	m.sessions[hash] = s
+	m.roles[hash] = append([]string(nil), p.Roles...)
 	m.mu.Unlock()
 
 	return token, s, nil
 }
 
-func (m *Manager) LoadSession(_ context.Context, token string) (Session, error) {
+func (m *Manager) LoadSession(ctx context.Context, token string) (Session, error) {
 	hash := hashToken(token)
-	m.mu.RLock()
-	s, ok := m.sessions[hash]
-	m.mu.RUnlock()
-	if !ok {
+	row, err := m.queries.GetSessionByTokenHash(ctx, hash)
+	if errors.Is(err, sql.ErrNoRows) {
 		return Session{}, ErrSessionNotFound
 	}
+	if err != nil {
+		return Session{}, err
+	}
+
+	expiresAt, err := time.Parse(time.RFC3339Nano, row.ExpiresAt)
+	if err != nil {
+		return Session{}, err
+	}
+
+	var revokedAt *time.Time
+	if row.RevokedAt.Valid {
+		t, parseErr := time.Parse(time.RFC3339Nano, row.RevokedAt.String)
+		if parseErr != nil {
+			return Session{}, parseErr
+		}
+		revokedAt = &t
+	}
+
+	s := Session{
+		TokenHash: row.TokenHash,
+		Principal: Principal{ActorType: row.ActorType, ActorID: row.ActorID},
+		ExpiresAt: expiresAt,
+		RevokedAt: revokedAt,
+	}
+	m.mu.RLock()
+	if roles, ok := m.roles[row.TokenHash]; ok {
+		s.Principal.Roles = append([]string(nil), roles...)
+	}
+	m.mu.RUnlock()
+
 	if s.RevokedAt != nil || !s.ExpiresAt.After(m.now()) {
 		return Session{}, ErrSessionNotFound
 	}
 	return s, nil
 }
 
-func (m *Manager) RevokeSession(_ context.Context, token string) error {
+func (m *Manager) RevokeSession(ctx context.Context, token string) error {
 	hash := hashToken(token)
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	s, ok := m.sessions[hash]
-	if !ok {
+	row, err := m.queries.GetSessionByTokenHash(ctx, hash)
+	if errors.Is(err, sql.ErrNoRows) {
 		return ErrSessionNotFound
 	}
-	now := m.now()
-	s.RevokedAt = &now
-	m.sessions[hash] = s
+	if err != nil {
+		return err
+	}
+
+	if err := m.queries.RevokeSessionByID(ctx, row.ID); err != nil {
+		return err
+	}
+
+	m.mu.Lock()
+	delete(m.roles, hash)
+	m.mu.Unlock()
+
 	return nil
 }
 
