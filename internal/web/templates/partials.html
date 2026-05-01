@@ -1,0 +1,32 @@
+{{define "app_nav"}}
+<header class="border-b border-base-300 bg-base-100">
+  <nav class="navbar mx-auto max-w-5xl px-4">
+    <div class="flex-1 gap-2">
+      <a class="btn btn-ghost text-lg" href="/">ShareFile</a>
+    </div>
+    <div class="flex gap-2">
+      <a class="btn btn-sm btn-ghost" href="/user/dashboard">User</a>
+      <a class="btn btn-sm btn-ghost" href="/client/dashboard">Client</a>
+      <a class="btn btn-sm btn-ghost" href="/admin/dashboard">Admin</a>
+    </div>
+  </nav>
+</header>
+{{end}}
+
+{{define "flash_messages"}}
+{{if .FlashSuccess}}
+<div class="alert alert-success mb-4" role="status">{{.FlashSuccess}}</div>
+{{end}}
+{{if .FlashError}}
+<div class="alert alert-error mb-4" role="alert">{{.FlashError}}</div>
+{{end}}
+{{end}}
+
+{{define "page_header"}}
+<div class="mb-4">
+  <h1 class="text-2xl font-semibold">{{.Title}}</h1>
+  {{if .Subtitle}}
+  <p class="text-sm opacity-70">{{.Subtitle}}</p>
+  {{end}}
+</div>
+{{end}}

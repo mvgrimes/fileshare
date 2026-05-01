@@ -3,7 +3,7 @@
 {{define "dashboard_content"}}
 <section class="card bg-base-100 shadow-sm">
   <div class="card-body gap-4">
-    <h1 class="card-title">{{.Title}}</h1>
+    {{template "page_header" .}}
     <p>Signed in as: <strong>{{.Role}}</strong></p>
     <p>Actor ID: <code>{{.ActorID}}</code></p>
     <p class="text-sm opacity-70">Current path: <code>{{.Path}}</code></p>

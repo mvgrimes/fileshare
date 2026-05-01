@@ -750,6 +750,36 @@ func TestTemplateRendererAddsPath(t *testing.T) {
 	if !strings.Contains(string(body), "href=\"/assets/app.css\"") {
 		t.Fatalf("body = %q, want stylesheet link", string(body))
 	}
+	if !strings.Contains(string(body), "href=\"/user/dashboard\"") {
+		t.Fatalf("body = %q, want shared nav links", string(body))
+	}
+}
+
+func TestTemplateRendererRendersFlashPartials(t *testing.T) {
+	s := New(testConfig(), slog.Default())
+	s.e.GET("/_test/flash", func(c echo.Context) error {
+		return c.Render(http.StatusOK, "home", map[string]any{
+			"Title":           "Flash Test",
+			"ContentTemplate": "home_content",
+			"FlashSuccess":    "saved",
+			"FlashError":      "validation failed",
+		})
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/_test/flash", nil)
+	rec := httptest.NewRecorder()
+	s.e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+	}
+	body := rec.Body.String()
+	if !strings.Contains(body, "alert alert-success") || !strings.Contains(body, "saved") {
+		t.Fatalf("body = %q, want success flash", body)
+	}
+	if !strings.Contains(body, "alert alert-error") || !strings.Contains(body, "validation failed") {
+		t.Fatalf("body = %q, want error flash", body)
+	}
 }
 
 func TestAssetsCSSIsServed(t *testing.T) {
