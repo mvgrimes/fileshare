@@ -176,12 +176,43 @@ func TestLogoutRevokesSession(t *testing.T) {
 		t.Fatalf("logout status = %d, want %d", logoutRec.Code, http.StatusNoContent)
 	}
 
+	cleared := cookieByName(logoutRec.Result().Cookies(), "sharefile_session")
+	if cleared == nil {
+		t.Fatal("expected cleared sharefile_session cookie")
+	}
+	if cleared.MaxAge != -1 {
+		t.Fatalf("logout cookie max-age = %d, want %d", cleared.MaxAge, -1)
+	}
+	if !cleared.HttpOnly {
+		t.Fatal("logout cookie should be HttpOnly")
+	}
+
 	req := httptest.NewRequest(http.MethodGet, "/user/dashboard", nil)
 	req.AddCookie(cookie)
 	rec := httptest.NewRecorder()
 	s.e.ServeHTTP(rec, req)
 	if rec.Code != http.StatusUnauthorized {
 		t.Fatalf("post-logout status = %d, want %d", rec.Code, http.StatusUnauthorized)
+	}
+}
+
+func TestLogoutWithoutSessionCookieStillClearsCookie(t *testing.T) {
+	s := New(testConfig(), slog.Default())
+
+	req := httptest.NewRequest(http.MethodPost, "/auth/logout", nil)
+	rec := httptest.NewRecorder()
+	s.e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusNoContent)
+	}
+
+	cleared := cookieByName(rec.Result().Cookies(), "sharefile_session")
+	if cleared == nil {
+		t.Fatal("expected cleared sharefile_session cookie")
+	}
+	if cleared.MaxAge != -1 {
+		t.Fatalf("logout cookie max-age = %d, want %d", cleared.MaxAge, -1)
 	}
 }
 
@@ -391,13 +422,19 @@ func login(t *testing.T, s *Server, actorType, actorID, roles string) *http.Cook
 	if rec.Code != http.StatusNoContent {
 		t.Fatalf("login status = %d, want %d, body=%q", rec.Code, http.StatusNoContent, rec.Body.String())
 	}
-	cookies := rec.Result().Cookies()
+	if c := cookieByName(rec.Result().Cookies(), "sharefile_session"); c != nil {
+		return c
+	}
+	t.Fatal("session cookie not set")
+	return nil
+}
+
+func cookieByName(cookies []*http.Cookie, name string) *http.Cookie {
 	for _, c := range cookies {
-		if c.Name == "sharefile_session" {
+		if c.Name == name {
 			return c
 		}
 	}
-	t.Fatal("session cookie not set")
 	return nil
 }
 
