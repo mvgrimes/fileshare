@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/labstack/echo/v4"
@@ -106,13 +107,14 @@ func New(cfg *config.Config, log *slog.Logger) *Server {
 	public.POST("/auth/session", func(c echo.Context) error {
 		actorType := c.FormValue("actor_type")
 		actorID := c.FormValue("actor_id")
+		roles := parseRoles(c.FormValue("roles"))
 		if actorType == "" || actorID == "" {
 			return c.String(http.StatusBadRequest, "actor_type and actor_id are required")
 		}
 		if actorType != "user" && actorType != "client" {
 			return c.String(http.StatusBadRequest, "actor_type must be user or client")
 		}
-		token, _, err := sessions.CreateSession(c.Request().Context(), auth.Principal{ActorType: actorType, ActorID: actorID})
+		token, _, err := sessions.CreateSession(c.Request().Context(), auth.Principal{ActorType: actorType, ActorID: actorID, Roles: roles})
 		if err != nil {
 			return c.String(http.StatusInternalServerError, "failed to create session")
 		}
@@ -160,7 +162,7 @@ func New(cfg *config.Config, log *slog.Logger) *Server {
 			actorID = claims.Subject
 		}
 
-		token, _, err := sessions.CreateSession(c.Request().Context(), auth.Principal{ActorType: "user", ActorID: actorID})
+		token, _, err := sessions.CreateSession(c.Request().Context(), auth.Principal{ActorType: "user", ActorID: actorID, Roles: claims.Roles})
 		if err != nil {
 			return c.String(http.StatusInternalServerError, "failed to create session")
 		}
@@ -242,6 +244,20 @@ func New(cfg *config.Config, log *slog.Logger) *Server {
 			"ContentTemplate": "dashboard_content",
 		})
 	})
+	user.GET("/uploads", func(c echo.Context) error {
+		principal, _ := auth.PrincipalFromContext(c)
+		if !auth.CanUploadFiles(principal) {
+			return c.String(http.StatusForbidden, "forbidden")
+		}
+		return c.String(http.StatusOK, "uploader access granted")
+	})
+	user.GET("/clients", func(c echo.Context) error {
+		principal, _ := auth.PrincipalFromContext(c)
+		if !auth.CanManageClients(principal) {
+			return c.String(http.StatusForbidden, "forbidden")
+		}
+		return c.String(http.StatusOK, "account manager access granted")
+	})
 
 	client := e.Group("/client")
 	client.Use(auth.RequireAuth(), auth.RequireActorType("client"))
@@ -256,7 +272,7 @@ func New(cfg *config.Config, log *slog.Logger) *Server {
 	})
 
 	admin := e.Group("/admin")
-	admin.Use(auth.RequireAuth(), auth.RequireActorType("user"))
+	admin.Use(auth.RequireAuth(), auth.RequireActorType("user"), auth.RequireRole("admin"))
 	admin.GET("/dashboard", func(c echo.Context) error {
 		principal, _ := auth.PrincipalFromContext(c)
 		return c.Render(http.StatusOK, "dashboard", map[string]any{
@@ -265,6 +281,13 @@ func New(cfg *config.Config, log *slog.Logger) *Server {
 			"ActorID":         principal.ActorID,
 			"ContentTemplate": "dashboard_content",
 		})
+	})
+	admin.GET("/users", func(c echo.Context) error {
+		principal, _ := auth.PrincipalFromContext(c)
+		if !auth.CanManageUsers(principal) {
+			return c.String(http.StatusForbidden, "forbidden")
+		}
+		return c.String(http.StatusOK, "admin access granted")
 	})
 
 	return srv
@@ -289,6 +312,22 @@ func loadTemplates() (*template.Template, error) {
 
 	return nil, fmt.Errorf("no templates found in known locations")
 }
+
+func parseRoles(value string) []string {
+	if strings.TrimSpace(value) == "" {
+		return nil
+	}
+	parts := strings.Split(value, ",")
+	roles := make([]string, 0, len(parts))
+	for _, p := range parts {
+		r := strings.TrimSpace(p)
+		if r != "" {
+			roles = append(roles, r)
+		}
+	}
+	return roles
+}
+
 func (s *Server) Start() error {
 	addr := fmt.Sprintf("%s:%d", s.cfg.ServerAddress, s.cfg.ServerPort)
 	s.log.Info("starting server", "address", addr)

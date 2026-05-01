@@ -95,8 +95,8 @@ func TestProtectedRoutesRequireAuth(t *testing.T) {
 func TestSessionLoginAndActorAuthorization(t *testing.T) {
 	s := New(testConfig(), slog.Default())
 
-	userCookie := login(t, s, "user", "u-123")
-	clientCookie := login(t, s, "client", "c-123")
+	userCookie := login(t, s, "user", "u-123", "")
+	clientCookie := login(t, s, "client", "c-123", "")
 
 	tests := []struct {
 		name       string
@@ -131,7 +131,7 @@ func TestSessionLoginAndActorAuthorization(t *testing.T) {
 
 func TestLogoutRevokesSession(t *testing.T) {
 	s := New(testConfig(), slog.Default())
-	cookie := login(t, s, "user", "u-logout")
+	cookie := login(t, s, "user", "u-logout", "")
 
 	logoutReq := httptest.NewRequest(http.MethodPost, "/auth/logout", nil)
 	logoutReq.AddCookie(cookie)
@@ -257,6 +257,40 @@ func TestMagicLinkVerifyCreatesClientSession(t *testing.T) {
 	}
 }
 
+func TestRBACRoleGates(t *testing.T) {
+	s := New(testConfig(), slog.Default())
+
+	adminCookie := login(t, s, "user", "u-admin", "admin")
+	managerCookie := login(t, s, "user", "u-manager", "account_manager")
+	uploaderCookie := login(t, s, "user", "u-uploader", "uploader")
+
+	tests := []struct {
+		name       string
+		path       string
+		cookie     *http.Cookie
+		wantStatus int
+	}{
+		{name: "admin users allowed", path: "/admin/users", cookie: adminCookie, wantStatus: http.StatusOK},
+		{name: "manager users denied", path: "/admin/users", cookie: managerCookie, wantStatus: http.StatusForbidden},
+		{name: "manager clients allowed", path: "/user/clients", cookie: managerCookie, wantStatus: http.StatusOK},
+		{name: "uploader clients denied", path: "/user/clients", cookie: uploaderCookie, wantStatus: http.StatusForbidden},
+		{name: "uploader uploads allowed", path: "/user/uploads", cookie: uploaderCookie, wantStatus: http.StatusOK},
+		{name: "manager uploads denied", path: "/user/uploads", cookie: managerCookie, wantStatus: http.StatusForbidden},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, tc.path, nil)
+			req.AddCookie(tc.cookie)
+			rec := httptest.NewRecorder()
+			s.e.ServeHTTP(rec, req)
+			if rec.Code != tc.wantStatus {
+				t.Fatalf("status = %d, want %d", rec.Code, tc.wantStatus)
+			}
+		})
+	}
+}
+
 func TestMagicLinkVerifySingleUse(t *testing.T) {
 	s := New(testConfig(), slog.Default())
 	token, _, err := s.magic.Create(context.Background(), "client-once")
@@ -310,9 +344,9 @@ func TestTemplateRendererAddsPath(t *testing.T) {
 	}
 }
 
-func login(t *testing.T, s *Server, actorType, actorID string) *http.Cookie {
+func login(t *testing.T, s *Server, actorType, actorID, roles string) *http.Cookie {
 	t.Helper()
-	body := bytes.NewBufferString(fmt.Sprintf("actor_type=%s&actor_id=%s", actorType, actorID))
+	body := bytes.NewBufferString(fmt.Sprintf("actor_type=%s&actor_id=%s&roles=%s", actorType, actorID, roles))
 	req := httptest.NewRequest(http.MethodPost, "/auth/session", body)
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
 	rec := httptest.NewRecorder()

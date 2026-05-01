@@ -16,6 +16,7 @@ var ErrSessionNotFound = errors.New("session not found")
 type Principal struct {
 	ActorType string
 	ActorID   string
+	Roles     []string
 }
 
 type Session struct {

@@ -11,6 +11,7 @@ var ErrInvalidSSOToken = errors.New("invalid sso token")
 type SSOClaims struct {
 	UserID string `json:"uid"`
 	Email  string `json:"email"`
+	Roles  []string `json:"roles"`
 	jwt.RegisteredClaims
 }
 

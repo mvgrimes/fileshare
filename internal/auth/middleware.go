@@ -2,6 +2,7 @@ package auth
 
 import (
 	"net/http"
+	"slices"
 	"strings"
 
 	"github.com/labstack/echo/v4"
@@ -46,6 +47,21 @@ func RequireActorType(actorType string) echo.MiddlewareFunc {
 				return c.String(http.StatusUnauthorized, "authentication required")
 			}
 			if principal.ActorType != actorType {
+				return c.String(http.StatusForbidden, "forbidden")
+			}
+			return next(c)
+		}
+	}
+}
+
+func RequireRole(role string) echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			principal, ok := c.Get(principalKey).(Principal)
+			if !ok {
+				return c.String(http.StatusUnauthorized, "authentication required")
+			}
+			if !slices.Contains(principal.Roles, role) {
 				return c.String(http.StatusForbidden, "forbidden")
 			}
 			return next(c)
