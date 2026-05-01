@@ -1,3 +1,7 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
+@source "../../templates/**/*.html";
+
+@plugin "daisyui" {
+  themes: corporate --default;
+}
