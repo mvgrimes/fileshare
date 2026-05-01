@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bytes"
+	"database/sql"
 	"os"
 	"path/filepath"
 	"strings"
@@ -121,5 +122,47 @@ func TestRunMigrateUpStatusDown(t *testing.T) {
 	}
 	if !strings.Contains(stdoutText, "migration rolled back") {
 		t.Fatalf("stdout missing down output: %q", stdoutText)
+	}
+}
+
+func TestExpandedSchemaRejectsDuplicateShareTarget(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "schema-test.db")
+	t.Setenv("DATABASE_URL", dbPath)
+
+	originalDir := migrationsDir
+	migrationsDir = filepath.Join("..", "migrations")
+	t.Cleanup(func() {
+		migrationsDir = originalDir
+	})
+
+	if err := runMigrateUp(nil, nil); err != nil {
+		t.Fatalf("runMigrateUp() unexpected error: %v", err)
+	}
+
+	db, err := sql.Open("sqlite", dbPath)
+	if err != nil {
+		t.Fatalf("sql.Open() unexpected error: %v", err)
+	}
+	defer db.Close()
+
+	seed := []string{
+		"INSERT INTO users (id, email, full_name) VALUES ('u1', 'u1@example.com', 'User One')",
+		"INSERT INTO clients (id, email, display_name) VALUES ('c1', 'c1@example.com', 'Client One')",
+		"INSERT INTO files (id, uploader_type, uploader_id, original_filename, storage_key, content_type, size_bytes) VALUES ('f1', 'user', 'u1', 'r.pdf', 'storage/f1', 'application/pdf', 100)",
+		"INSERT INTO shares (id, file_id, shared_by_type, shared_by_id, target_type, target_id) VALUES ('s1', 'f1', 'user', 'u1', 'client', 'c1')",
+	}
+
+	for _, stmt := range seed {
+		if _, err := db.Exec(stmt); err != nil {
+			t.Fatalf("seed statement failed %q: %v", stmt, err)
+		}
+	}
+
+	_, err = db.Exec("INSERT INTO shares (id, file_id, shared_by_type, shared_by_id, target_type, target_id) VALUES ('s2', 'f1', 'user', 'u1', 'client', 'c1')")
+	if err == nil {
+		t.Fatal("expected duplicate share insert to fail on unique index")
+	}
+	if !strings.Contains(err.Error(), "UNIQUE constraint failed: shares.file_id, shares.target_type, shares.target_id") {
+		t.Fatalf("error = %q, want unique constraint violation", err.Error())
 	}
 }
