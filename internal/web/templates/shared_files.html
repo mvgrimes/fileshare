@@ -1,0 +1,45 @@
+{{define "shared_files"}}{{template "base" .}}{{end}}
+
+{{define "shared_files_content"}}
+<section class="card bg-base-100 shadow-sm">
+  <div class="card-body gap-4">
+    {{template "page_header" .}}
+    {{if .Files}}
+    <div class="overflow-x-auto">
+      <table class="table table-zebra">
+        <thead>
+          <tr><th>Name</th><th>Type</th><th>Size</th><th>Shared Via</th><th></th></tr>
+        </thead>
+        <tbody>
+          {{range .Files}}
+          <tr>
+            <td>{{.Name}}</td>
+            <td>{{.ContentType}}</td>
+            <td>{{.SizeBytes}}</td>
+            <td>{{.SharedVia}}</td>
+            <td><a class="btn btn-xs btn-primary" href="{{$.DetailBasePath}}/{{.ID}}">Details</a></td>
+          </tr>
+          {{end}}
+        </tbody>
+      </table>
+    </div>
+    {{else}}
+    <div class="alert" role="status"><span>{{.EmptyMessage}}</span></div>
+    {{end}}
+  </div>
+</section>
+{{end}}
+
+{{define "file_detail_content"}}
+<section class="card bg-base-100 shadow-sm">
+  <div class="card-body gap-3">
+    {{template "page_header" .}}
+    <p><strong>ID:</strong> <code>{{.File.ID}}</code></p>
+    <p><strong>Name:</strong> {{.File.Name}}</p>
+    <p><strong>Content Type:</strong> {{.File.ContentType}}</p>
+    <p><strong>Size:</strong> {{.File.SizeBytes}}</p>
+    <p><strong>Shared Via:</strong> {{.File.SharedVia}}</p>
+    <a class="btn btn-sm btn-ghost" href="{{.BackPath}}">Back to List</a>
+  </div>
+</section>
+{{end}}

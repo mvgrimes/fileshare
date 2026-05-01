@@ -306,6 +306,105 @@ func TestClientDashboardShowsMagicLinkAction(t *testing.T) {
 	if !strings.Contains(body, "Upload Files") || !strings.Contains(body, "href=\"/client/uploads\"") {
 		t.Fatalf("body = %q, want upload dashboard action", body)
 	}
+	if !strings.Contains(body, "View Shared Files") || !strings.Contains(body, "href=\"/client/files\"") {
+		t.Fatalf("body = %q, want shared files dashboard action", body)
+	}
+}
+
+func TestClientSharedFilesListAndDetail(t *testing.T) {
+	s := New(testConfig(), slog.Default())
+	createClientWithoutPassword(t, "client-files-direct", "client-files-direct@example.com", true)
+	createClientWithoutPassword(t, "client-files-group", "client-files-group@example.com", true)
+	createClientWithoutPassword(t, "client-files-denied", "client-files-denied@example.com", true)
+
+	createFileForTests(t, "file-list-direct")
+	createShareForTests(t, "share-list-direct", "file-list-direct", "client", "client-files-direct")
+	createFileForTests(t, "file-list-group")
+	createClientGroupForTests(t, "cg-files")
+	addClientToGroupForTests(t, "cg-files", "client-files-group")
+	createShareForTests(t, "share-list-group", "file-list-group", "client_group", "cg-files")
+
+	directCookie := login(t, s, "client", "client-files-direct", "")
+	groupCookie := login(t, s, "client", "client-files-group", "")
+	deniedCookie := login(t, s, "client", "client-files-denied", "")
+
+	listReq := httptest.NewRequest(http.MethodGet, "/client/files", nil)
+	listReq.AddCookie(directCookie)
+	listRec := httptest.NewRecorder()
+	s.e.ServeHTTP(listRec, listReq)
+	if listRec.Code != http.StatusOK {
+		t.Fatalf("list status = %d, want %d", listRec.Code, http.StatusOK)
+	}
+	if !strings.Contains(listRec.Body.String(), "file-list-direct.txt") {
+		t.Fatalf("list body = %q, want direct shared file", listRec.Body.String())
+	}
+
+	groupListReq := httptest.NewRequest(http.MethodGet, "/client/files", nil)
+	groupListReq.AddCookie(groupCookie)
+	groupListRec := httptest.NewRecorder()
+	s.e.ServeHTTP(groupListRec, groupListReq)
+	if groupListRec.Code != http.StatusOK {
+		t.Fatalf("group list status = %d, want %d", groupListRec.Code, http.StatusOK)
+	}
+	if !strings.Contains(groupListRec.Body.String(), "file-list-group.txt") {
+		t.Fatalf("group list body = %q, want group shared file", groupListRec.Body.String())
+	}
+
+	detailReq := httptest.NewRequest(http.MethodGet, "/client/files/file-list-direct", nil)
+	detailReq.AddCookie(directCookie)
+	detailRec := httptest.NewRecorder()
+	s.e.ServeHTTP(detailRec, detailReq)
+	if detailRec.Code != http.StatusOK {
+		t.Fatalf("detail status = %d, want %d", detailRec.Code, http.StatusOK)
+	}
+
+	deniedReq := httptest.NewRequest(http.MethodGet, "/client/files/file-list-direct", nil)
+	deniedReq.AddCookie(deniedCookie)
+	deniedRec := httptest.NewRecorder()
+	s.e.ServeHTTP(deniedRec, deniedReq)
+	if deniedRec.Code != http.StatusForbidden {
+		t.Fatalf("denied detail status = %d, want %d", deniedRec.Code, http.StatusForbidden)
+	}
+}
+
+func TestUserSharedFilesListAndDetail(t *testing.T) {
+	s := New(testConfig(), slog.Default())
+	ownerCookie := login(t, s, "user", "u-owner-files", "uploader")
+	otherCookie := login(t, s, "user", "u-other-files", "uploader")
+
+	createFileWithUploader(t, "file-owned", "u-owner-files")
+	createFileWithUploader(t, "file-other", "u-other-files")
+
+	listReq := httptest.NewRequest(http.MethodGet, "/user/files", nil)
+	listReq.AddCookie(ownerCookie)
+	listRec := httptest.NewRecorder()
+	s.e.ServeHTTP(listRec, listReq)
+	if listRec.Code != http.StatusOK {
+		t.Fatalf("list status = %d, want %d", listRec.Code, http.StatusOK)
+	}
+	body := listRec.Body.String()
+	if !strings.Contains(body, "file-owned.dat") {
+		t.Fatalf("list body = %q, want owned file", body)
+	}
+	if strings.Contains(body, "file-other.dat") {
+		t.Fatalf("list body = %q, should not include other user's file", body)
+	}
+
+	ownerDetailReq := httptest.NewRequest(http.MethodGet, "/user/files/file-owned", nil)
+	ownerDetailReq.AddCookie(ownerCookie)
+	ownerDetailRec := httptest.NewRecorder()
+	s.e.ServeHTTP(ownerDetailRec, ownerDetailReq)
+	if ownerDetailRec.Code != http.StatusOK {
+		t.Fatalf("owner detail status = %d, want %d", ownerDetailRec.Code, http.StatusOK)
+	}
+
+	forbiddenReq := httptest.NewRequest(http.MethodGet, "/user/files/file-owned", nil)
+	forbiddenReq.AddCookie(otherCookie)
+	forbiddenRec := httptest.NewRecorder()
+	s.e.ServeHTTP(forbiddenRec, forbiddenReq)
+	if forbiddenRec.Code != http.StatusForbidden {
+		t.Fatalf("forbidden detail status = %d, want %d", forbiddenRec.Code, http.StatusForbidden)
+	}
 }
 
 func TestUploadFormsRenderForAuthorizedActors(t *testing.T) {
@@ -1239,6 +1338,28 @@ func createFileForTests(t *testing.T, fileID string) {
 	}
 }
 
+func createFileWithUploader(t *testing.T, fileID, uploaderID string) {
+	t.Helper()
+	sqlDB, err := sql.Open("sqlite", testConfig().DatabaseURL)
+	if err != nil {
+		t.Fatalf("sql.Open() unexpected error: %v", err)
+	}
+	defer sqlDB.Close()
+
+	if err := db.New(sqlDB).CreateFile(context.Background(), db.CreateFileParams{
+		ID:               fileID,
+		UploaderType:     "user",
+		UploaderID:       uploaderID,
+		OriginalFilename: fileID + ".dat",
+		StorageKey:       "s3/" + fileID,
+		ContentType:      "application/octet-stream",
+		SizeBytes:        321,
+		ExpiresAt:        sql.NullString{},
+	}); err != nil {
+		t.Fatalf("CreateFile() error: %v", err)
+	}
+}
+
 func createShareForTests(t *testing.T, shareID, fileID, targetType, targetID string) {
 	t.Helper()
 	sqlDB, err := sql.Open("sqlite", testConfig().DatabaseURL)
@@ -1270,7 +1391,7 @@ func createClientGroupForTests(t *testing.T, groupID string) {
 
 	if err := db.New(sqlDB).CreateClientGroup(context.Background(), db.CreateClientGroupParams{
 		ID:              groupID,
-		Name:            "Download Group",
+		Name:            "Download Group " + groupID,
 		CreatedByUserID: sql.NullString{},
 	}); err != nil {
 		t.Fatalf("CreateClientGroup() error: %v", err)

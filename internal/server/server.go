@@ -51,6 +51,14 @@ type dashboardAction struct {
 	Path        string
 }
 
+type fileListItem struct {
+	ID          string
+	Name        string
+	ContentType string
+	SizeBytes   int64
+	SharedVia   string
+}
+
 func (r *TemplateRenderer) Render(w io.Writer, name string, data any, c echo.Context) error {
 	viewData, ok := data.(map[string]any)
 	if !ok {
@@ -406,6 +414,51 @@ func New(cfg *config.Config, log *slog.Logger) *Server {
 			"ShowShareFields": true,
 		})
 	}, auth.RequireCapability(auth.CapabilityUploadFiles))
+	user.GET("/files", func(c echo.Context) error {
+		principal, _ := auth.PrincipalFromContext(c)
+		files, err := queries.ListFilesByUploader(c.Request().Context(), db.ListFilesByUploaderParams{
+			UploaderType: "user",
+			UploaderID:   principal.ActorID,
+			Limit:        50,
+			Offset:       0,
+		})
+		if err != nil {
+			return c.String(http.StatusInternalServerError, "failed to load files")
+		}
+		items := make([]fileListItem, 0, len(files))
+		for _, f := range files {
+			items = append(items, fileListItem{ID: f.ID, Name: f.OriginalFilename, ContentType: f.ContentType, SizeBytes: f.SizeBytes, SharedVia: "owned"})
+		}
+		return c.Render(http.StatusOK, "shared_files", map[string]any{
+			"Title":           "Shared Files",
+			"Subtitle":        "Files uploaded by your account.",
+			"ContentTemplate": "shared_files_content",
+			"Files":           items,
+			"EmptyMessage":    "No files uploaded yet.",
+			"DetailBasePath":  "/user/files",
+		})
+	})
+	user.GET("/files/:fileID", func(c echo.Context) error {
+		principal, _ := auth.PrincipalFromContext(c)
+		fileID := c.Param("fileID")
+		file, err := queries.GetFileByID(c.Request().Context(), fileID)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return c.String(http.StatusNotFound, "file not found")
+			}
+			return c.String(http.StatusInternalServerError, "failed to load file")
+		}
+		if file.UploaderType != "user" || file.UploaderID != principal.ActorID {
+			return c.String(http.StatusForbidden, "forbidden")
+		}
+		return c.Render(http.StatusOK, "shared_files", map[string]any{
+			"Title":           "File Detail",
+			"Subtitle":        "Detailed metadata for your uploaded file.",
+			"ContentTemplate": "file_detail_content",
+			"File":            fileListItem{ID: file.ID, Name: file.OriginalFilename, ContentType: file.ContentType, SizeBytes: file.SizeBytes, SharedVia: "owned"},
+			"BackPath":        "/user/files",
+		})
+	})
 	user.POST("/uploads", func(c echo.Context) error {
 		principal, _ := auth.PrincipalFromContext(c)
 		if err := srv.authz.AuthorizeUploadFiles(principal); err != nil {
@@ -569,6 +622,10 @@ func New(cfg *config.Config, log *slog.Logger) *Server {
 			Label:       "Upload Files",
 			Description: "Submit upload targets; permissions are validated per client.",
 			Path:        "/client/uploads",
+		}, {
+			Label:       "View Shared Files",
+			Description: "Browse files shared directly or through your client groups.",
+			Path:        "/client/files",
 		}}
 		return c.Render(http.StatusOK, "dashboard", map[string]any{
 			"Title":           "Client Dashboard",
@@ -592,6 +649,53 @@ func New(cfg *config.Config, log *slog.Logger) *Server {
 		}
 		auditAuthEvent(c, queries, "authz.client.download", principal.ActorType, principal.ActorID, "file", fileID, map[string]any{"outcome": "allowed"})
 		return c.String(http.StatusOK, "download access granted")
+	})
+	client.GET("/files", func(c echo.Context) error {
+		principal, _ := auth.PrincipalFromContext(c)
+		shares, err := queries.ListClientAccessibleShares(c.Request().Context(), db.ListClientAccessibleSharesParams{ClientID: principal.ActorID, Limit: 50, Offset: 0})
+		if err != nil {
+			return c.String(http.StatusInternalServerError, "failed to load shared files")
+		}
+		items := make([]fileListItem, 0, len(shares))
+		for _, s := range shares {
+			f, fileErr := queries.GetFileByID(c.Request().Context(), s.FileID)
+			if fileErr != nil {
+				continue
+			}
+			items = append(items, fileListItem{ID: f.ID, Name: f.OriginalFilename, ContentType: f.ContentType, SizeBytes: f.SizeBytes, SharedVia: s.TargetType})
+		}
+		return c.Render(http.StatusOK, "shared_files", map[string]any{
+			"Title":           "Shared Files",
+			"Subtitle":        "Files currently accessible to your client account.",
+			"ContentTemplate": "shared_files_content",
+			"Files":           items,
+			"EmptyMessage":    "No files are currently shared with your account.",
+			"DetailBasePath":  "/client/files",
+		})
+	})
+	client.GET("/files/:fileID", func(c echo.Context) error {
+		principal, _ := auth.PrincipalFromContext(c)
+		fileID := c.Param("fileID")
+		if err := srv.authz.AuthorizeClientDownload(c.Request().Context(), principal, fileID); err != nil {
+			if err == auth.ErrForbidden {
+				return c.String(http.StatusForbidden, "forbidden")
+			}
+			return c.String(http.StatusInternalServerError, "failed to authorize file")
+		}
+		file, err := queries.GetFileByID(c.Request().Context(), fileID)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return c.String(http.StatusNotFound, "file not found")
+			}
+			return c.String(http.StatusInternalServerError, "failed to load file")
+		}
+		return c.Render(http.StatusOK, "shared_files", map[string]any{
+			"Title":           "Shared File Detail",
+			"Subtitle":        "File metadata and available actions.",
+			"ContentTemplate": "file_detail_content",
+			"File":            fileListItem{ID: file.ID, Name: file.OriginalFilename, ContentType: file.ContentType, SizeBytes: file.SizeBytes, SharedVia: "shared"},
+			"BackPath":        "/client/files",
+		})
 	})
 	client.POST("/uploads", func(c echo.Context) error {
 		principal, _ := auth.PrincipalFromContext(c)
@@ -736,6 +840,13 @@ func dashboardActions(principal auth.Principal) []dashboardAction {
 			Label:       "Upload Files",
 			Description: "Submit files for sharing with approved recipients.",
 			Path:        "/user/uploads",
+		})
+	}
+	if auth.HasCapability(principal, auth.CapabilityUploadFiles) {
+		actions = append(actions, dashboardAction{
+			Label:       "View Shared Files",
+			Description: "Review files uploaded by your account.",
+			Path:        "/user/files",
 		})
 	}
 	if auth.HasCapability(principal, auth.CapabilityManageClients) {

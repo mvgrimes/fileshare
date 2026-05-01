@@ -23,6 +23,10 @@
         {{template "upload_share_content" .}}
       {{else if eq .ContentTemplate "clients_management_content"}}
         {{template "clients_management_content" .}}
+      {{else if eq .ContentTemplate "shared_files_content"}}
+        {{template "shared_files_content" .}}
+      {{else if eq .ContentTemplate "file_detail_content"}}
+        {{template "file_detail_content" .}}
       {{else}}
         <p>missing content template</p>
       {{end}}
