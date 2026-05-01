@@ -28,6 +28,7 @@ type Server struct {
 	cfg       *config.Config
 	log       *slog.Logger
 	sessions  *auth.Manager
+	userSync  *auth.UserSyncer
 	magic     *auth.MagicManager
 	magicSend auth.MagicSender
 }
@@ -98,9 +99,10 @@ func New(cfg *config.Config, log *slog.Logger) *Server {
 
 	queries := db.New(sqlDB)
 	sessions := auth.NewManager(queries, 12*time.Hour)
+	userSync := auth.NewUserSyncer(queries)
 	magic := auth.NewMagicManager(queries, 15*time.Minute, 60*time.Second)
 	magicSend := auth.NoopSender{}
-	srv := &Server{e: e, cfg: cfg, log: log, sessions: sessions, magic: magic, magicSend: magicSend}
+	srv := &Server{e: e, cfg: cfg, log: log, sessions: sessions, userSync: userSync, magic: magic, magicSend: magicSend}
 	e.Use(auth.LoadSession(sessions))
 
 	e.GET("/healthz", func(c echo.Context) error {
@@ -171,9 +173,9 @@ func New(cfg *config.Config, log *slog.Logger) *Server {
 			return c.String(http.StatusUnauthorized, "invalid sso token")
 		}
 
-		actorID := claims.UserID
-		if actorID == "" {
-			actorID = claims.Subject
+		actorID, err := srv.userSync.UpsertFromSSOClaims(c.Request().Context(), claims)
+		if err != nil {
+			return c.String(http.StatusUnauthorized, "invalid sso token")
 		}
 
 		token, _, err := sessions.CreateSession(c.Request().Context(), auth.Principal{ActorType: "user", ActorID: actorID, Roles: claims.Roles})

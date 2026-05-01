@@ -16,10 +16,11 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/pressly/goose/v3"
 	"github.com/labstack/echo/v4"
+	"github.com/pressly/goose/v3"
 
 	"sharefile/internal/config"
+	"sharefile/internal/db"
 	"sharefile/migrations"
 
 	_ "modernc.org/sqlite"
@@ -218,7 +219,7 @@ func TestLogoutWithoutSessionCookieStillClearsCookie(t *testing.T) {
 
 func TestSSOLoginCreatesUserSession(t *testing.T) {
 	s := New(testConfig(), slog.Default())
-	sso := signedSSOToken(t, "secret", "issuer-1", "aud-1", "user-from-sso", "")
+	sso := signedSSOToken(t, "secret", "issuer-1", "aud-1", "user-from-sso", "", "user-from-sso@example.com", "User From SSO")
 
 	req := httptest.NewRequest(http.MethodPost, "/auth/sso/login", nil)
 	req.AddCookie(&http.Cookie{Name: "sso_jwt", Value: sso})
@@ -257,6 +258,59 @@ func TestSSOLoginRejectsInvalidToken(t *testing.T) {
 	s := New(testConfig(), slog.Default())
 	req := httptest.NewRequest(http.MethodPost, "/auth/sso/login", nil)
 	req.AddCookie(&http.Cookie{Name: "sso_jwt", Value: "bad-token"})
+	rec := httptest.NewRecorder()
+	s.e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusUnauthorized)
+	}
+}
+
+func TestSSOLoginUpsertsLocalUser(t *testing.T) {
+	s := New(testConfig(), slog.Default())
+
+	first := signedSSOToken(t, "secret", "issuer-1", "aud-1", "user-upsert", "", "first@example.com", "First Name")
+	req1 := httptest.NewRequest(http.MethodPost, "/auth/sso/login", nil)
+	req1.AddCookie(&http.Cookie{Name: "sso_jwt", Value: first})
+	rec1 := httptest.NewRecorder()
+	s.e.ServeHTTP(rec1, req1)
+	if rec1.Code != http.StatusNoContent {
+		t.Fatalf("first login status = %d, want %d", rec1.Code, http.StatusNoContent)
+	}
+
+	second := signedSSOToken(t, "secret", "issuer-1", "aud-1", "user-upsert", "", "updated@example.com", "Updated Name")
+	req2 := httptest.NewRequest(http.MethodPost, "/auth/sso/login", nil)
+	req2.AddCookie(&http.Cookie{Name: "sso_jwt", Value: second})
+	rec2 := httptest.NewRecorder()
+	s.e.ServeHTTP(rec2, req2)
+	if rec2.Code != http.StatusNoContent {
+		t.Fatalf("second login status = %d, want %d", rec2.Code, http.StatusNoContent)
+	}
+
+	sqlDB, err := sql.Open("sqlite", testConfig().DatabaseURL)
+	if err != nil {
+		t.Fatalf("sql.Open() unexpected error: %v", err)
+	}
+	defer sqlDB.Close()
+
+	queries := db.New(sqlDB)
+	user, err := queries.GetUserByID(context.Background(), "user-upsert")
+	if err != nil {
+		t.Fatalf("GetUserByID() unexpected error: %v", err)
+	}
+	if user.Email != "updated@example.com" {
+		t.Fatalf("user email = %q, want %q", user.Email, "updated@example.com")
+	}
+	if user.FullName != "Updated Name" {
+		t.Fatalf("user full_name = %q, want %q", user.FullName, "Updated Name")
+	}
+}
+
+func TestSSOLoginRejectsMissingEmailClaim(t *testing.T) {
+	s := New(testConfig(), slog.Default())
+	sso := signedSSOToken(t, "secret", "issuer-1", "aud-1", "missing-email", "", "", "")
+	req := httptest.NewRequest(http.MethodPost, "/auth/sso/login", nil)
+	req.AddCookie(&http.Cookie{Name: "sso_jwt", Value: sso})
 	rec := httptest.NewRecorder()
 	s.e.ServeHTTP(rec, req)
 
@@ -438,14 +492,16 @@ func cookieByName(cookies []*http.Cookie, name string) *http.Cookie {
 	return nil
 }
 
-func signedSSOToken(t *testing.T, secret, issuer, audience, userID, subject string) string {
+func signedSSOToken(t *testing.T, secret, issuer, audience, userID, subject, email, name string) string {
 	t.Helper()
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"uid": userID,
-		"iss": issuer,
-		"aud": audience,
-		"exp": time.Now().Add(time.Hour).Unix(),
-		"sub": subject,
+		"uid":   userID,
+		"email": email,
+		"name":  name,
+		"iss":   issuer,
+		"aud":   audience,
+		"exp":   time.Now().Add(time.Hour).Unix(),
+		"sub":   subject,
 	})
 	signed, err := token.SignedString([]byte(secret))
 	if err != nil {
