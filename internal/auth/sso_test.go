@@ -38,3 +38,78 @@ func TestSSOValidatorValidateInvalidToken(t *testing.T) {
 		t.Fatal("Validate() error = nil, want error")
 	}
 }
+
+func TestSSOValidatorRejectsMismatchedIssuer(t *testing.T) {
+	v := NewSSOValidator("secret", "issuer-1", "aud-1")
+	signed := signedSSOTestToken(t, "secret", jwt.SigningMethodHS256, "issuer-2", "aud-1", "u-1", "sub-1")
+
+	if _, err := v.Validate(signed); err == nil {
+		t.Fatal("Validate() error = nil, want error")
+	}
+}
+
+func TestSSOValidatorRejectsMismatchedAudience(t *testing.T) {
+	v := NewSSOValidator("secret", "issuer-1", "aud-1")
+	signed := signedSSOTestToken(t, "secret", jwt.SigningMethodHS256, "issuer-1", "aud-2", "u-1", "sub-1")
+
+	if _, err := v.Validate(signed); err == nil {
+		t.Fatal("Validate() error = nil, want error")
+	}
+}
+
+func TestSSOValidatorRejectsWrongSigningMethod(t *testing.T) {
+	v := NewSSOValidator("secret", "issuer-1", "aud-1")
+	signed := signedSSOTestToken(t, "secret", jwt.SigningMethodHS384, "issuer-1", "aud-1", "u-1", "sub-1")
+
+	if _, err := v.Validate(signed); err == nil {
+		t.Fatal("Validate() error = nil, want error")
+	}
+}
+
+func TestSSOValidatorRejectsMissingValidatorConfig(t *testing.T) {
+	tests := []struct {
+		name     string
+		secret   string
+		issuer   string
+		audience string
+	}{
+		{name: "missing secret", secret: "", issuer: "issuer-1", audience: "aud-1"},
+		{name: "missing issuer", secret: "secret", issuer: "", audience: "aud-1"},
+		{name: "missing audience", secret: "secret", issuer: "issuer-1", audience: ""},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			v := NewSSOValidator(tc.secret, tc.issuer, tc.audience)
+			signed := signedSSOTestToken(t, "secret", jwt.SigningMethodHS256, "issuer-1", "aud-1", "u-1", "sub-1")
+			if _, err := v.Validate(signed); err == nil {
+				t.Fatal("Validate() error = nil, want error")
+			}
+		})
+	}
+}
+
+func TestSSOValidatorRejectsEmptyToken(t *testing.T) {
+	v := NewSSOValidator("secret", "issuer-1", "aud-1")
+	if _, err := v.Validate("   "); err == nil {
+		t.Fatal("Validate() error = nil, want error")
+	}
+}
+
+func signedSSOTestToken(t *testing.T, secret string, method jwt.SigningMethod, issuer, audience, userID, subject string) string {
+	t.Helper()
+	token := jwt.NewWithClaims(method, SSOClaims{
+		UserID: userID,
+		RegisteredClaims: jwt.RegisteredClaims{
+			Issuer:    issuer,
+			Audience:  jwt.ClaimStrings{audience},
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour)),
+			Subject:   subject,
+		},
+	})
+	signed, err := token.SignedString([]byte(secret))
+	if err != nil {
+		t.Fatalf("SignedString() error: %v", err)
+	}
+	return signed
+}

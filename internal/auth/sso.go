@@ -2,6 +2,7 @@ package auth
 
 import (
 	"errors"
+	"strings"
 
 	"github.com/golang-jwt/jwt/v5"
 )
@@ -26,6 +27,13 @@ func NewSSOValidator(secret, issuer, audience string) *SSOValidator {
 }
 
 func (v *SSOValidator) Validate(tokenString string) (SSOClaims, error) {
+	if len(v.secret) == 0 || strings.TrimSpace(v.issuer) == "" || strings.TrimSpace(v.audience) == "" {
+		return SSOClaims{}, ErrInvalidSSOToken
+	}
+	if strings.TrimSpace(tokenString) == "" {
+		return SSOClaims{}, ErrInvalidSSOToken
+	}
+
 	claims := SSOClaims{}
 	token, err := jwt.ParseWithClaims(tokenString, &claims, func(token *jwt.Token) (any, error) {
 		if token.Method.Alg() != jwt.SigningMethodHS256.Alg() {
