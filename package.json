@@ -3,7 +3,7 @@
   "private": true,
   "scripts": {
     "css:build": "tailwindcss -i ./internal/web/assets/css/input.css -o ./internal/web/assets/dist/app.css --minify",
-    "css:watch": "tailwindcss -i ./internal/web/assets/css/input.css -o ./internal/web/assets/dist/app.css --watch"
+    "css:watch": "tailwindcss -i ./internal/web/assets/css/input.css -o ./internal/web/assets/dist/app.css --minify --watch"
   },
   "devDependencies": {
     "@tailwindcss/cli": "^4.1.7",
