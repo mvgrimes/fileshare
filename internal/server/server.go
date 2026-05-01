@@ -98,7 +98,8 @@ func New(cfg *config.Config, log *slog.Logger) *Server {
 	}
 
 	queries := db.New(sqlDB)
-	sessions := auth.NewManager(queries, 12*time.Hour)
+	sessionTTL := time.Duration(cfg.SessionTTL) * time.Hour
+	sessions := auth.NewManager(queries, sessionTTL)
 	userSync := auth.NewUserSyncer(queries)
 	magic := auth.NewMagicManager(queries, 15*time.Minute, 60*time.Second)
 	magicSend := auth.NoopSender{}
@@ -134,15 +135,7 @@ func New(cfg *config.Config, log *slog.Logger) *Server {
 		if err != nil {
 			return c.String(http.StatusInternalServerError, "failed to create session")
 		}
-		c.SetCookie(&http.Cookie{
-			Name:     auth.SessionCookieName,
-			Value:    token,
-			Path:     "/",
-			HttpOnly: true,
-			Secure:   sCookieSecure(cfg.Environment),
-			SameSite: http.SameSiteLaxMode,
-			MaxAge:   int((12 * time.Hour).Seconds()),
-		})
+		setSessionCookie(c, cfg.Environment, token, sessionTTL)
 		return c.NoContent(http.StatusNoContent)
 	})
 	public.POST("/auth/logout", func(c echo.Context) error {
@@ -183,15 +176,7 @@ func New(cfg *config.Config, log *slog.Logger) *Server {
 			return c.String(http.StatusInternalServerError, "failed to create session")
 		}
 
-		c.SetCookie(&http.Cookie{
-			Name:     auth.SessionCookieName,
-			Value:    token,
-			Path:     "/",
-			HttpOnly: true,
-			Secure:   sCookieSecure(cfg.Environment),
-			SameSite: http.SameSiteLaxMode,
-			MaxAge:   int((12 * time.Hour).Seconds()),
-		})
+		setSessionCookie(c, cfg.Environment, token, sessionTTL)
 
 		return c.NoContent(http.StatusNoContent)
 	})
@@ -237,15 +222,7 @@ func New(cfg *config.Config, log *slog.Logger) *Server {
 		if err != nil {
 			return c.String(http.StatusInternalServerError, "failed to create session")
 		}
-		c.SetCookie(&http.Cookie{
-			Name:     auth.SessionCookieName,
-			Value:    sessionToken,
-			Path:     "/",
-			HttpOnly: true,
-			Secure:   sCookieSecure(cfg.Environment),
-			SameSite: http.SameSiteLaxMode,
-			MaxAge:   int((12 * time.Hour).Seconds()),
-		})
+		setSessionCookie(c, cfg.Environment, sessionToken, sessionTTL)
 		return c.NoContent(http.StatusNoContent)
 	})
 
@@ -339,6 +316,18 @@ LIMIT 1;
 
 func sCookieSecure(environment string) bool {
 	return environment != "development"
+}
+
+func setSessionCookie(c echo.Context, environment, token string, ttl time.Duration) {
+	c.SetCookie(&http.Cookie{
+		Name:     auth.SessionCookieName,
+		Value:    token,
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   sCookieSecure(environment),
+		SameSite: http.SameSiteLaxMode,
+		MaxAge:   int(ttl.Seconds()),
+	})
 }
 
 func loadTemplates() (*template.Template, error) {

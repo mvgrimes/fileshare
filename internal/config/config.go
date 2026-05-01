@@ -12,6 +12,7 @@ type Config struct {
 	ServerPort    int
 	Environment   string
 	LogLevel      string
+	SessionTTL    int
 
 	DatabaseURL   string
 	SessionSecret string
@@ -27,6 +28,7 @@ func Load() (*Config, error) {
 		ServerPort:    intEnvOrDefault("SERVER_PORT", 8080),
 		Environment:   envOrDefault("ENVIRONMENT", "development"),
 		LogLevel:      envOrDefault("LOG_LEVEL", "info"),
+		SessionTTL:    intEnvOrDefault("SESSION_TTL_HOURS", 12),
 		DatabaseURL:   os.Getenv("DATABASE_URL"),
 		SessionSecret: os.Getenv("SESSION_SECRET"),
 		JWTSecret:     os.Getenv("JWT_SECRET"),
@@ -56,6 +58,9 @@ func (c *Config) Validate() error {
 
 	if len(missing) > 0 {
 		return fmt.Errorf("missing required environment variables: %s", strings.Join(missing, ", "))
+	}
+	if c.SessionTTL <= 0 {
+		return fmt.Errorf("SESSION_TTL_HOURS must be greater than zero")
 	}
 
 	return nil

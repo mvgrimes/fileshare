@@ -61,6 +61,7 @@ func testConfig() *config.Config {
 		ServerPort:    0,
 		Environment:   "test",
 		LogLevel:      "debug",
+		SessionTTL:    6,
 		DatabaseURL:   "test.db",
 		SessionSecret: "secret",
 		JWTSecret:     "secret",
@@ -162,6 +163,30 @@ func TestSessionLoginAndActorAuthorization(t *testing.T) {
 				t.Fatalf("body = %q, want to contain %q", rec.Body.String(), tc.wantBody)
 			}
 		})
+	}
+}
+
+func TestSessionLoginSetsCookieTTLFromConfig(t *testing.T) {
+	cfg := testConfig()
+	cfg.SessionTTL = 5
+	s := New(cfg, slog.Default())
+
+	body := bytes.NewBufferString("actor_type=user&actor_id=u-ttl")
+	req := httptest.NewRequest(http.MethodPost, "/auth/session", body)
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
+	rec := httptest.NewRecorder()
+	s.e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusNoContent)
+	}
+
+	cookie := cookieByName(rec.Result().Cookies(), "sharefile_session")
+	if cookie == nil {
+		t.Fatal("expected sharefile_session cookie")
+	}
+	if cookie.MaxAge != 5*60*60 {
+		t.Fatalf("cookie max-age = %d, want %d", cookie.MaxAge, 5*60*60)
 	}
 }
 
