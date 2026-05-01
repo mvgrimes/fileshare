@@ -37,7 +37,7 @@ type magicQuerier interface {
 	CreateMagicLink(ctx context.Context, arg db.CreateMagicLinkParams) error
 	GetMagicLinkByTokenHash(ctx context.Context, tokenHash string) (db.MagicLink, error)
 	ListMagicLinksByClient(ctx context.Context, clientID string) ([]db.MagicLink, error)
-	ConsumeMagicLink(ctx context.Context, id string) error
+	ConsumeMagicLinkIfActive(ctx context.Context, id string) (bool, error)
 }
 
 func NewMagicManager(queries magicQuerier, ttl, throttle time.Duration) *MagicManager {
@@ -133,8 +133,12 @@ func (m *MagicManager) Consume(ctx context.Context, clientID, token string) (Mag
 	if !link.ExpiresAt.After(m.now()) {
 		return MagicLink{}, ErrMagicLinkExpired
 	}
-	if err := m.queries.ConsumeMagicLink(ctx, row.ID); err != nil {
+	consumed, err := m.queries.ConsumeMagicLinkIfActive(ctx, row.ID)
+	if err != nil {
 		return MagicLink{}, err
+	}
+	if !consumed {
+		return MagicLink{}, ErrMagicLinkConsumed
 	}
 
 	now := m.now()

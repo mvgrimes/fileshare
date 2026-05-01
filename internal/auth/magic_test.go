@@ -29,6 +29,24 @@ func TestMagicLinkCreateAndConsume(t *testing.T) {
 	}
 }
 
+func TestMagicLinkConsumeReturnsConsumedWhenAtomicUpdateLosesRace(t *testing.T) {
+	m := NewMagicManager(stubMagicQuerier{
+		row: db.MagicLink{
+			ID:        "link-1",
+			ClientID:  "client-1",
+			TokenHash: hashToken("token-1"),
+			ExpiresAt: time.Now().Add(time.Hour).Format(time.RFC3339Nano),
+			CreatedAt: time.Now().Format(time.RFC3339Nano),
+		},
+		consumeOK: false,
+	}, time.Hour, 0)
+
+	_, err := m.Consume(context.Background(), "client-1", "token-1")
+	if !errors.Is(err, ErrMagicLinkConsumed) {
+		t.Fatalf("Consume() error = %v, want %v", err, ErrMagicLinkConsumed)
+	}
+}
+
 func TestMagicLinkThrottle(t *testing.T) {
 	q := setupMagicQueries(t)
 	m := NewMagicManager(q, 15*time.Minute, time.Minute)
@@ -145,4 +163,25 @@ func setupMagicQueries(t *testing.T) *db.Queries {
 	}
 
 	return db.New(sqlDB)
+}
+
+type stubMagicQuerier struct {
+	row       db.MagicLink
+	consumeOK bool
+}
+
+func (s stubMagicQuerier) CreateMagicLink(_ context.Context, _ db.CreateMagicLinkParams) error {
+	return nil
+}
+
+func (s stubMagicQuerier) GetMagicLinkByTokenHash(_ context.Context, _ string) (db.MagicLink, error) {
+	return s.row, nil
+}
+
+func (s stubMagicQuerier) ListMagicLinksByClient(_ context.Context, _ string) ([]db.MagicLink, error) {
+	return nil, nil
+}
+
+func (s stubMagicQuerier) ConsumeMagicLinkIfActive(_ context.Context, _ string) (bool, error) {
+	return s.consumeOK, nil
 }
