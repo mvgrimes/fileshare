@@ -105,7 +105,7 @@ func New(cfg *config.Config, log *slog.Logger) *Server {
 	queries := db.New(sqlDB)
 	sessionTTL := time.Duration(cfg.SessionTTL) * time.Hour
 	sessions := auth.NewManager(queries, sessionTTL)
-	authz := auth.NewAuthorizationService()
+	authz := auth.NewAuthorizationService(queries)
 	userSync := auth.NewUserSyncer(queries)
 	clientPwd := auth.NewClientPasswordAuthenticator(queries)
 	magic := auth.NewMagicManager(queries, 15*time.Minute, 60*time.Second)
@@ -322,6 +322,16 @@ func New(cfg *config.Config, log *slog.Logger) *Server {
 			"ActorID":         principal.ActorID,
 			"ContentTemplate": "dashboard_content",
 		})
+	})
+	client.GET("/files/:fileID/download", func(c echo.Context) error {
+		principal, _ := auth.PrincipalFromContext(c)
+		if err := srv.authz.AuthorizeClientDownload(c.Request().Context(), principal, c.Param("fileID")); err != nil {
+			if err == auth.ErrForbidden {
+				return c.String(http.StatusForbidden, "forbidden")
+			}
+			return c.String(http.StatusInternalServerError, "failed to authorize download")
+		}
+		return c.String(http.StatusOK, "download access granted")
 	})
 
 	admin := e.Group("/admin")

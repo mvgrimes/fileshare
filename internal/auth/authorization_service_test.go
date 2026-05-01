@@ -1,12 +1,15 @@
 package auth
 
 import (
+	"context"
 	"errors"
 	"testing"
+
+	"sharefile/internal/db"
 )
 
 func TestAuthorizationService(t *testing.T) {
-	svc := NewAuthorizationService()
+	svc := NewAuthorizationService(nil)
 
 	t.Run("manage users", func(t *testing.T) {
 		admin := Principal{ActorType: "user", Roles: []string{"admin"}}
@@ -46,4 +49,38 @@ func TestAuthorizationService(t *testing.T) {
 			t.Fatalf("authorize manager upload files error = %v, want %v", err, ErrForbidden)
 		}
 	})
+
+	t.Run("client download", func(t *testing.T) {
+		fileAccess := stubClientFileAccess{allowed: true}
+		downloadSvc := NewAuthorizationService(fileAccess)
+
+		allowed := Principal{ActorType: "client", ActorID: "client-1"}
+		if err := downloadSvc.AuthorizeClientDownload(context.Background(), allowed, "file-1"); err != nil {
+			t.Fatalf("authorize client download: %v", err)
+		}
+
+		denied := NewAuthorizationService(stubClientFileAccess{allowed: false})
+		err := denied.AuthorizeClientDownload(context.Background(), allowed, "file-1")
+		if !errors.Is(err, ErrForbidden) {
+			t.Fatalf("authorize denied client download error = %v, want %v", err, ErrForbidden)
+		}
+
+		nonClient := Principal{ActorType: "user", ActorID: "user-1", Roles: []string{"admin"}}
+		err = downloadSvc.AuthorizeClientDownload(context.Background(), nonClient, "file-1")
+		if !errors.Is(err, ErrForbidden) {
+			t.Fatalf("authorize non-client download error = %v, want %v", err, ErrForbidden)
+		}
+	})
+}
+
+type stubClientFileAccess struct {
+	allowed bool
+	err     error
+}
+
+func (s stubClientFileAccess) ClientCanAccessFile(_ context.Context, _ db.ClientCanAccessFileParams) (bool, error) {
+	if s.err != nil {
+		return false, s.err
+	}
+	return s.allowed, nil
 }

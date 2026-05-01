@@ -442,6 +442,50 @@ func TestRBACRoleGates(t *testing.T) {
 	}
 }
 
+func TestClientDownloadAuthorization(t *testing.T) {
+	s := New(testConfig(), slog.Default())
+
+	createClientWithoutPassword(t, "client-download-direct", "client-download-direct@example.com", true)
+	createClientWithoutPassword(t, "client-download-group", "client-download-group@example.com", true)
+	createClientWithoutPassword(t, "client-download-denied", "client-download-denied@example.com", true)
+
+	createFileForTests(t, "file-direct")
+	createShareForTests(t, "share-direct", "file-direct", "client", "client-download-direct")
+
+	createFileForTests(t, "file-group")
+	createClientGroupForTests(t, "cg-download")
+	addClientToGroupForTests(t, "cg-download", "client-download-group")
+	createShareForTests(t, "share-group", "file-group", "client_group", "cg-download")
+
+	directCookie := login(t, s, "client", "client-download-direct", "")
+	groupCookie := login(t, s, "client", "client-download-group", "")
+	deniedCookie := login(t, s, "client", "client-download-denied", "")
+
+	tests := []struct {
+		name       string
+		fileID     string
+		cookie     *http.Cookie
+		wantStatus int
+	}{
+		{name: "direct share allowed", fileID: "file-direct", cookie: directCookie, wantStatus: http.StatusOK},
+		{name: "group share allowed", fileID: "file-group", cookie: groupCookie, wantStatus: http.StatusOK},
+		{name: "missing share denied", fileID: "file-direct", cookie: deniedCookie, wantStatus: http.StatusForbidden},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, "/client/files/"+tc.fileID+"/download", nil)
+			req.AddCookie(tc.cookie)
+			rec := httptest.NewRecorder()
+			s.e.ServeHTTP(rec, req)
+
+			if rec.Code != tc.wantStatus {
+				t.Fatalf("status = %d, want %d", rec.Code, tc.wantStatus)
+			}
+		})
+	}
+}
+
 func TestMagicLinkVerifySingleUse(t *testing.T) {
 	s := New(testConfig(), slog.Default())
 	token, _, err := s.magic.Create(context.Background(), "client-once")
@@ -737,6 +781,82 @@ func createClientWithoutPassword(t *testing.T, id, email string, active bool) {
 		IsActive:     isActive,
 	}); err != nil {
 		t.Fatalf("CreateClient() error: %v", err)
+	}
+}
+
+func createFileForTests(t *testing.T, fileID string) {
+	t.Helper()
+	sqlDB, err := sql.Open("sqlite", testConfig().DatabaseURL)
+	if err != nil {
+		t.Fatalf("sql.Open() unexpected error: %v", err)
+	}
+	defer sqlDB.Close()
+
+	if err := db.New(sqlDB).CreateFile(context.Background(), db.CreateFileParams{
+		ID:               fileID,
+		UploaderType:     "user",
+		UploaderID:       "u-seed",
+		OriginalFilename: fileID + ".txt",
+		StorageKey:       "s3/" + fileID,
+		ContentType:      "text/plain",
+		SizeBytes:        123,
+		ExpiresAt:        sql.NullString{},
+	}); err != nil {
+		t.Fatalf("CreateFile() error: %v", err)
+	}
+}
+
+func createShareForTests(t *testing.T, shareID, fileID, targetType, targetID string) {
+	t.Helper()
+	sqlDB, err := sql.Open("sqlite", testConfig().DatabaseURL)
+	if err != nil {
+		t.Fatalf("sql.Open() unexpected error: %v", err)
+	}
+	defer sqlDB.Close()
+
+	if err := db.New(sqlDB).CreateShare(context.Background(), db.CreateShareParams{
+		ID:           shareID,
+		FileID:       fileID,
+		SharedByType: "user",
+		SharedByID:   "u-seed",
+		TargetType:   targetType,
+		TargetID:     targetID,
+		Message:      sql.NullString{},
+	}); err != nil {
+		t.Fatalf("CreateShare() error: %v", err)
+	}
+}
+
+func createClientGroupForTests(t *testing.T, groupID string) {
+	t.Helper()
+	sqlDB, err := sql.Open("sqlite", testConfig().DatabaseURL)
+	if err != nil {
+		t.Fatalf("sql.Open() unexpected error: %v", err)
+	}
+	defer sqlDB.Close()
+
+	if err := db.New(sqlDB).CreateClientGroup(context.Background(), db.CreateClientGroupParams{
+		ID:              groupID,
+		Name:            "Download Group",
+		CreatedByUserID: sql.NullString{},
+	}); err != nil {
+		t.Fatalf("CreateClientGroup() error: %v", err)
+	}
+}
+
+func addClientToGroupForTests(t *testing.T, groupID, clientID string) {
+	t.Helper()
+	sqlDB, err := sql.Open("sqlite", testConfig().DatabaseURL)
+	if err != nil {
+		t.Fatalf("sql.Open() unexpected error: %v", err)
+	}
+	defer sqlDB.Close()
+
+	if err := db.New(sqlDB).AddClientToGroup(context.Background(), db.AddClientToGroupParams{
+		ClientGroupID: groupID,
+		ClientID:      clientID,
+	}); err != nil {
+		t.Fatalf("AddClientToGroup() error: %v", err)
 	}
 }
 
