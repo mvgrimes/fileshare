@@ -17,6 +17,23 @@ This project uses `goose` SQL migrations in this directory.
   - `go run . migrate status`
   - `go run . migrate down`
 
+## CI Usage
+
+- Use a writable SQLite path in the job workspace (for example: `DATABASE_URL=$PWD/sharefile-ci.db`).
+- Run migrations in order to validate both apply and rollback paths:
+  - `go run . migrate up`
+  - `go run . migrate status`
+  - `go run . migrate down`
+
+## DATABASE_URL Rules
+
+- Supported values:
+  - Plain SQLite file path (for example: `sharefile.db` or `/tmp/sharefile.db`)
+  - `sqlite://` URL form (for example: `sqlite:///tmp/sharefile.db`)
+- Unsupported values:
+  - `libsql://...` (goose currently uses the SQLite driver in this repo)
+  - Other URL schemes such as `postgres://...`
+
 ## Notes
 
 - Turso/libsql URLs are not used directly by this command path yet.
