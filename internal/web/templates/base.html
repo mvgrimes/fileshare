@@ -1,0 +1,23 @@
+{{define "base"}}
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{.Title}}</title>
+  </head>
+  <body>
+    <header>
+      <nav>
+        <a href="/">Home</a>
+        <a href="/user/dashboard">User</a>
+        <a href="/client/dashboard">Client</a>
+        <a href="/admin/dashboard">Admin</a>
+      </nav>
+    </header>
+    <main>
+      {{template .ContentTemplate .}}
+    </main>
+  </body>
+</html>
+{{end}}
