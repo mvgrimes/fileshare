@@ -100,7 +100,7 @@ func New(cfg *config.Config, log *slog.Logger) *Server {
 	e.Use(middleware.Secure())
 	e.Use(middleware.CSRFWithConfig(middleware.CSRFConfig{
 		Skipper: func(c echo.Context) bool {
-			return c.Path() == "/auth/session" || c.Path() == "/auth/logout" || c.Path() == "/auth/sso/login" || c.Path() == "/auth/magic/request" || c.Path() == "/auth/magic/verify" || c.Path() == "/auth/password/login" || c.Path() == "/client/uploads"
+			return c.Path() == "/auth/session" || c.Path() == "/auth/logout" || c.Path() == "/auth/sso/login" || c.Path() == "/auth/magic/request" || c.Path() == "/auth/magic/verify" || c.Path() == "/auth/password/login" || c.Path() == "/client/uploads" || c.Path() == "/user/uploads"
 		},
 	}))
 	e.Use(middleware.RateLimiter(middleware.NewRateLimiterMemoryStore(20)))
@@ -395,7 +395,44 @@ func New(cfg *config.Config, log *slog.Logger) *Server {
 		if err := srv.authz.AuthorizeUploadFiles(principal); err != nil {
 			return c.String(http.StatusForbidden, "forbidden")
 		}
-		return c.String(http.StatusOK, "uploader access granted")
+		return c.Render(http.StatusOK, "upload_share", map[string]any{
+			"Title":           "Upload and Share",
+			"Subtitle":        "Upload metadata and sharing targets for processing.",
+			"ActorID":         principal.ActorID,
+			"ContentTemplate": "upload_share_content",
+			"FormAction":      "/user/uploads",
+			"FlashError":      c.QueryParam("error"),
+			"FlashSuccess":    c.QueryParam("success"),
+			"ShowShareFields": true,
+		})
+	}, auth.RequireCapability(auth.CapabilityUploadFiles))
+	user.POST("/uploads", func(c echo.Context) error {
+		principal, _ := auth.PrincipalFromContext(c)
+		if err := srv.authz.AuthorizeUploadFiles(principal); err != nil {
+			return c.String(http.StatusForbidden, "forbidden")
+		}
+
+		filename := strings.TrimSpace(c.FormValue("filename"))
+		targetType := strings.TrimSpace(c.FormValue("target_type"))
+		targetID := strings.TrimSpace(c.FormValue("target_id"))
+		if filename == "" || targetType == "" || targetID == "" {
+			if isHTMLRequest(c) {
+				return c.Redirect(http.StatusSeeOther, "/user/uploads?error="+url.QueryEscape("filename, target_type, and target_id are required"))
+			}
+			return c.String(http.StatusBadRequest, "filename, target_type, and target_id are required")
+		}
+
+		if targetType != "client" && targetType != "client_group" {
+			if isHTMLRequest(c) {
+				return c.Redirect(http.StatusSeeOther, "/user/uploads?error="+url.QueryEscape("target_type must be client or client_group"))
+			}
+			return c.String(http.StatusBadRequest, "target_type must be client or client_group")
+		}
+
+		if isHTMLRequest(c) {
+			return c.Redirect(http.StatusSeeOther, "/user/uploads?success="+url.QueryEscape("Upload/share submission accepted"))
+		}
+		return c.String(http.StatusOK, "upload/share submission accepted")
 	}, auth.RequireCapability(auth.CapabilityUploadFiles))
 	user.GET("/clients", func(c echo.Context) error {
 		principal, _ := auth.PrincipalFromContext(c)
@@ -407,12 +444,24 @@ func New(cfg *config.Config, log *slog.Logger) *Server {
 
 	client := e.Group("/client")
 	client.Use(auth.RequireAuth(), auth.RequireActorType("client"))
+	client.GET("/uploads", func(c echo.Context) error {
+		principal, _ := auth.PrincipalFromContext(c)
+		return c.Render(http.StatusOK, "upload_share", map[string]any{
+			"Title":           "Client Upload",
+			"Subtitle":        "Submit upload targets permitted for your account.",
+			"ActorID":         principal.ActorID,
+			"ContentTemplate": "upload_share_content",
+			"FormAction":      "/client/uploads",
+			"FlashError":      c.QueryParam("error"),
+			"FlashSuccess":    c.QueryParam("success"),
+		})
+	})
 	client.GET("/dashboard", func(c echo.Context) error {
 		principal, _ := auth.PrincipalFromContext(c)
 		actions := []dashboardAction{{
-			Label:       "Request a Magic Link",
-			Description: "Need a fresh login token? Request and verify a new magic link.",
-			Path:        "/request-link",
+			Label:       "Upload Files",
+			Description: "Submit upload targets; permissions are validated per client.",
+			Path:        "/client/uploads",
 		}}
 		return c.Render(http.StatusOK, "dashboard", map[string]any{
 			"Title":           "Client Dashboard",
@@ -441,14 +490,29 @@ func New(cfg *config.Config, log *slog.Logger) *Server {
 		principal, _ := auth.PrincipalFromContext(c)
 		targetType := strings.TrimSpace(c.FormValue("target_type"))
 		targetID := strings.TrimSpace(c.FormValue("target_id"))
+		if targetType == "" || targetID == "" {
+			if isHTMLRequest(c) {
+				return c.Redirect(http.StatusSeeOther, "/client/uploads?error="+url.QueryEscape("target_type and target_id are required"))
+			}
+			return c.String(http.StatusBadRequest, "target_type and target_id are required")
+		}
 		if err := srv.authz.AuthorizeClientUpload(c.Request().Context(), principal, targetType, targetID); err != nil {
 			auditAuthEvent(c, queries, "authz.client.upload", principal.ActorType, principal.ActorID, targetType, targetID, map[string]any{"outcome": "denied", "reason": "forbidden"})
 			if err == auth.ErrForbidden {
+				if isHTMLRequest(c) {
+					return c.Redirect(http.StatusSeeOther, "/client/uploads?error="+url.QueryEscape("Upload target is not allowed"))
+				}
 				return c.String(http.StatusForbidden, "forbidden")
+			}
+			if isHTMLRequest(c) {
+				return c.Redirect(http.StatusSeeOther, "/client/uploads?error="+url.QueryEscape("Failed to authorize upload"))
 			}
 			return c.String(http.StatusInternalServerError, "failed to authorize upload")
 		}
 		auditAuthEvent(c, queries, "authz.client.upload", principal.ActorType, principal.ActorID, targetType, targetID, map[string]any{"outcome": "allowed"})
+		if isHTMLRequest(c) {
+			return c.Redirect(http.StatusSeeOther, "/client/uploads?success="+url.QueryEscape("Upload submission accepted"))
+		}
 		return c.String(http.StatusOK, "upload access granted")
 	})
 

@@ -303,8 +303,97 @@ func TestClientDashboardShowsMagicLinkAction(t *testing.T) {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
 	}
 	body := rec.Body.String()
-	if !strings.Contains(body, "Request a Magic Link") || !strings.Contains(body, "href=\"/request-link\"") {
-		t.Fatalf("body = %q, want magic link dashboard action", body)
+	if !strings.Contains(body, "Upload Files") || !strings.Contains(body, "href=\"/client/uploads\"") {
+		t.Fatalf("body = %q, want upload dashboard action", body)
+	}
+}
+
+func TestUploadFormsRenderForAuthorizedActors(t *testing.T) {
+	s := New(testConfig(), slog.Default())
+
+	uploaderCookie := login(t, s, "user", "u-form", "uploader")
+	userReq := httptest.NewRequest(http.MethodGet, "/user/uploads", nil)
+	userReq.AddCookie(uploaderCookie)
+	userRec := httptest.NewRecorder()
+	s.e.ServeHTTP(userRec, userReq)
+	if userRec.Code != http.StatusOK {
+		t.Fatalf("user upload form status = %d, want %d", userRec.Code, http.StatusOK)
+	}
+	userBody := userRec.Body.String()
+	if !strings.Contains(userBody, "action=\"/user/uploads\"") || !strings.Contains(userBody, "name=\"filename\"") {
+		t.Fatalf("user upload form body = %q, want user form fields", userBody)
+	}
+
+	clientCookie := login(t, s, "client", "c-form", "")
+	clientReq := httptest.NewRequest(http.MethodGet, "/client/uploads", nil)
+	clientReq.AddCookie(clientCookie)
+	clientRec := httptest.NewRecorder()
+	s.e.ServeHTTP(clientRec, clientReq)
+	if clientRec.Code != http.StatusOK {
+		t.Fatalf("client upload form status = %d, want %d", clientRec.Code, http.StatusOK)
+	}
+	clientBody := clientRec.Body.String()
+	if !strings.Contains(clientBody, "action=\"/client/uploads\"") || strings.Contains(clientBody, "name=\"filename\"") {
+		t.Fatalf("client upload form body = %q, want client form without filename field", clientBody)
+	}
+}
+
+func TestUserUploadSubmissionValidationAndSuccess(t *testing.T) {
+	s := New(testConfig(), slog.Default())
+	cookie := login(t, s, "user", "u-submit", "uploader")
+
+	badReq := httptest.NewRequest(http.MethodPost, "/user/uploads", bytes.NewBufferString("filename=&target_type=client&target_id="))
+	badReq.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
+	badReq.AddCookie(cookie)
+	badRec := httptest.NewRecorder()
+	s.e.ServeHTTP(badRec, badReq)
+	if badRec.Code != http.StatusBadRequest {
+		t.Fatalf("bad submit status = %d, want %d", badRec.Code, http.StatusBadRequest)
+	}
+
+	okReq := httptest.NewRequest(http.MethodPost, "/user/uploads", bytes.NewBufferString("filename=report.pdf&target_type=client&target_id=c-1"))
+	okReq.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
+	okReq.AddCookie(cookie)
+	okRec := httptest.NewRecorder()
+	s.e.ServeHTTP(okRec, okReq)
+	if okRec.Code != http.StatusOK {
+		t.Fatalf("ok submit status = %d, want %d", okRec.Code, http.StatusOK)
+	}
+	if !strings.Contains(okRec.Body.String(), "submission accepted") {
+		t.Fatalf("ok submit body = %q, want acceptance message", okRec.Body.String())
+	}
+}
+
+func TestClientUploadHTMLRedirectsWithValidationAndOutcome(t *testing.T) {
+	s := New(testConfig(), slog.Default())
+	createClientForUploadTests(t, "client-form-upload", "client-form-upload@example.com", true, true)
+	createClientUploadPermissionForTests(t, "perm-form-upload", "client-form-upload", "user", "u-allow")
+	cookie := login(t, s, "client", "client-form-upload", "")
+
+	missingReq := httptest.NewRequest(http.MethodPost, "/client/uploads", bytes.NewBufferString("target_type=&target_id="))
+	missingReq.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
+	missingReq.Header.Set(echo.HeaderAccept, echo.MIMETextHTML)
+	missingReq.AddCookie(cookie)
+	missingRec := httptest.NewRecorder()
+	s.e.ServeHTTP(missingRec, missingReq)
+	if missingRec.Code != http.StatusSeeOther {
+		t.Fatalf("missing status = %d, want %d", missingRec.Code, http.StatusSeeOther)
+	}
+	if !strings.HasPrefix(missingRec.Result().Header.Get(echo.HeaderLocation), "/client/uploads?error=") {
+		t.Fatalf("missing redirect = %q, want error redirect", missingRec.Result().Header.Get(echo.HeaderLocation))
+	}
+
+	okReq := httptest.NewRequest(http.MethodPost, "/client/uploads", bytes.NewBufferString("target_type=user&target_id=u-allow"))
+	okReq.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
+	okReq.Header.Set(echo.HeaderAccept, echo.MIMETextHTML)
+	okReq.AddCookie(cookie)
+	okRec := httptest.NewRecorder()
+	s.e.ServeHTTP(okRec, okReq)
+	if okRec.Code != http.StatusSeeOther {
+		t.Fatalf("ok status = %d, want %d", okRec.Code, http.StatusSeeOther)
+	}
+	if !strings.HasPrefix(okRec.Result().Header.Get(echo.HeaderLocation), "/client/uploads?success=") {
+		t.Fatalf("ok redirect = %q, want success redirect", okRec.Result().Header.Get(echo.HeaderLocation))
 	}
 }
 

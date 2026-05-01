@@ -1,0 +1,37 @@
+{{define "upload_share"}}{{template "base" .}}{{end}}
+
+{{define "upload_share_content"}}
+<section class="card bg-base-100 shadow-sm">
+  <div class="card-body gap-4">
+    {{template "page_header" .}}
+    <p class="text-sm opacity-80">Actor ID: <code>{{.ActorID}}</code></p>
+    <form method="post" action="{{.FormAction}}" class="grid gap-3 md:grid-cols-2">
+      {{if .ShowShareFields}}
+      <label class="form-control w-full md:col-span-2">
+        <span class="label-text">Filename</span>
+        <input class="input input-bordered w-full" type="text" name="filename" placeholder="quarterly-report.pdf" required>
+      </label>
+      {{end}}
+      <label class="form-control w-full">
+        <span class="label-text">Target Type</span>
+        <select class="select select-bordered w-full" name="target_type" required>
+          <option value="">Select target type</option>
+          <option value="user">User</option>
+          <option value="user_group">User Group</option>
+          <option value="client">Client</option>
+          <option value="client_group">Client Group</option>
+        </select>
+      </label>
+      <label class="form-control w-full">
+        <span class="label-text">Target ID</span>
+        <input class="input input-bordered w-full" type="text" name="target_id" required>
+      </label>
+      <label class="form-control w-full md:col-span-2">
+        <span class="label-text">Message (optional)</span>
+        <textarea class="textarea textarea-bordered" name="message" rows="3" placeholder="Optional note for recipients"></textarea>
+      </label>
+      <button class="btn btn-primary md:col-span-2" type="submit">Submit</button>
+    </form>
+  </div>
+</section>
+{{end}}
