@@ -1,11 +1,15 @@
 package auth
 
-import "testing"
+import (
+	"errors"
+	"testing"
+)
 
 func TestPolicyChecks(t *testing.T) {
 	admin := Principal{ActorType: "user", Roles: []string{"admin"}}
 	manager := Principal{ActorType: "user", Roles: []string{"account_manager"}}
 	uploader := Principal{ActorType: "user", Roles: []string{"uploader"}}
+	userWithoutRole := Principal{ActorType: "user", Roles: []string{"unknown"}}
 	client := Principal{ActorType: "client", Roles: []string{"uploader"}}
 
 	if !CanManageUsers(admin) {
@@ -25,5 +29,21 @@ func TestPolicyChecks(t *testing.T) {
 	}
 	if CanUploadFiles(client) {
 		t.Fatal("client should not upload files through user policy")
+	}
+	if HasCapability(userWithoutRole, CapabilityManageUsers) {
+		t.Fatal("unknown role should not grant permissions")
+	}
+}
+
+func TestAuthorizeCapability(t *testing.T) {
+	admin := Principal{ActorType: "user", Roles: []string{"admin"}}
+	if err := AuthorizeCapability(admin, CapabilityManageUsers); err != nil {
+		t.Fatalf("authorize admin manage users: %v", err)
+	}
+
+	client := Principal{ActorType: "client", Roles: []string{"admin"}}
+	err := AuthorizeCapability(client, CapabilityManageUsers)
+	if !errors.Is(err, ErrForbidden) {
+		t.Fatalf("authorize client manage users error = %v, want %v", err, ErrForbidden)
 	}
 }
