@@ -30,6 +30,7 @@ type Server struct {
 	log       *slog.Logger
 	sessions  *auth.Manager
 	userSync  *auth.UserSyncer
+	clientPwd *auth.ClientPasswordAuthenticator
 	magic     *auth.MagicManager
 	magicSend auth.MagicSender
 }
@@ -85,7 +86,7 @@ func New(cfg *config.Config, log *slog.Logger) *Server {
 	e.Use(middleware.Secure())
 	e.Use(middleware.CSRFWithConfig(middleware.CSRFConfig{
 		Skipper: func(c echo.Context) bool {
-			return c.Path() == "/auth/session" || c.Path() == "/auth/logout" || c.Path() == "/auth/sso/login" || c.Path() == "/auth/magic/request" || c.Path() == "/auth/magic/verify"
+			return c.Path() == "/auth/session" || c.Path() == "/auth/logout" || c.Path() == "/auth/sso/login" || c.Path() == "/auth/magic/request" || c.Path() == "/auth/magic/verify" || c.Path() == "/auth/password/login"
 		},
 	}))
 	e.Use(middleware.RateLimiter(middleware.NewRateLimiterMemoryStore(20)))
@@ -102,6 +103,7 @@ func New(cfg *config.Config, log *slog.Logger) *Server {
 	sessionTTL := time.Duration(cfg.SessionTTL) * time.Hour
 	sessions := auth.NewManager(queries, sessionTTL)
 	userSync := auth.NewUserSyncer(queries)
+	clientPwd := auth.NewClientPasswordAuthenticator(queries)
 	magic := auth.NewMagicManager(queries, 15*time.Minute, 60*time.Second)
 	magicSend := auth.MagicSender(auth.NoopSender{})
 	if cfg.MailgunDomain != "" && cfg.MailgunAPIKey != "" && cfg.MailgunFromEmail != "" {
@@ -111,7 +113,7 @@ func New(cfg *config.Config, log *slog.Logger) *Server {
 		}
 		magicSend = sender
 	}
-	srv := &Server{e: e, cfg: cfg, log: log, sessions: sessions, userSync: userSync, magic: magic, magicSend: magicSend}
+	srv := &Server{e: e, cfg: cfg, log: log, sessions: sessions, userSync: userSync, clientPwd: clientPwd, magic: magic, magicSend: magicSend}
 	e.Use(auth.LoadSession(sessions))
 
 	e.GET("/healthz", func(c echo.Context) error {
@@ -231,6 +233,29 @@ func New(cfg *config.Config, log *slog.Logger) *Server {
 			return c.String(http.StatusInternalServerError, "failed to create session")
 		}
 		setSessionCookie(c, cfg.Environment, sessionToken, sessionTTL)
+		return c.NoContent(http.StatusNoContent)
+	})
+	public.POST("/auth/password/login", func(c echo.Context) error {
+		email := c.FormValue("email")
+		password := c.FormValue("password")
+		client, err := srv.clientPwd.Authenticate(c.Request().Context(), email, password)
+		if err != nil {
+			switch err {
+			case auth.ErrClientPasswordDisabled:
+				return c.String(http.StatusForbidden, "password auth disabled")
+			case auth.ErrInvalidClientCredentials:
+				return c.String(http.StatusUnauthorized, "invalid credentials")
+			default:
+				return c.String(http.StatusInternalServerError, "failed to authenticate")
+			}
+		}
+
+		token, _, err := sessions.CreateSession(c.Request().Context(), auth.Principal{ActorType: "client", ActorID: client.ID})
+		if err != nil {
+			return c.String(http.StatusInternalServerError, "failed to create session")
+		}
+
+		setSessionCookie(c, cfg.Environment, token, sessionTTL)
 		return c.NoContent(http.StatusNoContent)
 	})
 

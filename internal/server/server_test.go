@@ -18,6 +18,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/labstack/echo/v4"
 	"github.com/pressly/goose/v3"
+	"golang.org/x/crypto/bcrypt"
 
 	"sharefile/internal/config"
 	"sharefile/internal/db"
@@ -473,6 +474,62 @@ func TestMagicLinkRequestDeliveryFailure(t *testing.T) {
 	}
 }
 
+func TestClientPasswordLoginSuccess(t *testing.T) {
+	s := New(testConfig(), slog.Default())
+	createClientWithPassword(t, "client-pass-1", "client-pass@example.com", "secret-pass", true)
+
+	body := bytes.NewBufferString("email=client-pass@example.com&password=secret-pass")
+	req := httptest.NewRequest(http.MethodPost, "/auth/password/login", body)
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
+	rec := httptest.NewRecorder()
+	s.e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("status = %d, want %d, body=%q", rec.Code, http.StatusNoContent, rec.Body.String())
+	}
+
+	cookie := cookieByName(rec.Result().Cookies(), "sharefile_session")
+	if cookie == nil {
+		t.Fatal("expected sharefile_session cookie")
+	}
+
+	clientReq := httptest.NewRequest(http.MethodGet, "/client/dashboard", nil)
+	clientReq.AddCookie(cookie)
+	clientRec := httptest.NewRecorder()
+	s.e.ServeHTTP(clientRec, clientReq)
+	if clientRec.Code != http.StatusOK {
+		t.Fatalf("client dashboard status = %d, want %d", clientRec.Code, http.StatusOK)
+	}
+}
+
+func TestClientPasswordLoginDisabledAndInvalidCredentials(t *testing.T) {
+	s := New(testConfig(), slog.Default())
+	createClientWithoutPassword(t, "client-no-pass", "client-nopass@example.com", true)
+	createClientWithPassword(t, "client-pass-2", "client-pass2@example.com", "secret-pass", true)
+
+	tests := []struct {
+		name       string
+		body       string
+		wantStatus int
+	}{
+		{name: "password disabled", body: "email=client-nopass@example.com&password=secret-pass", wantStatus: http.StatusForbidden},
+		{name: "wrong password", body: "email=client-pass2@example.com&password=wrong", wantStatus: http.StatusUnauthorized},
+		{name: "missing user", body: "email=missing@example.com&password=secret-pass", wantStatus: http.StatusUnauthorized},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodPost, "/auth/password/login", bytes.NewBufferString(tc.body))
+			req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
+			rec := httptest.NewRecorder()
+			s.e.ServeHTTP(rec, req)
+			if rec.Code != tc.wantStatus {
+				t.Fatalf("status = %d, want %d", rec.Code, tc.wantStatus)
+			}
+		})
+	}
+}
+
 func TestTemplateRendererAddsPath(t *testing.T) {
 	s := New(testConfig(), slog.Default())
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
@@ -539,4 +596,59 @@ type failingSender struct{}
 
 func (failingSender) SendMagicLink(_ context.Context, _ string, _ string) error {
 	return errors.New("smtp down")
+}
+
+func createClientWithPassword(t *testing.T, id, email, password string, active bool) {
+	t.Helper()
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		t.Fatalf("GenerateFromPassword() error: %v", err)
+	}
+
+	sqlDB, err := sql.Open("sqlite", testConfig().DatabaseURL)
+	if err != nil {
+		t.Fatalf("sql.Open() unexpected error: %v", err)
+	}
+	defer sqlDB.Close()
+
+	isActive := int64(0)
+	if active {
+		isActive = 1
+	}
+
+	if err := db.New(sqlDB).CreateClient(context.Background(), db.CreateClientParams{
+		ID:           id,
+		Email:        email,
+		DisplayName:  email,
+		PasswordHash: sql.NullString{Valid: true, String: string(hash)},
+		CanUpload:    0,
+		IsActive:     isActive,
+	}); err != nil {
+		t.Fatalf("CreateClient() error: %v", err)
+	}
+}
+
+func createClientWithoutPassword(t *testing.T, id, email string, active bool) {
+	t.Helper()
+	sqlDB, err := sql.Open("sqlite", testConfig().DatabaseURL)
+	if err != nil {
+		t.Fatalf("sql.Open() unexpected error: %v", err)
+	}
+	defer sqlDB.Close()
+
+	isActive := int64(0)
+	if active {
+		isActive = 1
+	}
+
+	if err := db.New(sqlDB).CreateClient(context.Background(), db.CreateClientParams{
+		ID:           id,
+		Email:        email,
+		DisplayName:  email,
+		PasswordHash: sql.NullString{},
+		CanUpload:    0,
+		IsActive:     isActive,
+	}); err != nil {
+		t.Fatalf("CreateClient() error: %v", err)
+	}
 }
