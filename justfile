@@ -12,11 +12,24 @@ lint:
   golangci-lint run ./... || true
   govulncheck ./...
 
+run:
+	go run ./... server
+
+migrate:
+	go run ./... migrate up
+
+run-watch: migrate
+  air
+
 fmt:
   go fmt ./...
 
 test:
   go test ./...
+
+generage:
+  sqlc generate
+
 
 release:
   go mod tidy
