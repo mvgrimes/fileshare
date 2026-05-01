@@ -16,7 +16,13 @@
       </nav>
     </header>
     <main>
-      {{template .ContentTemplate .}}
+      {{if eq .ContentTemplate "home_content"}}
+        {{template "home_content" .}}
+      {{else if eq .ContentTemplate "dashboard_content"}}
+        {{template "dashboard_content" .}}
+      {{else}}
+        <p>missing content template</p>
+      {{end}}
     </main>
   </body>
 </html>
