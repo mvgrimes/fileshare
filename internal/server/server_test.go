@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -484,6 +485,11 @@ func TestClientDownloadAuthorization(t *testing.T) {
 			}
 		})
 	}
+
+	logs := listAuditLogsByEventType(t, "authz.client.download")
+	if len(logs) < len(tests) {
+		t.Fatalf("audit log count = %d, want at least %d", len(logs), len(tests))
+	}
 }
 
 func TestClientUploadAuthorizationConstraints(t *testing.T) {
@@ -523,6 +529,32 @@ func TestClientUploadAuthorizationConstraints(t *testing.T) {
 				t.Fatalf("status = %d, want %d", rec.Code, tc.wantStatus)
 			}
 		})
+	}
+
+	logs := listAuditLogsByEventType(t, "authz.client.upload")
+	if len(logs) < len(tests) {
+		t.Fatalf("audit log count = %d, want at least %d", len(logs), len(tests))
+	}
+
+	allowedFound := false
+	deniedFound := false
+	for _, l := range logs {
+		meta := map[string]any{}
+		if !l.MetadataJson.Valid {
+			continue
+		}
+		if err := json.Unmarshal([]byte(l.MetadataJson.String), &meta); err != nil {
+			continue
+		}
+		if meta["outcome"] == "allowed" {
+			allowedFound = true
+		}
+		if meta["outcome"] == "denied" {
+			deniedFound = true
+		}
+	}
+	if !allowedFound || !deniedFound {
+		t.Fatalf("expected both allowed and denied upload authz audit events; got allowed=%v denied=%v", allowedFound, deniedFound)
 	}
 }
 

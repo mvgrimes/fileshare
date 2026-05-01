@@ -325,12 +325,15 @@ func New(cfg *config.Config, log *slog.Logger) *Server {
 	})
 	client.GET("/files/:fileID/download", func(c echo.Context) error {
 		principal, _ := auth.PrincipalFromContext(c)
+		fileID := c.Param("fileID")
 		if err := srv.authz.AuthorizeClientDownload(c.Request().Context(), principal, c.Param("fileID")); err != nil {
+			auditAuthEvent(c, queries, "authz.client.download", principal.ActorType, principal.ActorID, "file", fileID, map[string]any{"outcome": "denied", "reason": "forbidden"})
 			if err == auth.ErrForbidden {
 				return c.String(http.StatusForbidden, "forbidden")
 			}
 			return c.String(http.StatusInternalServerError, "failed to authorize download")
 		}
+		auditAuthEvent(c, queries, "authz.client.download", principal.ActorType, principal.ActorID, "file", fileID, map[string]any{"outcome": "allowed"})
 		return c.String(http.StatusOK, "download access granted")
 	})
 	client.POST("/uploads", func(c echo.Context) error {
@@ -338,11 +341,13 @@ func New(cfg *config.Config, log *slog.Logger) *Server {
 		targetType := strings.TrimSpace(c.FormValue("target_type"))
 		targetID := strings.TrimSpace(c.FormValue("target_id"))
 		if err := srv.authz.AuthorizeClientUpload(c.Request().Context(), principal, targetType, targetID); err != nil {
+			auditAuthEvent(c, queries, "authz.client.upload", principal.ActorType, principal.ActorID, targetType, targetID, map[string]any{"outcome": "denied", "reason": "forbidden"})
 			if err == auth.ErrForbidden {
 				return c.String(http.StatusForbidden, "forbidden")
 			}
 			return c.String(http.StatusInternalServerError, "failed to authorize upload")
 		}
+		auditAuthEvent(c, queries, "authz.client.upload", principal.ActorType, principal.ActorID, targetType, targetID, map[string]any{"outcome": "allowed"})
 		return c.String(http.StatusOK, "upload access granted")
 	})
 
