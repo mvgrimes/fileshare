@@ -562,6 +562,61 @@ func TestSSOInvalidTokenWritesAuditEvent(t *testing.T) {
 	}
 }
 
+func TestSSOMissingCookieWritesAuditEvent(t *testing.T) {
+	s := New(testConfig(), slog.Default())
+	req := httptest.NewRequest(http.MethodPost, "/auth/sso/login", nil)
+	rec := httptest.NewRecorder()
+	s.e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusUnauthorized)
+	}
+
+	logs := listAuditLogsByEventType(t, "auth.sso.login")
+	if len(logs) == 0 {
+		t.Fatal("expected auth.sso.login audit log")
+	}
+}
+
+func TestLogoutWritesAuditEventForActiveSession(t *testing.T) {
+	s := New(testConfig(), slog.Default())
+	cookie := login(t, s, "user", "u-audit-logout", "")
+
+	req := httptest.NewRequest(http.MethodPost, "/auth/logout", nil)
+	req.AddCookie(cookie)
+	rec := httptest.NewRecorder()
+	s.e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusNoContent)
+	}
+
+	logs := listAuditLogsByEventType(t, "auth.logout")
+	if len(logs) == 0 {
+		t.Fatal("expected auth.logout audit log")
+	}
+}
+
+func TestClientPasswordLoginSuccessWritesAuditEvent(t *testing.T) {
+	s := New(testConfig(), slog.Default())
+	createClientWithPassword(t, "client-pass-audit", "client-pass-audit@example.com", "secret-pass", true)
+
+	body := bytes.NewBufferString("email=client-pass-audit@example.com&password=secret-pass")
+	req := httptest.NewRequest(http.MethodPost, "/auth/password/login", body)
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
+	rec := httptest.NewRecorder()
+	s.e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusNoContent)
+	}
+
+	logs := listAuditLogsByEventType(t, "auth.password.login")
+	if len(logs) == 0 {
+		t.Fatal("expected auth.password.login audit log")
+	}
+}
+
 func TestTemplateRendererAddsPath(t *testing.T) {
 	s := New(testConfig(), slog.Default())
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
