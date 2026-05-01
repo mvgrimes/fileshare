@@ -100,7 +100,7 @@ func New(cfg *config.Config, log *slog.Logger) *Server {
 	e.Use(middleware.Secure())
 	e.Use(middleware.CSRFWithConfig(middleware.CSRFConfig{
 		Skipper: func(c echo.Context) bool {
-			return c.Path() == "/auth/session" || c.Path() == "/auth/logout" || c.Path() == "/auth/sso/login" || c.Path() == "/auth/magic/request" || c.Path() == "/auth/magic/verify" || c.Path() == "/auth/password/login" || c.Path() == "/client/uploads" || c.Path() == "/user/uploads"
+			return c.Path() == "/auth/session" || c.Path() == "/auth/logout" || c.Path() == "/auth/sso/login" || c.Path() == "/auth/magic/request" || c.Path() == "/auth/magic/verify" || c.Path() == "/auth/password/login" || c.Path() == "/client/uploads" || c.Path() == "/user/uploads" || c.Path() == "/user/clients" || c.Path() == "/user/client-groups" || c.Path() == "/user/client-groups/memberships"
 		},
 	}))
 	e.Use(middleware.RateLimiter(middleware.NewRateLimiterMemoryStore(20)))
@@ -439,7 +439,114 @@ func New(cfg *config.Config, log *slog.Logger) *Server {
 		if err := srv.authz.AuthorizeManageClients(principal); err != nil {
 			return c.String(http.StatusForbidden, "forbidden")
 		}
-		return c.String(http.StatusOK, "account manager access granted")
+		clients, err := queries.ListClients(c.Request().Context(), db.ListClientsParams{Limit: 50, Offset: 0})
+		if err != nil {
+			return c.String(http.StatusInternalServerError, "failed to load clients")
+		}
+		groups, err := queries.ListClientGroups(c.Request().Context(), db.ListClientGroupsParams{Limit: 50, Offset: 0})
+		if err != nil {
+			return c.String(http.StatusInternalServerError, "failed to load client groups")
+		}
+		return c.Render(http.StatusOK, "clients_management", map[string]any{
+			"Title":           "Client Management",
+			"Subtitle":        "Create clients, groups, and memberships.",
+			"ContentTemplate": "clients_management_content",
+			"FlashError":      c.QueryParam("error"),
+			"FlashSuccess":    c.QueryParam("success"),
+			"Clients":         clients,
+			"ClientGroups":    groups,
+		})
+	}, auth.RequireCapability(auth.CapabilityManageClients))
+	user.POST("/clients", func(c echo.Context) error {
+		principal, _ := auth.PrincipalFromContext(c)
+		if err := srv.authz.AuthorizeManageClients(principal); err != nil {
+			return c.String(http.StatusForbidden, "forbidden")
+		}
+
+		email := strings.TrimSpace(c.FormValue("email"))
+		displayName := strings.TrimSpace(c.FormValue("display_name"))
+		if email == "" || displayName == "" {
+			if isHTMLRequest(c) {
+				return c.Redirect(http.StatusSeeOther, "/user/clients?error="+url.QueryEscape("email and display_name are required"))
+			}
+			return c.String(http.StatusBadRequest, "email and display_name are required")
+		}
+		canUpload := int64(0)
+		if c.FormValue("can_upload") == "1" {
+			canUpload = 1
+		}
+		isActive := int64(0)
+		if c.FormValue("is_active") == "1" {
+			isActive = 1
+		}
+		if err := queries.CreateClient(c.Request().Context(), db.CreateClientParams{
+			ID:           uuid.NewString(),
+			Email:        email,
+			DisplayName:  displayName,
+			PasswordHash: sql.NullString{},
+			CanUpload:    canUpload,
+			IsActive:     isActive,
+		}); err != nil {
+			if isHTMLRequest(c) {
+				return c.Redirect(http.StatusSeeOther, "/user/clients?error="+url.QueryEscape("failed to create client"))
+			}
+			return c.String(http.StatusInternalServerError, "failed to create client")
+		}
+		if isHTMLRequest(c) {
+			return c.Redirect(http.StatusSeeOther, "/user/clients?success="+url.QueryEscape("Client created"))
+		}
+		return c.NoContent(http.StatusCreated)
+	}, auth.RequireCapability(auth.CapabilityManageClients))
+	user.POST("/client-groups", func(c echo.Context) error {
+		principal, _ := auth.PrincipalFromContext(c)
+		if err := srv.authz.AuthorizeManageClients(principal); err != nil {
+			return c.String(http.StatusForbidden, "forbidden")
+		}
+		name := strings.TrimSpace(c.FormValue("name"))
+		if name == "" {
+			if isHTMLRequest(c) {
+				return c.Redirect(http.StatusSeeOther, "/user/clients?error="+url.QueryEscape("name is required"))
+			}
+			return c.String(http.StatusBadRequest, "name is required")
+		}
+		if err := queries.CreateClientGroup(c.Request().Context(), db.CreateClientGroupParams{
+			ID:              uuid.NewString(),
+			Name:            name,
+			CreatedByUserID: sql.NullString{Valid: true, String: principal.ActorID},
+		}); err != nil {
+			if isHTMLRequest(c) {
+				return c.Redirect(http.StatusSeeOther, "/user/clients?error="+url.QueryEscape("failed to create client group"))
+			}
+			return c.String(http.StatusInternalServerError, "failed to create client group")
+		}
+		if isHTMLRequest(c) {
+			return c.Redirect(http.StatusSeeOther, "/user/clients?success="+url.QueryEscape("Client group created"))
+		}
+		return c.NoContent(http.StatusCreated)
+	}, auth.RequireCapability(auth.CapabilityManageClients))
+	user.POST("/client-groups/memberships", func(c echo.Context) error {
+		principal, _ := auth.PrincipalFromContext(c)
+		if err := srv.authz.AuthorizeManageClients(principal); err != nil {
+			return c.String(http.StatusForbidden, "forbidden")
+		}
+		groupID := strings.TrimSpace(c.FormValue("group_id"))
+		clientID := strings.TrimSpace(c.FormValue("client_id"))
+		if groupID == "" || clientID == "" {
+			if isHTMLRequest(c) {
+				return c.Redirect(http.StatusSeeOther, "/user/clients?error="+url.QueryEscape("group_id and client_id are required"))
+			}
+			return c.String(http.StatusBadRequest, "group_id and client_id are required")
+		}
+		if err := queries.AddClientToGroup(c.Request().Context(), db.AddClientToGroupParams{ClientGroupID: groupID, ClientID: clientID}); err != nil {
+			if isHTMLRequest(c) {
+				return c.Redirect(http.StatusSeeOther, "/user/clients?error="+url.QueryEscape("failed to add membership"))
+			}
+			return c.String(http.StatusInternalServerError, "failed to add membership")
+		}
+		if isHTMLRequest(c) {
+			return c.Redirect(http.StatusSeeOther, "/user/clients?success="+url.QueryEscape("Membership added"))
+		}
+		return c.NoContent(http.StatusCreated)
 	}, auth.RequireCapability(auth.CapabilityManageClients))
 
 	client := e.Group("/client")

@@ -1,0 +1,88 @@
+{{define "clients_management"}}{{template "base" .}}{{end}}
+
+{{define "clients_management_content"}}
+<section class="grid gap-4 lg:grid-cols-2">
+  <article class="card bg-base-100 shadow-sm">
+    <div class="card-body gap-4">
+      {{template "page_header" .}}
+      <form method="post" action="/user/clients" class="grid gap-3">
+        <label class="form-control w-full">
+          <span class="label-text">Client Email</span>
+          <input class="input input-bordered w-full" type="email" name="email" required>
+        </label>
+        <label class="form-control w-full">
+          <span class="label-text">Display Name</span>
+          <input class="input input-bordered w-full" type="text" name="display_name" required>
+        </label>
+        <label class="label cursor-pointer">
+          <span class="label-text">Can Upload</span>
+          <input class="checkbox" type="checkbox" name="can_upload" value="1">
+        </label>
+        <label class="label cursor-pointer">
+          <span class="label-text">Is Active</span>
+          <input class="checkbox" type="checkbox" name="is_active" value="1" checked>
+        </label>
+        <button class="btn btn-primary" type="submit">Create Client</button>
+      </form>
+    </div>
+  </article>
+
+  <article class="card bg-base-100 shadow-sm">
+    <div class="card-body gap-4">
+      <h2 class="text-xl font-semibold">Create Client Group</h2>
+      <form method="post" action="/user/client-groups" class="grid gap-3">
+        <label class="form-control w-full">
+          <span class="label-text">Group Name</span>
+          <input class="input input-bordered w-full" type="text" name="name" required>
+        </label>
+        <button class="btn btn-primary" type="submit">Create Group</button>
+      </form>
+
+      <h2 class="text-xl font-semibold mt-2">Add Client to Group</h2>
+      <form method="post" action="/user/client-groups/memberships" class="grid gap-3">
+        <label class="form-control w-full">
+          <span class="label-text">Group ID</span>
+          <input class="input input-bordered w-full" type="text" name="group_id" required>
+        </label>
+        <label class="form-control w-full">
+          <span class="label-text">Client ID</span>
+          <input class="input input-bordered w-full" type="text" name="client_id" required>
+        </label>
+        <button class="btn btn-primary" type="submit">Add Membership</button>
+      </form>
+    </div>
+  </article>
+</section>
+
+<section class="grid gap-4 lg:grid-cols-2 mt-4">
+  <article class="card bg-base-100 shadow-sm">
+    <div class="card-body">
+      <h2 class="text-xl font-semibold">Clients</h2>
+      {{if .Clients}}
+      <ul class="menu bg-base-100 w-full">
+        {{range .Clients}}
+        <li><span><strong>{{.ID}}</strong> - {{.DisplayName}} ({{.Email}})</span></li>
+        {{end}}
+      </ul>
+      {{else}}
+      <p class="opacity-70">No clients created yet.</p>
+      {{end}}
+    </div>
+  </article>
+
+  <article class="card bg-base-100 shadow-sm">
+    <div class="card-body">
+      <h2 class="text-xl font-semibold">Client Groups</h2>
+      {{if .ClientGroups}}
+      <ul class="menu bg-base-100 w-full">
+        {{range .ClientGroups}}
+        <li><span><strong>{{.ID}}</strong> - {{.Name}}</span></li>
+        {{end}}
+      </ul>
+      {{else}}
+      <p class="opacity-70">No client groups created yet.</p>
+      {{end}}
+    </div>
+  </article>
+</section>
+{{end}}

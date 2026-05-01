@@ -364,6 +364,83 @@ func TestUserUploadSubmissionValidationAndSuccess(t *testing.T) {
 	}
 }
 
+func TestClientsManagementPageRendersForManager(t *testing.T) {
+	s := New(testConfig(), slog.Default())
+	managerCookie := login(t, s, "user", "u-manager-page", "account_manager")
+
+	req := httptest.NewRequest(http.MethodGet, "/user/clients", nil)
+	req.AddCookie(managerCookie)
+	rec := httptest.NewRecorder()
+	s.e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+	}
+	body := rec.Body.String()
+	if !strings.Contains(body, "Create Client") || !strings.Contains(body, "Create Client Group") || !strings.Contains(body, "Add Membership") {
+		t.Fatalf("body = %q, want management forms", body)
+	}
+}
+
+func TestClientManagementCreateAndMembershipFlows(t *testing.T) {
+	s := New(testConfig(), slog.Default())
+	managerCookie := login(t, s, "user", "u-manager-create", "account_manager")
+
+	createClientReq := httptest.NewRequest(http.MethodPost, "/user/clients", bytes.NewBufferString("email=flow-client@example.com&display_name=Flow+Client&can_upload=1&is_active=1"))
+	createClientReq.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
+	createClientReq.AddCookie(managerCookie)
+	createClientRec := httptest.NewRecorder()
+	s.e.ServeHTTP(createClientRec, createClientReq)
+	if createClientRec.Code != http.StatusCreated {
+		t.Fatalf("create client status = %d, want %d", createClientRec.Code, http.StatusCreated)
+	}
+
+	createGroupReq := httptest.NewRequest(http.MethodPost, "/user/client-groups", bytes.NewBufferString("name=FlowGroup"))
+	createGroupReq.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
+	createGroupReq.AddCookie(managerCookie)
+	createGroupRec := httptest.NewRecorder()
+	s.e.ServeHTTP(createGroupRec, createGroupReq)
+	if createGroupRec.Code != http.StatusCreated {
+		t.Fatalf("create group status = %d, want %d", createGroupRec.Code, http.StatusCreated)
+	}
+
+	clientID := lookupClientIDByEmail(t, "flow-client@example.com")
+	groupID := latestClientGroupID(t)
+
+	addMemberReq := httptest.NewRequest(http.MethodPost, "/user/client-groups/memberships", bytes.NewBufferString("group_id="+groupID+"&client_id="+clientID))
+	addMemberReq.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
+	addMemberReq.AddCookie(managerCookie)
+	addMemberRec := httptest.NewRecorder()
+	s.e.ServeHTTP(addMemberRec, addMemberReq)
+	if addMemberRec.Code != http.StatusCreated {
+		t.Fatalf("add membership status = %d, want %d", addMemberRec.Code, http.StatusCreated)
+	}
+
+	members := listGroupClientsForTests(t, groupID)
+	if len(members) == 0 || members[0].ID != clientID {
+		t.Fatalf("members = %+v, want client %s in group", members, clientID)
+	}
+}
+
+func TestClientManagementHTMLValidationRedirect(t *testing.T) {
+	s := New(testConfig(), slog.Default())
+	managerCookie := login(t, s, "user", "u-manager-html", "account_manager")
+
+	req := httptest.NewRequest(http.MethodPost, "/user/clients", bytes.NewBufferString("email=&display_name="))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
+	req.Header.Set(echo.HeaderAccept, echo.MIMETextHTML)
+	req.AddCookie(managerCookie)
+	rec := httptest.NewRecorder()
+	s.e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusSeeOther)
+	}
+	if !strings.HasPrefix(rec.Result().Header.Get(echo.HeaderLocation), "/user/clients?error=") {
+		t.Fatalf("location = %q, want user clients error redirect", rec.Result().Header.Get(echo.HeaderLocation))
+	}
+}
+
 func TestClientUploadHTMLRedirectsWithValidationAndOutcome(t *testing.T) {
 	s := New(testConfig(), slog.Default())
 	createClientForUploadTests(t, "client-form-upload", "client-form-upload@example.com", true, true)
@@ -1281,4 +1358,52 @@ func listAuditLogsByEventType(t *testing.T, eventType string) []db.AuditLog {
 		t.Fatalf("ListAuditLogsByEventType() error: %v", err)
 	}
 	return logs
+}
+
+func lookupClientIDByEmail(t *testing.T, email string) string {
+	t.Helper()
+	sqlDB, err := sql.Open("sqlite", testConfig().DatabaseURL)
+	if err != nil {
+		t.Fatalf("sql.Open() unexpected error: %v", err)
+	}
+	defer sqlDB.Close()
+
+	client, err := db.New(sqlDB).GetClientByEmail(context.Background(), email)
+	if err != nil {
+		t.Fatalf("GetClientByEmail() error: %v", err)
+	}
+	return client.ID
+}
+
+func latestClientGroupID(t *testing.T) string {
+	t.Helper()
+	sqlDB, err := sql.Open("sqlite", testConfig().DatabaseURL)
+	if err != nil {
+		t.Fatalf("sql.Open() unexpected error: %v", err)
+	}
+	defer sqlDB.Close()
+
+	groups, err := db.New(sqlDB).ListClientGroups(context.Background(), db.ListClientGroupsParams{Limit: 1, Offset: 0})
+	if err != nil {
+		t.Fatalf("ListClientGroups() error: %v", err)
+	}
+	if len(groups) == 0 {
+		t.Fatal("expected at least one client group")
+	}
+	return groups[0].ID
+}
+
+func listGroupClientsForTests(t *testing.T, groupID string) []db.Client {
+	t.Helper()
+	sqlDB, err := sql.Open("sqlite", testConfig().DatabaseURL)
+	if err != nil {
+		t.Fatalf("sql.Open() unexpected error: %v", err)
+	}
+	defer sqlDB.Close()
+
+	clients, err := db.New(sqlDB).ListGroupClients(context.Background(), groupID)
+	if err != nil {
+		t.Fatalf("ListGroupClients() error: %v", err)
+	}
+	return clients
 }
