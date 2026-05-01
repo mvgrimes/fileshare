@@ -192,6 +192,22 @@ func TestProtectedRoutesRequireAuth(t *testing.T) {
 	}
 }
 
+func TestProtectedHTMLRoutesRedirectToLoginWithoutSession(t *testing.T) {
+	s := New(testConfig(), slog.Default())
+	req := httptest.NewRequest(http.MethodGet, "/user/dashboard", nil)
+	req.Header.Set(echo.HeaderAccept, echo.MIMETextHTML)
+	rec := httptest.NewRecorder()
+
+	s.e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusSeeOther)
+	}
+	if loc := rec.Header().Get(echo.HeaderLocation); loc != "/login" {
+		t.Fatalf("location = %q, want %q", loc, "/login")
+	}
+}
+
 func TestSessionLoginAndActorAuthorization(t *testing.T) {
 	s := New(testConfig(), slog.Default())
 

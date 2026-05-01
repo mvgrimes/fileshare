@@ -32,11 +32,22 @@ func RequireAuth() echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
 			if _, ok := c.Get(principalKey).(Principal); !ok {
+				if shouldRedirectToLogin(c) {
+					return c.Redirect(http.StatusSeeOther, "/login")
+				}
 				return c.String(http.StatusUnauthorized, "authentication required")
 			}
 			return next(c)
 		}
 	}
+}
+
+func shouldRedirectToLogin(c echo.Context) bool {
+	if c.Request().Method != http.MethodGet {
+		return false
+	}
+	accept := strings.ToLower(c.Request().Header.Get(echo.HeaderAccept))
+	return strings.Contains(accept, "text/html")
 }
 
 func RequireActorType(actorType string) echo.MiddlewareFunc {
