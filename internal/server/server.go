@@ -31,6 +31,7 @@ type Server struct {
 	cfg       *config.Config
 	log       *slog.Logger
 	sessions  *auth.Manager
+	authz     *auth.AuthorizationService
 	userSync  *auth.UserSyncer
 	clientPwd *auth.ClientPasswordAuthenticator
 	magic     *auth.MagicManager
@@ -104,6 +105,7 @@ func New(cfg *config.Config, log *slog.Logger) *Server {
 	queries := db.New(sqlDB)
 	sessionTTL := time.Duration(cfg.SessionTTL) * time.Hour
 	sessions := auth.NewManager(queries, sessionTTL)
+	authz := auth.NewAuthorizationService()
 	userSync := auth.NewUserSyncer(queries)
 	clientPwd := auth.NewClientPasswordAuthenticator(queries)
 	magic := auth.NewMagicManager(queries, 15*time.Minute, 60*time.Second)
@@ -115,7 +117,7 @@ func New(cfg *config.Config, log *slog.Logger) *Server {
 		}
 		magicSend = sender
 	}
-	srv := &Server{e: e, cfg: cfg, log: log, sessions: sessions, userSync: userSync, clientPwd: clientPwd, magic: magic, magicSend: magicSend}
+	srv := &Server{e: e, cfg: cfg, log: log, sessions: sessions, authz: authz, userSync: userSync, clientPwd: clientPwd, magic: magic, magicSend: magicSend}
 	e.Use(auth.LoadSession(sessions))
 
 	e.GET("/healthz", func(c echo.Context) error {
@@ -296,9 +298,17 @@ func New(cfg *config.Config, log *slog.Logger) *Server {
 		})
 	})
 	user.GET("/uploads", func(c echo.Context) error {
+		principal, _ := auth.PrincipalFromContext(c)
+		if err := srv.authz.AuthorizeUploadFiles(principal); err != nil {
+			return c.String(http.StatusForbidden, "forbidden")
+		}
 		return c.String(http.StatusOK, "uploader access granted")
 	}, auth.RequireCapability(auth.CapabilityUploadFiles))
 	user.GET("/clients", func(c echo.Context) error {
+		principal, _ := auth.PrincipalFromContext(c)
+		if err := srv.authz.AuthorizeManageClients(principal); err != nil {
+			return c.String(http.StatusForbidden, "forbidden")
+		}
 		return c.String(http.StatusOK, "account manager access granted")
 	}, auth.RequireCapability(auth.CapabilityManageClients))
 
@@ -326,6 +336,10 @@ func New(cfg *config.Config, log *slog.Logger) *Server {
 		})
 	})
 	admin.GET("/users", func(c echo.Context) error {
+		principal, _ := auth.PrincipalFromContext(c)
+		if err := srv.authz.AuthorizeManageUsers(principal); err != nil {
+			return c.String(http.StatusForbidden, "forbidden")
+		}
 		return c.String(http.StatusOK, "admin access granted")
 	}, auth.RequireCapability(auth.CapabilityManageUsers))
 
