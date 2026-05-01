@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"strings"
 	"time"
 
 	"sharefile/internal/db"
@@ -14,6 +15,7 @@ var (
 	ErrMagicLinkExpired   = errors.New("magic link expired")
 	ErrMagicLinkConsumed  = errors.New("magic link already consumed")
 	ErrMagicLinkThrottled = errors.New("magic link request throttled")
+	ErrMagicLinkInvalid   = errors.New("invalid magic link request")
 )
 
 type MagicLink struct {
@@ -48,6 +50,10 @@ func NewMagicManager(queries magicQuerier, ttl, throttle time.Duration) *MagicMa
 }
 
 func (m *MagicManager) Create(ctx context.Context, clientID string) (string, MagicLink, error) {
+	if strings.TrimSpace(clientID) == "" {
+		return "", MagicLink{}, ErrMagicLinkInvalid
+	}
+
 	links, err := m.queries.ListMagicLinksByClient(ctx, clientID)
 	if err != nil {
 		return "", MagicLink{}, err
@@ -88,6 +94,10 @@ func (m *MagicManager) Create(ctx context.Context, clientID string) (string, Mag
 }
 
 func (m *MagicManager) Consume(ctx context.Context, clientID, token string) (MagicLink, error) {
+	if strings.TrimSpace(clientID) == "" || strings.TrimSpace(token) == "" {
+		return MagicLink{}, ErrMagicLinkInvalid
+	}
+
 	row, err := m.queries.GetMagicLinkByTokenHash(ctx, hashToken(token))
 	if errors.Is(err, sql.ErrNoRows) {
 		return MagicLink{}, ErrMagicLinkNotFound

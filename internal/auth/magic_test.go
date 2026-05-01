@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"testing"
 	"time"
 
@@ -71,6 +72,52 @@ func TestMagicLinkPersistsAcrossManagerInstances(t *testing.T) {
 	}
 	if loaded.TokenHash != created.TokenHash {
 		t.Fatalf("loaded token hash = %q, want %q", loaded.TokenHash, created.TokenHash)
+	}
+}
+
+func TestMagicLinkCreateRejectsEmptyClientID(t *testing.T) {
+	q := setupMagicQueries(t)
+	m := NewMagicManager(q, 15*time.Minute, 30*time.Second)
+
+	if _, _, err := m.Create(context.Background(), "  "); !errors.Is(err, ErrMagicLinkInvalid) {
+		t.Fatalf("Create() error = %v, want %v", err, ErrMagicLinkInvalid)
+	}
+}
+
+func TestMagicLinkConsumeRejectsInvalidInput(t *testing.T) {
+	q := setupMagicQueries(t)
+	m := NewMagicManager(q, 15*time.Minute, 30*time.Second)
+
+	if _, err := m.Consume(context.Background(), "", "token"); !errors.Is(err, ErrMagicLinkInvalid) {
+		t.Fatalf("Consume() empty client error = %v, want %v", err, ErrMagicLinkInvalid)
+	}
+	if _, err := m.Consume(context.Background(), "client-1", " "); !errors.Is(err, ErrMagicLinkInvalid) {
+		t.Fatalf("Consume() empty token error = %v, want %v", err, ErrMagicLinkInvalid)
+	}
+}
+
+func TestMagicLinkStoresOnlyTokenHash(t *testing.T) {
+	q := setupMagicQueries(t)
+	m := NewMagicManager(q, 15*time.Minute, 30*time.Second)
+
+	token, link, err := m.Create(context.Background(), "client-hash")
+	if err != nil {
+		t.Fatalf("Create() unexpected error: %v", err)
+	}
+	if token == link.TokenHash {
+		t.Fatal("token should not match stored hash")
+	}
+
+	if _, err := q.GetMagicLinkByTokenHash(context.Background(), token); !errors.Is(err, sql.ErrNoRows) {
+		t.Fatalf("GetMagicLinkByTokenHash(plaintext token) error = %v, want %v", err, sql.ErrNoRows)
+	}
+
+	stored, err := q.GetMagicLinkByTokenHash(context.Background(), link.TokenHash)
+	if err != nil {
+		t.Fatalf("GetMagicLinkByTokenHash(hash) unexpected error: %v", err)
+	}
+	if stored.TokenHash != link.TokenHash {
+		t.Fatalf("stored hash = %q, want %q", stored.TokenHash, link.TokenHash)
 	}
 }
 
