@@ -89,7 +89,7 @@ func New(cfg *config.Config, log *slog.Logger) *Server {
 	e.Use(middleware.Secure())
 	e.Use(middleware.CSRFWithConfig(middleware.CSRFConfig{
 		Skipper: func(c echo.Context) bool {
-			return c.Path() == "/auth/session" || c.Path() == "/auth/logout" || c.Path() == "/auth/sso/login" || c.Path() == "/auth/magic/request" || c.Path() == "/auth/magic/verify" || c.Path() == "/auth/password/login"
+			return c.Path() == "/auth/session" || c.Path() == "/auth/logout" || c.Path() == "/auth/sso/login" || c.Path() == "/auth/magic/request" || c.Path() == "/auth/magic/verify" || c.Path() == "/auth/password/login" || c.Path() == "/client/uploads"
 		},
 	}))
 	e.Use(middleware.RateLimiter(middleware.NewRateLimiterMemoryStore(20)))
@@ -105,7 +105,7 @@ func New(cfg *config.Config, log *slog.Logger) *Server {
 	queries := db.New(sqlDB)
 	sessionTTL := time.Duration(cfg.SessionTTL) * time.Hour
 	sessions := auth.NewManager(queries, sessionTTL)
-	authz := auth.NewAuthorizationService(queries)
+	authz := auth.NewAuthorizationService(queries, queries)
 	userSync := auth.NewUserSyncer(queries)
 	clientPwd := auth.NewClientPasswordAuthenticator(queries)
 	magic := auth.NewMagicManager(queries, 15*time.Minute, 60*time.Second)
@@ -332,6 +332,18 @@ func New(cfg *config.Config, log *slog.Logger) *Server {
 			return c.String(http.StatusInternalServerError, "failed to authorize download")
 		}
 		return c.String(http.StatusOK, "download access granted")
+	})
+	client.POST("/uploads", func(c echo.Context) error {
+		principal, _ := auth.PrincipalFromContext(c)
+		targetType := strings.TrimSpace(c.FormValue("target_type"))
+		targetID := strings.TrimSpace(c.FormValue("target_id"))
+		if err := srv.authz.AuthorizeClientUpload(c.Request().Context(), principal, targetType, targetID); err != nil {
+			if err == auth.ErrForbidden {
+				return c.String(http.StatusForbidden, "forbidden")
+			}
+			return c.String(http.StatusInternalServerError, "failed to authorize upload")
+		}
+		return c.String(http.StatusOK, "upload access granted")
 	})
 
 	admin := e.Group("/admin")

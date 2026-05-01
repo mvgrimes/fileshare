@@ -2,6 +2,8 @@ package auth
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 
 	"sharefile/internal/db"
 )
@@ -10,12 +12,18 @@ type clientFileAccessQuerier interface {
 	ClientCanAccessFile(ctx context.Context, arg db.ClientCanAccessFileParams) (bool, error)
 }
 
-type AuthorizationService struct {
-	fileAccess clientFileAccessQuerier
+type clientUploadQuerier interface {
+	GetClientByID(ctx context.Context, id string) (db.Client, error)
+	ClientCanUploadToTarget(ctx context.Context, arg db.ClientCanUploadToTargetParams) (bool, error)
 }
 
-func NewAuthorizationService(fileAccess clientFileAccessQuerier) *AuthorizationService {
-	return &AuthorizationService{fileAccess: fileAccess}
+type AuthorizationService struct {
+	fileAccess clientFileAccessQuerier
+	uploads    clientUploadQuerier
+}
+
+func NewAuthorizationService(fileAccess clientFileAccessQuerier, uploads clientUploadQuerier) *AuthorizationService {
+	return &AuthorizationService{fileAccess: fileAccess, uploads: uploads}
 }
 
 func (s *AuthorizationService) AuthorizeManageUsers(p Principal) error {
@@ -38,6 +46,37 @@ func (s *AuthorizationService) AuthorizeClientDownload(ctx context.Context, p Pr
 		return ErrForbidden
 	}
 	allowed, err := s.fileAccess.ClientCanAccessFile(ctx, db.ClientCanAccessFileParams{FileID: fileID, ClientID: p.ActorID})
+	if err != nil {
+		return err
+	}
+	if !allowed {
+		return ErrForbidden
+	}
+	return nil
+}
+
+func (s *AuthorizationService) AuthorizeClientUpload(ctx context.Context, p Principal, targetType, targetID string) error {
+	if p.ActorType != "client" || p.ActorID == "" || targetType == "" || targetID == "" {
+		return ErrForbidden
+	}
+	if s.uploads == nil {
+		return ErrForbidden
+	}
+	client, err := s.uploads.GetClientByID(ctx, p.ActorID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrForbidden
+		}
+		return err
+	}
+	if client.IsActive != 1 || client.CanUpload != 1 {
+		return ErrForbidden
+	}
+	allowed, err := s.uploads.ClientCanUploadToTarget(ctx, db.ClientCanUploadToTargetParams{
+		ClientID:   p.ActorID,
+		TargetType: targetType,
+		TargetID:   targetID,
+	})
 	if err != nil {
 		return err
 	}

@@ -486,6 +486,46 @@ func TestClientDownloadAuthorization(t *testing.T) {
 	}
 }
 
+func TestClientUploadAuthorizationConstraints(t *testing.T) {
+	s := New(testConfig(), slog.Default())
+
+	createClientForUploadTests(t, "client-upload-enabled", "client-upload-enabled@example.com", true, true)
+	createClientForUploadTests(t, "client-upload-disabled", "client-upload-disabled@example.com", true, false)
+	createClientForUploadTests(t, "client-upload-inactive", "client-upload-inactive@example.com", false, true)
+
+	createClientUploadPermissionForTests(t, "perm-enabled", "client-upload-enabled", "user", "u-target-1")
+
+	enabledCookie := login(t, s, "client", "client-upload-enabled", "")
+	disabledCookie := login(t, s, "client", "client-upload-disabled", "")
+	inactiveCookie := login(t, s, "client", "client-upload-inactive", "")
+
+	tests := []struct {
+		name       string
+		cookie     *http.Cookie
+		body       string
+		wantStatus int
+	}{
+		{name: "enabled and allowed target", cookie: enabledCookie, body: "target_type=user&target_id=u-target-1", wantStatus: http.StatusOK},
+		{name: "enabled but disallowed target", cookie: enabledCookie, body: "target_type=user&target_id=u-target-2", wantStatus: http.StatusForbidden},
+		{name: "disabled upload", cookie: disabledCookie, body: "target_type=user&target_id=u-target-1", wantStatus: http.StatusForbidden},
+		{name: "inactive client", cookie: inactiveCookie, body: "target_type=user&target_id=u-target-1", wantStatus: http.StatusForbidden},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodPost, "/client/uploads", bytes.NewBufferString(tc.body))
+			req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
+			req.AddCookie(tc.cookie)
+			rec := httptest.NewRecorder()
+			s.e.ServeHTTP(rec, req)
+
+			if rec.Code != tc.wantStatus {
+				t.Fatalf("status = %d, want %d", rec.Code, tc.wantStatus)
+			}
+		})
+	}
+}
+
 func TestMagicLinkVerifySingleUse(t *testing.T) {
 	s := New(testConfig(), slog.Default())
 	token, _, err := s.magic.Create(context.Background(), "client-once")
@@ -857,6 +897,54 @@ func addClientToGroupForTests(t *testing.T, groupID, clientID string) {
 		ClientID:      clientID,
 	}); err != nil {
 		t.Fatalf("AddClientToGroup() error: %v", err)
+	}
+}
+
+func createClientForUploadTests(t *testing.T, id, email string, active, canUpload bool) {
+	t.Helper()
+	sqlDB, err := sql.Open("sqlite", testConfig().DatabaseURL)
+	if err != nil {
+		t.Fatalf("sql.Open() unexpected error: %v", err)
+	}
+	defer sqlDB.Close()
+
+	isActive := int64(0)
+	if active {
+		isActive = 1
+	}
+	uploads := int64(0)
+	if canUpload {
+		uploads = 1
+	}
+
+	if err := db.New(sqlDB).CreateClient(context.Background(), db.CreateClientParams{
+		ID:           id,
+		Email:        email,
+		DisplayName:  email,
+		PasswordHash: sql.NullString{},
+		CanUpload:    uploads,
+		IsActive:     isActive,
+	}); err != nil {
+		t.Fatalf("CreateClient() error: %v", err)
+	}
+}
+
+func createClientUploadPermissionForTests(t *testing.T, permissionID, clientID, targetType, targetID string) {
+	t.Helper()
+	sqlDB, err := sql.Open("sqlite", testConfig().DatabaseURL)
+	if err != nil {
+		t.Fatalf("sql.Open() unexpected error: %v", err)
+	}
+	defer sqlDB.Close()
+
+	if err := db.New(sqlDB).CreateClientUploadPermission(context.Background(), db.CreateClientUploadPermissionParams{
+		ID:         permissionID,
+		OwnerType:  "client",
+		OwnerID:    clientID,
+		TargetType: targetType,
+		TargetID:   targetID,
+	}); err != nil {
+		t.Fatalf("CreateClientUploadPermission() error: %v", err)
 	}
 }
 
