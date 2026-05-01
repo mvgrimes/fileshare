@@ -96,13 +96,13 @@ go test ./...
 
 ```bash
 sfw pnpm install
-pnpm run build:css
+pnpm run css:build
 ```
 
 For iterative UI work:
 
 ```bash
-pnpm run watch:css
+pnpm run css:watch
 ```
 
 ## CLI Commands

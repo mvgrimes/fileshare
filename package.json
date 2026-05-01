@@ -2,8 +2,8 @@
   "name": "sharefile-ui-assets",
   "private": true,
   "scripts": {
-    "build:css": "tailwindcss -c tailwind.config.js -i ./internal/web/assets/css/input.css -o ./internal/web/assets/dist/app.css --minify",
-    "watch:css": "tailwindcss -c tailwind.config.js -i ./internal/web/assets/css/input.css -o ./internal/web/assets/dist/app.css --watch"
+    "css:build": "tailwindcss -c tailwind.config.js -i ./internal/web/assets/css/input.css -o ./internal/web/assets/dist/app.css --minify",
+    "css:watch": "tailwindcss -c tailwind.config.js -i ./internal/web/assets/css/input.css -o ./internal/web/assets/dist/app.css --watch"
   },
   "devDependencies": {
     "daisyui": "^4.12.24",
