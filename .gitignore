@@ -1,0 +1,30 @@
+# Logs
+*.log
+
+# dotenv environment variables file
+.env
+.env.*
+.autoenv.zsh
+
+# tmp, system and ref files
+tmp/
+.DS_Store
+/trees/
+.tickets/
+
+# Editor
+Session.vim
+
+# Added by goreleaser init:
+dist/
+
+# Samples
+
+# devcontainers (for now)
+/.devcontainer
+
+# plans
+/docs/plan/
+
+# Build artifacts
+/sharefile
