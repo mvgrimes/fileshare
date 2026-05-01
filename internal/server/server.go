@@ -45,6 +45,12 @@ type TemplateRenderer struct {
 	templates *template.Template
 }
 
+type dashboardAction struct {
+	Label       string
+	Description string
+	Path        string
+}
+
 func (r *TemplateRenderer) Render(w io.Writer, name string, data any, c echo.Context) error {
 	viewData, ok := data.(map[string]any)
 	if !ok {
@@ -373,10 +379,14 @@ func New(cfg *config.Config, log *slog.Logger) *Server {
 	user.Use(auth.RequireAuth(), auth.RequireActorType("user"))
 	user.GET("/dashboard", func(c echo.Context) error {
 		principal, _ := auth.PrincipalFromContext(c)
+		actions := dashboardActions(principal)
 		return c.Render(http.StatusOK, "dashboard", map[string]any{
 			"Title":           "User Dashboard",
 			"Role":            principal.ActorType,
+			"Subtitle":        "Your available actions are based on assigned roles.",
 			"ActorID":         principal.ActorID,
+			"DashboardActions": actions,
+			"HasActions":      len(actions) > 0,
 			"ContentTemplate": "dashboard_content",
 		})
 	})
@@ -399,10 +409,18 @@ func New(cfg *config.Config, log *slog.Logger) *Server {
 	client.Use(auth.RequireAuth(), auth.RequireActorType("client"))
 	client.GET("/dashboard", func(c echo.Context) error {
 		principal, _ := auth.PrincipalFromContext(c)
+		actions := []dashboardAction{{
+			Label:       "Request a Magic Link",
+			Description: "Need a fresh login token? Request and verify a new magic link.",
+			Path:        "/request-link",
+		}}
 		return c.Render(http.StatusOK, "dashboard", map[string]any{
 			"Title":           "Client Dashboard",
 			"Role":            principal.ActorType,
+			"Subtitle":        "Use secure links to access files and upload where permitted.",
 			"ActorID":         principal.ActorID,
+			"DashboardActions": actions,
+			"HasActions":      true,
 			"ContentTemplate": "dashboard_content",
 		})
 	})
@@ -538,6 +556,32 @@ func parseRoles(value string) []string {
 		}
 	}
 	return roles
+}
+
+func dashboardActions(principal auth.Principal) []dashboardAction {
+	actions := make([]dashboardAction, 0, 3)
+	if auth.HasCapability(principal, auth.CapabilityUploadFiles) {
+		actions = append(actions, dashboardAction{
+			Label:       "Upload Files",
+			Description: "Submit files for sharing with approved recipients.",
+			Path:        "/user/uploads",
+		})
+	}
+	if auth.HasCapability(principal, auth.CapabilityManageClients) {
+		actions = append(actions, dashboardAction{
+			Label:       "Manage Clients",
+			Description: "Create clients and manage client-group membership.",
+			Path:        "/user/clients",
+		})
+	}
+	if auth.HasCapability(principal, auth.CapabilityManageUsers) {
+		actions = append(actions, dashboardAction{
+			Label:       "Manage Users",
+			Description: "Administer user access and user roles.",
+			Path:        "/admin/users",
+		})
+	}
+	return actions
 }
 
 func isHTMLRequest(c echo.Context) bool {

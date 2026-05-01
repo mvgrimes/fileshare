@@ -245,6 +245,69 @@ func TestSessionLoginAndActorAuthorization(t *testing.T) {
 	}
 }
 
+func TestUserDashboardShowsOnlyAuthorizedActions(t *testing.T) {
+	s := New(testConfig(), slog.Default())
+
+	cookie := login(t, s, "user", "u-actions", "uploader")
+	req := httptest.NewRequest(http.MethodGet, "/user/dashboard", nil)
+	req.AddCookie(cookie)
+	rec := httptest.NewRecorder()
+
+	s.e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+	}
+	body := rec.Body.String()
+	if !strings.Contains(body, "Upload Files") {
+		t.Fatalf("body = %q, want uploader action", body)
+	}
+	if strings.Contains(body, "Manage Clients") {
+		t.Fatalf("body = %q, should not include manage clients action", body)
+	}
+	if strings.Contains(body, "Manage Users") {
+		t.Fatalf("body = %q, should not include manage users action", body)
+	}
+}
+
+func TestUserDashboardShowsEmptyStateWithoutRoles(t *testing.T) {
+	s := New(testConfig(), slog.Default())
+
+	cookie := login(t, s, "user", "u-empty", "")
+	req := httptest.NewRequest(http.MethodGet, "/user/dashboard", nil)
+	req.AddCookie(cookie)
+	rec := httptest.NewRecorder()
+
+	s.e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+	}
+	body := rec.Body.String()
+	if !strings.Contains(body, "No dashboard actions are currently available") {
+		t.Fatalf("body = %q, want empty-state message", body)
+	}
+}
+
+func TestClientDashboardShowsMagicLinkAction(t *testing.T) {
+	s := New(testConfig(), slog.Default())
+
+	cookie := login(t, s, "client", "c-actions", "")
+	req := httptest.NewRequest(http.MethodGet, "/client/dashboard", nil)
+	req.AddCookie(cookie)
+	rec := httptest.NewRecorder()
+
+	s.e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+	}
+	body := rec.Body.String()
+	if !strings.Contains(body, "Request a Magic Link") || !strings.Contains(body, "href=\"/request-link\"") {
+		t.Fatalf("body = %q, want magic link dashboard action", body)
+	}
+}
+
 func TestSessionLoginSetsCookieTTLFromConfig(t *testing.T) {
 	cfg := testConfig()
 	cfg.SessionTTL = 5

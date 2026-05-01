@@ -6,6 +6,22 @@
     {{template "page_header" .}}
     <p>Signed in as: <strong>{{.Role}}</strong></p>
     <p>Actor ID: <code>{{.ActorID}}</code></p>
+    <div class="divider my-1"></div>
+    {{if .HasActions}}
+    <div class="grid gap-3 md:grid-cols-2">
+      {{range .DashboardActions}}
+      <article class="rounded-lg border border-base-300 p-4">
+        <h2 class="text-lg font-semibold">{{.Label}}</h2>
+        <p class="text-sm opacity-80">{{.Description}}</p>
+        <a class="btn btn-sm btn-primary mt-3" href="{{.Path}}">Open</a>
+      </article>
+      {{end}}
+    </div>
+    {{else}}
+    <div class="alert" role="status">
+      <span>No dashboard actions are currently available for your account.</span>
+    </div>
+    {{end}}
     <p class="text-sm opacity-70">Current path: <code>{{.Path}}</code></p>
   </div>
 </section>
