@@ -95,14 +95,14 @@ go test ./...
 ### 6) Build Frontend CSS
 
 ```bash
-npm install
-npm run build:css
+sfw pnpm install
+pnpm run build:css
 ```
 
 For iterative UI work:
 
 ```bash
-npm run watch:css
+pnpm run watch:css
 ```
 
 ## CLI Commands
