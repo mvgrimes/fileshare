@@ -464,6 +464,7 @@ func TestUploadFormsRenderForAuthorizedActors(t *testing.T) {
 func TestUserUploadSubmissionValidationAndSuccess(t *testing.T) {
 	s := New(testConfig(), slog.Default())
 	cookie := login(t, s, "user", "u-submit", "uploader")
+	createClientWithoutPassword(t, "c-submit-target", "c-submit-target@example.com", true)
 
 	badReq := httptest.NewRequest(http.MethodPost, "/user/uploads", bytes.NewBufferString("filename=&target_type=client&target_id="))
 	badReq.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
@@ -474,16 +475,154 @@ func TestUserUploadSubmissionValidationAndSuccess(t *testing.T) {
 		t.Fatalf("bad submit status = %d, want %d", badRec.Code, http.StatusBadRequest)
 	}
 
-	okReq := httptest.NewRequest(http.MethodPost, "/user/uploads", bytes.NewBufferString("filename=report.pdf&target_type=client&target_id=c-1"))
+	okReq := httptest.NewRequest(http.MethodPost, "/user/uploads", bytes.NewBufferString("filename=report.pdf&target_type=client&target_id=c-submit-target"))
 	okReq.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
 	okReq.AddCookie(cookie)
 	okRec := httptest.NewRecorder()
 	s.e.ServeHTTP(okRec, okReq)
-	if okRec.Code != http.StatusOK {
-		t.Fatalf("ok submit status = %d, want %d", okRec.Code, http.StatusOK)
+	if okRec.Code != http.StatusCreated {
+		t.Fatalf("ok submit status = %d, want %d, body=%q", okRec.Code, http.StatusCreated, okRec.Body.String())
 	}
-	if !strings.Contains(okRec.Body.String(), "submission accepted") {
-		t.Fatalf("ok submit body = %q, want acceptance message", okRec.Body.String())
+	if !strings.Contains(okRec.Body.String(), "file shared") {
+		t.Fatalf("ok submit body = %q, want file shared message", okRec.Body.String())
+	}
+}
+
+func TestUserShareToClientAndClientGroup(t *testing.T) {
+	s := New(testConfig(), slog.Default())
+	uploaderCookie := login(t, s, "user", "u-sharer", "uploader")
+
+	createClientWithoutPassword(t, "c-share-target", "c-share-target@example.com", true)
+	createClientGroupForTests(t, "cg-share-target")
+
+	// Share to a direct client
+	clientReq := httptest.NewRequest(http.MethodPost, "/user/uploads", bytes.NewBufferString("filename=report.pdf&target_type=client&target_id=c-share-target&message=Here+is+your+file"))
+	clientReq.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
+	clientReq.AddCookie(uploaderCookie)
+	clientRec := httptest.NewRecorder()
+	s.e.ServeHTTP(clientRec, clientReq)
+	if clientRec.Code != http.StatusCreated {
+		t.Fatalf("client share status = %d, want %d, body=%q", clientRec.Code, http.StatusCreated, clientRec.Body.String())
+	}
+	body := clientRec.Body.String()
+	if !strings.Contains(body, "file shared") {
+		t.Fatalf("client share body = %q, want file shared", body)
+	}
+
+	// The shared file should now be accessible to the target client
+	clientViewCookie := login(t, s, "client", "c-share-target", "")
+	filesReq := httptest.NewRequest(http.MethodGet, "/client/files", nil)
+	filesReq.AddCookie(clientViewCookie)
+	filesRec := httptest.NewRecorder()
+	s.e.ServeHTTP(filesRec, filesReq)
+	if filesRec.Code != http.StatusOK {
+		t.Fatalf("client files status = %d, want %d", filesRec.Code, http.StatusOK)
+	}
+	if !strings.Contains(filesRec.Body.String(), "report.pdf") {
+		t.Fatalf("client files body = %q, want shared file name", filesRec.Body.String())
+	}
+
+	// Share to a client group
+	groupReq := httptest.NewRequest(http.MethodPost, "/user/uploads", bytes.NewBufferString("filename=summary.docx&target_type=client_group&target_id=cg-share-target"))
+	groupReq.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
+	groupReq.AddCookie(uploaderCookie)
+	groupRec := httptest.NewRecorder()
+	s.e.ServeHTTP(groupRec, groupReq)
+	if groupRec.Code != http.StatusCreated {
+		t.Fatalf("group share status = %d, want %d, body=%q", groupRec.Code, http.StatusCreated, groupRec.Body.String())
+	}
+	if !strings.Contains(groupRec.Body.String(), "file shared") {
+		t.Fatalf("group share body = %q, want file shared", groupRec.Body.String())
+	}
+
+	// Audit log should record the share events
+	logs := listAuditLogsByEventType(t, "file.share")
+	if len(logs) < 2 {
+		t.Fatalf("audit log count = %d, want at least 2 file.share events", len(logs))
+	}
+}
+
+func TestUserShareInvalidTargetReturnsError(t *testing.T) {
+	s := New(testConfig(), slog.Default())
+	cookie := login(t, s, "user", "u-invalid-target", "uploader")
+
+	// Non-existent client
+	req := httptest.NewRequest(http.MethodPost, "/user/uploads", bytes.NewBufferString("filename=test.pdf&target_type=client&target_id=nonexistent-client"))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
+	req.AddCookie(cookie)
+	rec := httptest.NewRecorder()
+	s.e.ServeHTTP(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("invalid client status = %d, want %d", rec.Code, http.StatusBadRequest)
+	}
+
+	// Non-existent client group
+	req2 := httptest.NewRequest(http.MethodPost, "/user/uploads", bytes.NewBufferString("filename=test.pdf&target_type=client_group&target_id=nonexistent-group"))
+	req2.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
+	req2.AddCookie(cookie)
+	rec2 := httptest.NewRecorder()
+	s.e.ServeHTTP(rec2, req2)
+	if rec2.Code != http.StatusBadRequest {
+		t.Fatalf("invalid group status = %d, want %d", rec2.Code, http.StatusBadRequest)
+	}
+
+	// Invalid target type
+	req3 := httptest.NewRequest(http.MethodPost, "/user/uploads", bytes.NewBufferString("filename=test.pdf&target_type=invalid&target_id=something"))
+	req3.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
+	req3.AddCookie(cookie)
+	rec3 := httptest.NewRecorder()
+	s.e.ServeHTTP(rec3, req3)
+	if rec3.Code != http.StatusBadRequest {
+		t.Fatalf("invalid type status = %d, want %d", rec3.Code, http.StatusBadRequest)
+	}
+}
+
+func TestUserShareHTMLRedirectsOnSuccess(t *testing.T) {
+	s := New(testConfig(), slog.Default())
+	cookie := login(t, s, "user", "u-html-share", "uploader")
+	createClientWithoutPassword(t, "c-html-target", "c-html-target@example.com", true)
+
+	req := httptest.NewRequest(http.MethodPost, "/user/uploads", bytes.NewBufferString("filename=doc.pdf&target_type=client&target_id=c-html-target"))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
+	req.Header.Set(echo.HeaderAccept, echo.MIMETextHTML)
+	req.AddCookie(cookie)
+	rec := httptest.NewRecorder()
+	s.e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("html share status = %d, want %d", rec.Code, http.StatusSeeOther)
+	}
+	loc := rec.Result().Header.Get(echo.HeaderLocation)
+	if !strings.HasPrefix(loc, "/user/uploads?success=") {
+		t.Fatalf("html share redirect = %q, want success redirect", loc)
+	}
+}
+
+func TestUserShareFilesAppearsInUploaderList(t *testing.T) {
+	s := New(testConfig(), slog.Default())
+	cookie := login(t, s, "user", "u-list-sharer", "uploader")
+	createClientWithoutPassword(t, "c-list-target", "c-list-target@example.com", true)
+
+	// Upload and share a file
+	shareReq := httptest.NewRequest(http.MethodPost, "/user/uploads", bytes.NewBufferString("filename=listed-file.pdf&target_type=client&target_id=c-list-target"))
+	shareReq.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
+	shareReq.AddCookie(cookie)
+	shareRec := httptest.NewRecorder()
+	s.e.ServeHTTP(shareRec, shareReq)
+	if shareRec.Code != http.StatusCreated {
+		t.Fatalf("share status = %d, want %d, body=%q", shareRec.Code, http.StatusCreated, shareRec.Body.String())
+	}
+
+	// The file should appear in the uploader's file list
+	listReq := httptest.NewRequest(http.MethodGet, "/user/files", nil)
+	listReq.AddCookie(cookie)
+	listRec := httptest.NewRecorder()
+	s.e.ServeHTTP(listRec, listReq)
+	if listRec.Code != http.StatusOK {
+		t.Fatalf("list status = %d, want %d", listRec.Code, http.StatusOK)
+	}
+	if !strings.Contains(listRec.Body.String(), "listed-file.pdf") {
+		t.Fatalf("list body = %q, want uploaded file name", listRec.Body.String())
 	}
 }
 

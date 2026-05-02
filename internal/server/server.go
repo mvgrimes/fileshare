@@ -517,6 +517,7 @@ func New(cfg *config.Config, log *slog.Logger) *Server {
 		filename := strings.TrimSpace(c.FormValue("filename"))
 		targetType := strings.TrimSpace(c.FormValue("target_type"))
 		targetID := strings.TrimSpace(c.FormValue("target_id"))
+		message := strings.TrimSpace(c.FormValue("message"))
 		if filename == "" || targetType == "" || targetID == "" {
 			if isHTMLRequest(c) {
 				return c.Redirect(http.StatusSeeOther, "/user/uploads?error="+url.QueryEscape("filename, target_type, and target_id are required"))
@@ -531,10 +532,75 @@ func New(cfg *config.Config, log *slog.Logger) *Server {
 			return c.String(http.StatusBadRequest, "target_type must be client or client_group")
 		}
 
-		if isHTMLRequest(c) {
-			return c.Redirect(http.StatusSeeOther, "/user/uploads?success="+url.QueryEscape("Upload/share submission accepted"))
+		switch targetType {
+		case "client":
+			if _, err := queries.GetClientByID(c.Request().Context(), targetID); err != nil {
+				if err == sql.ErrNoRows {
+					if isHTMLRequest(c) {
+						return c.Redirect(http.StatusSeeOther, "/user/uploads?error="+url.QueryEscape("Client not found"))
+					}
+					return c.String(http.StatusBadRequest, "client not found")
+				}
+				return c.String(http.StatusInternalServerError, "failed to validate target")
+			}
+		case "client_group":
+			if _, err := queries.GetClientGroupByID(c.Request().Context(), targetID); err != nil {
+				if err == sql.ErrNoRows {
+					if isHTMLRequest(c) {
+						return c.Redirect(http.StatusSeeOther, "/user/uploads?error="+url.QueryEscape("Client group not found"))
+					}
+					return c.String(http.StatusBadRequest, "client group not found")
+				}
+				return c.String(http.StatusInternalServerError, "failed to validate target")
+			}
 		}
-		return c.String(http.StatusOK, "upload/share submission accepted")
+
+		fileID := uuid.NewString()
+		if err := queries.CreateFile(c.Request().Context(), db.CreateFileParams{
+			ID:               fileID,
+			UploaderType:     "user",
+			UploaderID:       principal.ActorID,
+			OriginalFilename: filename,
+			StorageKey:       "pending/" + fileID,
+			ContentType:      "application/octet-stream",
+			SizeBytes:        0,
+			ExpiresAt:        sql.NullString{},
+		}); err != nil {
+			if isHTMLRequest(c) {
+				return c.Redirect(http.StatusSeeOther, "/user/uploads?error="+url.QueryEscape("Failed to record file"))
+			}
+			return c.String(http.StatusInternalServerError, "failed to record file")
+		}
+
+		shareID := uuid.NewString()
+		msgNull := sql.NullString{}
+		if message != "" {
+			msgNull = sql.NullString{Valid: true, String: message}
+		}
+		if err := queries.CreateShare(c.Request().Context(), db.CreateShareParams{
+			ID:           shareID,
+			FileID:       fileID,
+			SharedByType: "user",
+			SharedByID:   principal.ActorID,
+			TargetType:   targetType,
+			TargetID:     targetID,
+			Message:      msgNull,
+		}); err != nil {
+			if isHTMLRequest(c) {
+				return c.Redirect(http.StatusSeeOther, "/user/uploads?error="+url.QueryEscape("Failed to create share"))
+			}
+			return c.String(http.StatusInternalServerError, "failed to create share")
+		}
+
+		auditAuthEvent(c, queries, "file.share", "user", principal.ActorID, targetType, targetID, map[string]any{
+			"file_id":  fileID,
+			"share_id": shareID,
+		})
+
+		if isHTMLRequest(c) {
+			return c.Redirect(http.StatusSeeOther, "/user/uploads?success="+url.QueryEscape("File shared successfully"))
+		}
+		return c.String(http.StatusCreated, "file shared: "+fileID)
 	}, auth.RequireCapability(auth.CapabilityUploadFiles))
 	user.GET("/clients", func(c echo.Context) error {
 		principal, _ := auth.PrincipalFromContext(c)
