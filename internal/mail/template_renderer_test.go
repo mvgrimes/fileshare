@@ -48,7 +48,7 @@ func TestHermesRendererRenderMagicLink(t *testing.T) {
 	}
 }
 
-func TestHermesRendererRenderMagicLinkRequiresLoginURL(t *testing.T) {
+func TestHermesRendererRenderMagicLinkRequiresLoginURLOrToken(t *testing.T) {
 	t.Parallel()
 
 	renderer, err := NewHermesRenderer("ShareFile", "https://sharefile.example", "")
@@ -69,7 +69,7 @@ func TestHermesRendererRenderMagicLinkDefaultNameAndOutro(t *testing.T) {
 		t.Fatalf("NewHermesRenderer() error: %v", err)
 	}
 
-	rendered, err := renderer.RenderMagicLink(MagicLinkTemplateData{LoginURL: "https://sharefile.example/login"})
+	rendered, err := renderer.RenderMagicLink(MagicLinkTemplateData{Token: "tok-123"})
 	if err != nil {
 		t.Fatalf("RenderMagicLink() error: %v", err)
 	}
@@ -79,5 +79,8 @@ func TestHermesRendererRenderMagicLinkDefaultNameAndOutro(t *testing.T) {
 	}
 	if !strings.Contains(rendered.Text, "If you did not request this link") {
 		t.Fatalf("text missing fallback outro: %q", rendered.Text)
+	}
+	if !strings.Contains(rendered.Text, "tok-123") {
+		t.Fatalf("text missing token: %q", rendered.Text)
 	}
 }

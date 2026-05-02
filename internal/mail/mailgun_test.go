@@ -25,7 +25,12 @@ func TestMailgunSenderSendMagicLink(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	sender, err := NewMailgunSender(ts.URL, "mg.example", "key-123", "ShareFile <noreply@example.com>", ts.Client())
+	renderer, err := NewHermesRenderer("ShareFile", "https://sharefile.example", "")
+	if err != nil {
+		t.Fatalf("NewHermesRenderer() error: %v", err)
+	}
+
+	sender, err := NewMailgunSender(ts.URL, "mg.example", "key-123", "ShareFile <noreply@example.com>", ts.Client(), renderer)
 	if err != nil {
 		t.Fatalf("NewMailgunSender() error: %v", err)
 	}
@@ -46,6 +51,9 @@ func TestMailgunSenderSendMagicLink(t *testing.T) {
 	if !strings.Contains(gotBody.Get("text"), "tok-1") {
 		t.Fatalf("text = %q, want token", gotBody.Get("text"))
 	}
+	if gotBody.Get("html") == "" {
+		t.Fatalf("html = %q, want non-empty html", gotBody.Get("html"))
+	}
 }
 
 func TestMailgunSenderRejectsNon2xx(t *testing.T) {
@@ -54,12 +62,41 @@ func TestMailgunSenderRejectsNon2xx(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	sender, err := NewMailgunSender(ts.URL, "mg.example", "key-123", "noreply@example.com", ts.Client())
+	renderer, err := NewHermesRenderer("ShareFile", "https://sharefile.example", "")
+	if err != nil {
+		t.Fatalf("NewHermesRenderer() error: %v", err)
+	}
+
+	sender, err := NewMailgunSender(ts.URL, "mg.example", "key-123", "noreply@example.com", ts.Client(), renderer)
 	if err != nil {
 		t.Fatalf("NewMailgunSender() error: %v", err)
 	}
 
 	if err := sender.SendMagicLink(t.Context(), "client@example.com", "tok-1"); err == nil {
 		t.Fatal("SendMagicLink() error = nil, want error")
+	}
+}
+
+func TestMailgunSenderSendValidation(t *testing.T) {
+	t.Parallel()
+
+	renderer, err := NewHermesRenderer("ShareFile", "https://sharefile.example", "")
+	if err != nil {
+		t.Fatalf("NewHermesRenderer() error: %v", err)
+	}
+
+	sender, err := NewMailgunSender("https://api.example.test", "mg.example", "key-123", "noreply@example.com", http.DefaultClient, renderer)
+	if err != nil {
+		t.Fatalf("NewMailgunSender() error: %v", err)
+	}
+
+	if err := sender.Send(t.Context(), Message{To: "", Subject: "x", Text: "ok"}); err == nil {
+		t.Fatal("Send() error=nil, want validation error for empty recipient")
+	}
+	if err := sender.Send(t.Context(), Message{To: "to@example.com", Subject: "", Text: "ok"}); err == nil {
+		t.Fatal("Send() error=nil, want validation error for empty subject")
+	}
+	if err := sender.Send(t.Context(), Message{To: "to@example.com", Subject: "x"}); err == nil {
+		t.Fatal("Send() error=nil, want validation error for missing body")
 	}
 }

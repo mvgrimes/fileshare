@@ -18,8 +18,9 @@ type RenderedTemplate struct {
 }
 
 type MagicLinkTemplateData struct {
-	ToName      string
-	LoginURL    string
+	ToName       string
+	LoginURL     string
+	Token        string
 	SupportEmail string
 }
 
@@ -47,8 +48,10 @@ func NewHermesRenderer(productName, productLink, productLogo string) (*HermesRen
 }
 
 func (r *HermesRenderer) RenderMagicLink(data MagicLinkTemplateData) (RenderedTemplate, error) {
-	if strings.TrimSpace(data.LoginURL) == "" {
-		return RenderedTemplate{}, fmt.Errorf("login url is required")
+	hasURL := strings.TrimSpace(data.LoginURL) != ""
+	hasToken := strings.TrimSpace(data.Token) != ""
+	if !hasURL && !hasToken {
+		return RenderedTemplate{}, fmt.Errorf("login url or token is required")
 	}
 
 	name := strings.TrimSpace(data.ToName)
@@ -56,22 +59,32 @@ func (r *HermesRenderer) RenderMagicLink(data MagicLinkTemplateData) (RenderedTe
 		name = "there"
 	}
 
+	actions := []hermes.Action{}
+	intro := "Use the secure link below to sign in to ShareFile."
+	if hasURL {
+		actions = append(actions, hermes.Action{
+			Instructions: "This sign-in link expires soon for your security:",
+			Button: hermes.Button{
+				Color: "#1A7F64",
+				Text:  "Sign in to ShareFile",
+				Link:  data.LoginURL,
+			},
+		})
+	} else {
+		intro = "Use the one-time token below to sign in to ShareFile."
+		actions = append(actions, hermes.Action{
+			Instructions: "Enter this one-time token to sign in:",
+			InviteCode:   data.Token,
+		})
+	}
+
 	body := hermes.Email{
 		Body: hermes.Body{
 			Name: name,
 			Intros: []string{
-				"Use the secure link below to sign in to ShareFile.",
+				intro,
 			},
-			Actions: []hermes.Action{
-				{
-					Instructions: "This sign-in link expires soon for your security:",
-					Button: hermes.Button{
-						Color: "#1A7F64",
-						Text:  "Sign in to ShareFile",
-						Link:  data.LoginURL,
-					},
-				},
-			},
+			Actions: actions,
 			Outros: magicOutro(data.SupportEmail),
 		},
 	}

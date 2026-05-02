@@ -132,7 +132,11 @@ func New(cfg *config.Config, log *slog.Logger) *Server {
 	magic := auth.NewMagicManager(queries, 15*time.Minute, 60*time.Second)
 	magicSend := auth.MagicSender(auth.NoopSender{})
 	if cfg.MailgunDomain != "" && cfg.MailgunAPIKey != "" && cfg.MailgunFromEmail != "" {
-		sender, senderErr := mail.NewMailgunSender(cfg.MailgunAPIBaseURL, cfg.MailgunDomain, cfg.MailgunAPIKey, cfg.MailgunFromEmail, nil)
+		renderer, renderErr := mail.NewHermesRenderer("ShareFile", "https://sharefile.local", "")
+		if renderErr != nil {
+			panic(renderErr)
+		}
+		sender, senderErr := mail.NewMailgunSender(cfg.MailgunAPIBaseURL, cfg.MailgunDomain, cfg.MailgunAPIKey, cfg.MailgunFromEmail, nil, renderer)
 		if senderErr != nil {
 			panic(senderErr)
 		}
