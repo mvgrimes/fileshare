@@ -87,17 +87,24 @@ func (q *Queries) ListEmailEventsByStatus(ctx context.Context, arg ListEmailEven
 const updateEmailEventStatus = `-- name: UpdateEmailEventStatus :exec
 UPDATE email_events
 SET status = ?,
+    provider_message_id = ?,
     error_text = ?
 WHERE id = ?
 `
 
 type UpdateEmailEventStatusParams struct {
-	Status    string         `json:"status"`
-	ErrorText sql.NullString `json:"error_text"`
-	ID        string         `json:"id"`
+	Status            string         `json:"status"`
+	ProviderMessageID sql.NullString `json:"provider_message_id"`
+	ErrorText         sql.NullString `json:"error_text"`
+	ID                string         `json:"id"`
 }
 
 func (q *Queries) UpdateEmailEventStatus(ctx context.Context, arg UpdateEmailEventStatusParams) error {
-	_, err := q.db.ExecContext(ctx, updateEmailEventStatus, arg.Status, arg.ErrorText, arg.ID)
+	_, err := q.db.ExecContext(ctx, updateEmailEventStatus,
+		arg.Status,
+		arg.ProviderMessageID,
+		arg.ErrorText,
+		arg.ID,
+	)
 	return err
 }

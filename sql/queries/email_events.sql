@@ -12,5 +12,6 @@ LIMIT ? OFFSET ?;
 -- name: UpdateEmailEventStatus :exec
 UPDATE email_events
 SET status = ?,
+    provider_message_id = ?,
     error_text = ?
 WHERE id = ?;
