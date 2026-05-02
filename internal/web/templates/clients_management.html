@@ -5,7 +5,7 @@
   <article class="card bg-base-100 shadow-sm">
     <div class="card-body gap-4">
       {{template "page_header" .}}
-      <form method="post" action="/user/clients" class="grid gap-3">
+      <form method="post" action="/user/clients" class="grid gap-3" data-enhance="submission">
         <label class="form-control w-full">
           <span class="label-text">Client Email</span>
           <input class="input input-bordered w-full" type="email" name="email" required>
@@ -22,7 +22,7 @@
           <span class="label-text">Is Active</span>
           <input class="checkbox" type="checkbox" name="is_active" value="1" checked>
         </label>
-        <button class="btn btn-primary" type="submit">Create Client</button>
+        <button class="btn btn-primary" type="submit" data-pending-text="Creating...">Create Client</button>
       </form>
     </div>
   </article>
@@ -30,16 +30,16 @@
   <article class="card bg-base-100 shadow-sm">
     <div class="card-body gap-4">
       <h2 class="text-xl font-semibold">Create Client Group</h2>
-      <form method="post" action="/user/client-groups" class="grid gap-3">
+      <form method="post" action="/user/client-groups" class="grid gap-3" data-enhance="submission">
         <label class="form-control w-full">
           <span class="label-text">Group Name</span>
           <input class="input input-bordered w-full" type="text" name="name" required>
         </label>
-        <button class="btn btn-primary" type="submit">Create Group</button>
+        <button class="btn btn-primary" type="submit" data-pending-text="Creating...">Create Group</button>
       </form>
 
       <h2 class="text-xl font-semibold mt-2">Add Client to Group</h2>
-      <form method="post" action="/user/client-groups/memberships" class="grid gap-3">
+      <form method="post" action="/user/client-groups/memberships" class="grid gap-3" data-enhance="submission">
         <label class="form-control w-full">
           <span class="label-text">Group ID</span>
           <input class="input input-bordered w-full" type="text" name="group_id" required>
@@ -48,7 +48,7 @@
           <span class="label-text">Client ID</span>
           <input class="input input-bordered w-full" type="text" name="client_id" required>
         </label>
-        <button class="btn btn-primary" type="submit">Add Membership</button>
+        <button class="btn btn-primary" type="submit" data-pending-text="Adding...">Add Membership</button>
       </form>
     </div>
   </article>

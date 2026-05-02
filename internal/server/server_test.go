@@ -132,6 +132,9 @@ func TestAuthPagesContainFormTargets(t *testing.T) {
 	if !strings.Contains(loginBody, "action=\"/auth/sso/login\"") || !strings.Contains(loginBody, "action=\"/auth/password/login\"") {
 		t.Fatalf("/login body = %q, want auth form actions", loginBody)
 	}
+	if !strings.Contains(loginBody, "data-enhance=\"submission\"") || !strings.Contains(loginBody, "data-pending-text=") {
+		t.Fatalf("/login body = %q, want progressive enhancement hooks", loginBody)
+	}
 
 	requestReq := httptest.NewRequest(http.MethodGet, "/request-link", nil)
 	requestRec := httptest.NewRecorder()
@@ -142,6 +145,27 @@ func TestAuthPagesContainFormTargets(t *testing.T) {
 	requestBody := requestRec.Body.String()
 	if !strings.Contains(requestBody, "action=\"/auth/magic/request\"") || !strings.Contains(requestBody, "action=\"/auth/magic/verify\"") {
 		t.Fatalf("/request-link body = %q, want magic-link form actions", requestBody)
+	}
+}
+
+func TestProgressiveEnhancementScriptRenderedOnForms(t *testing.T) {
+	s := New(testConfig(), slog.Default())
+	cookie := login(t, s, "user", "u-enhance", "account_manager")
+
+	req := httptest.NewRequest(http.MethodGet, "/user/clients", nil)
+	req.AddCookie(cookie)
+	rec := httptest.NewRecorder()
+	s.e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+	}
+	body := rec.Body.String()
+	if !strings.Contains(body, "form[data-enhance='submission']") {
+		t.Fatalf("body = %q, want enhancement script", body)
+	}
+	if !strings.Contains(body, "data-pending-text=\"Creating...\"") {
+		t.Fatalf("body = %q, want submit pending text hooks", body)
 	}
 }
 

@@ -31,6 +31,36 @@
         <p>missing content template</p>
       {{end}}
     </main>
+    <script>
+      (() => {
+        const forms = document.querySelectorAll("form[data-enhance='submission']");
+        for (const form of forms) {
+          form.addEventListener("submit", () => {
+            const button = form.querySelector("button[type='submit']");
+            if (!button) return;
+            const pendingText = button.getAttribute("data-pending-text");
+            if (pendingText) {
+              button.dataset.originalText = button.textContent;
+              button.textContent = pendingText;
+            }
+            button.disabled = true;
+            button.classList.add("loading");
+          });
+        }
+
+        const requiredInputs = document.querySelectorAll("input[required], select[required], textarea[required]");
+        for (const input of requiredInputs) {
+          input.addEventListener("invalid", () => {
+            input.classList.add("input-error");
+          });
+          input.addEventListener("input", () => {
+            if (input.checkValidity()) {
+              input.classList.remove("input-error");
+            }
+          });
+        }
+      })();
+    </script>
   </body>
 </html>
 {{end}}
