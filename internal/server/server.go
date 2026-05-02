@@ -40,6 +40,7 @@ type Server struct {
 	clientPwd *auth.ClientPasswordAuthenticator
 	magic     *auth.MagicManager
 	magicSend auth.MagicSender
+	notifier  *mail.Notifier
 }
 
 type TemplateRenderer struct {
@@ -131,18 +132,21 @@ func New(cfg *config.Config, log *slog.Logger) *Server {
 	clientPwd := auth.NewClientPasswordAuthenticator(queries)
 	magic := auth.NewMagicManager(queries, 15*time.Minute, 60*time.Second)
 	magicSend := auth.MagicSender(auth.NoopSender{})
+	renderer, renderErr := mail.NewHermesRenderer("ShareFile", "https://sharefile.local", "")
+	if renderErr != nil {
+		panic(renderErr)
+	}
+	eventStore := mail.NewEventStore(queries)
+	notifier := mail.NewNotifier(renderer, mail.NoopMessageSender{}, eventStore)
 	if cfg.MailgunDomain != "" && cfg.MailgunAPIKey != "" && cfg.MailgunFromEmail != "" {
-		renderer, renderErr := mail.NewHermesRenderer("ShareFile", "https://sharefile.local", "")
-		if renderErr != nil {
-			panic(renderErr)
-		}
 		sender, senderErr := mail.NewMailgunSender(cfg.MailgunAPIBaseURL, cfg.MailgunDomain, cfg.MailgunAPIKey, cfg.MailgunFromEmail, nil, renderer)
 		if senderErr != nil {
 			panic(senderErr)
 		}
 		magicSend = sender
+		notifier = mail.NewNotifier(renderer, sender, eventStore)
 	}
-	srv := &Server{e: e, cfg: cfg, log: log, sessions: sessions, authz: authz, userSync: userSync, userPwd: userPwd, clientPwd: clientPwd, magic: magic, magicSend: magicSend}
+	srv := &Server{e: e, cfg: cfg, log: log, sessions: sessions, authz: authz, userSync: userSync, userPwd: userPwd, clientPwd: clientPwd, magic: magic, magicSend: magicSend, notifier: notifier}
 	e.Use(auth.LoadSession(sessions))
 
 	e.GET("/healthz", func(c echo.Context) error {
@@ -596,6 +600,24 @@ func New(cfg *config.Config, log *slog.Logger) *Server {
 			return c.String(http.StatusInternalServerError, "failed to create share")
 		}
 
+		recipients, recErr := resolveShareRecipientEmails(c.Request().Context(), queries, targetType, targetID)
+		if recErr == nil {
+			for _, recipient := range recipients {
+				notifyErr := srv.notifier.NotifyFileShared(c.Request().Context(), mail.FileSharedNotification{
+					RecipientEmail: recipient,
+					RecipientName:  recipient,
+					ActorLabel:     principal.ActorID,
+					FileName:       filename,
+					Message:        message,
+					TargetType:     targetType,
+					TargetID:       targetID,
+				})
+				if notifyErr != nil {
+					log.Error("share notification failed", "recipient", recipient, "error", notifyErr.Error())
+				}
+			}
+		}
+
 		auditAuthEvent(c, queries, "file.share", "user", principal.ActorID, targetType, targetID, map[string]any{
 			"file_id":  fileID,
 			"share_id": shareID,
@@ -840,6 +862,21 @@ func New(cfg *config.Config, log *slog.Logger) *Server {
 			return c.String(http.StatusInternalServerError, "failed to authorize upload")
 		}
 		auditAuthEvent(c, queries, "authz.client.upload", principal.ActorType, principal.ActorID, targetType, targetID, map[string]any{"outcome": "allowed"})
+		recipients, recErr := resolveClientUploadRecipients(c.Request().Context(), queries, targetType, targetID)
+		if recErr == nil {
+			for _, recipient := range recipients {
+				notifyErr := srv.notifier.NotifyClientUpload(c.Request().Context(), mail.ClientUploadNotification{
+					RecipientEmail: recipient,
+					RecipientName:  recipient,
+					ClientLabel:    principal.ActorID,
+					TargetType:     targetType,
+					TargetID:       targetID,
+				})
+				if notifyErr != nil {
+					log.Error("client upload notification failed", "recipient", recipient, "error", notifyErr.Error())
+				}
+			}
+		}
 		if isHTMLRequest(c) {
 			return c.Redirect(http.StatusSeeOther, "/client/uploads?success="+url.QueryEscape("Upload submission accepted"))
 		}
@@ -950,6 +987,70 @@ func parseRoles(value string) []string {
 		}
 	}
 	return roles
+}
+
+func resolveShareRecipientEmails(ctx context.Context, queries *db.Queries, targetType, targetID string) ([]string, error) {
+	switch targetType {
+	case "client":
+		client, err := queries.GetClientByID(ctx, targetID)
+		if err != nil {
+			return nil, err
+		}
+		return []string{client.Email}, nil
+	case "client_group":
+		clients, err := queries.ListGroupClients(ctx, targetID)
+		if err != nil {
+			return nil, err
+		}
+		emails := make([]string, 0, len(clients))
+		seen := map[string]struct{}{}
+		for _, c := range clients {
+			email := strings.TrimSpace(c.Email)
+			if email == "" {
+				continue
+			}
+			if _, ok := seen[email]; ok {
+				continue
+			}
+			seen[email] = struct{}{}
+			emails = append(emails, email)
+		}
+		return emails, nil
+	default:
+		return nil, fmt.Errorf("unsupported target type: %s", targetType)
+	}
+}
+
+func resolveClientUploadRecipients(ctx context.Context, queries *db.Queries, targetType, targetID string) ([]string, error) {
+	switch targetType {
+	case "user":
+		user, err := queries.GetUserByID(ctx, targetID)
+		if err != nil {
+			return nil, err
+		}
+		return []string{user.Email}, nil
+	case "user_group":
+		users, err := queries.ListGroupUsers(ctx, targetID)
+		if err != nil {
+			return nil, err
+		}
+		emails := make([]string, 0, len(users))
+		seen := map[string]struct{}{}
+		for _, u := range users {
+			email := strings.TrimSpace(u.Email)
+			if email == "" {
+				continue
+			}
+			if _, ok := seen[email]; ok {
+				continue
+			}
+			seen[email] = struct{}{}
+			emails = append(emails, email)
+		}
+		return emails, nil
+	default:
+		return nil, fmt.Errorf("unsupported target type: %s", targetType)
+	}
 }
 
 func dashboardActions(principal auth.Principal) []dashboardAction {
