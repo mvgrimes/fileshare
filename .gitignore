@@ -8,24 +8,25 @@
 
 # tmp, system and ref files
 tmp/
+_tmp/
 .DS_Store
 trees/
 .tickets/
-data/
+/data/
 
 # Editor
 Session.vim
 
 # Added by goreleaser init:
-dist/
+/dist/
 
 # Samples
 
 # devcontainers (for now)
-.devcontainer/
+/.devcontainer/
 
 # plans
-docs/plan/
+/docs/plan/
 
 # Build artifacts
 /sharefile
