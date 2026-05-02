@@ -84,3 +84,26 @@ func TestHermesRendererRenderMagicLinkDefaultNameAndOutro(t *testing.T) {
 		t.Fatalf("text missing token: %q", rendered.Text)
 	}
 }
+
+func TestHermesRendererRenderInvitation(t *testing.T) {
+	t.Parallel()
+	renderer, err := NewHermesRenderer("ShareFile", "https://sharefile.example", "")
+	if err != nil {
+		t.Fatalf("NewHermesRenderer() error: %v", err)
+	}
+
+	out, err := renderer.RenderInvitation(InvitationTemplateData{ToName: "Sam", InviteURL: "https://sharefile.example/invite/abc", InviterLabel: "Admin"})
+	if err != nil {
+		t.Fatalf("RenderInvitation() error: %v", err)
+	}
+	if out.Subject != "You are invited to ShareFile" {
+		t.Fatalf("subject = %q", out.Subject)
+	}
+	if !strings.Contains(out.Text, "https://sharefile.example/invite/abc") {
+		t.Fatalf("text missing invite url: %q", out.Text)
+	}
+
+	if _, err := renderer.RenderInvitation(InvitationTemplateData{}); err == nil {
+		t.Fatal("RenderInvitation() expected validation error")
+	}
+}

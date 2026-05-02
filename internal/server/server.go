@@ -681,11 +681,13 @@ func New(cfg *config.Config, log *slog.Logger) *Server {
 			CanUpload:    canUpload,
 			IsActive:     isActive,
 		}); err != nil {
+			auditAuthEvent(c, queries, "admin.client.create", principal.ActorType, principal.ActorID, "client", "", map[string]any{"outcome": "failure", "reason": "create_failed", "email": email})
 			if isHTMLRequest(c) {
 				return c.Redirect(http.StatusSeeOther, "/user/clients?error="+url.QueryEscape("failed to create client"))
 			}
 			return c.String(http.StatusInternalServerError, "failed to create client")
 		}
+		auditAuthEvent(c, queries, "admin.client.create", principal.ActorType, principal.ActorID, "client", email, map[string]any{"outcome": "success"})
 		if isHTMLRequest(c) {
 			return c.Redirect(http.StatusSeeOther, "/user/clients?success="+url.QueryEscape("Client created"))
 		}
@@ -708,11 +710,13 @@ func New(cfg *config.Config, log *slog.Logger) *Server {
 			Name:            name,
 			CreatedByUserID: sql.NullString{Valid: true, String: principal.ActorID},
 		}); err != nil {
+			auditAuthEvent(c, queries, "admin.client_group.create", principal.ActorType, principal.ActorID, "client_group", "", map[string]any{"outcome": "failure", "reason": "create_failed", "name": name})
 			if isHTMLRequest(c) {
 				return c.Redirect(http.StatusSeeOther, "/user/clients?error="+url.QueryEscape("failed to create client group"))
 			}
 			return c.String(http.StatusInternalServerError, "failed to create client group")
 		}
+		auditAuthEvent(c, queries, "admin.client_group.create", principal.ActorType, principal.ActorID, "client_group", name, map[string]any{"outcome": "success"})
 		if isHTMLRequest(c) {
 			return c.Redirect(http.StatusSeeOther, "/user/clients?success="+url.QueryEscape("Client group created"))
 		}
@@ -732,11 +736,13 @@ func New(cfg *config.Config, log *slog.Logger) *Server {
 			return c.String(http.StatusBadRequest, "group_id and client_id are required")
 		}
 		if err := queries.AddClientToGroup(c.Request().Context(), db.AddClientToGroupParams{ClientGroupID: groupID, ClientID: clientID}); err != nil {
+			auditAuthEvent(c, queries, "admin.client_group.membership.add", principal.ActorType, principal.ActorID, "client_group", groupID, map[string]any{"outcome": "failure", "reason": "add_failed", "client_id": clientID})
 			if isHTMLRequest(c) {
 				return c.Redirect(http.StatusSeeOther, "/user/clients?error="+url.QueryEscape("failed to add membership"))
 			}
 			return c.String(http.StatusInternalServerError, "failed to add membership")
 		}
+		auditAuthEvent(c, queries, "admin.client_group.membership.add", principal.ActorType, principal.ActorID, "client_group", groupID, map[string]any{"outcome": "success", "client_id": clientID})
 		if isHTMLRequest(c) {
 			return c.Redirect(http.StatusSeeOther, "/user/clients?success="+url.QueryEscape("Membership added"))
 		}
@@ -897,8 +903,10 @@ func New(cfg *config.Config, log *slog.Logger) *Server {
 	admin.GET("/users", func(c echo.Context) error {
 		principal, _ := auth.PrincipalFromContext(c)
 		if err := srv.authz.AuthorizeManageUsers(principal); err != nil {
+			auditAuthEvent(c, queries, "admin.users.view", principal.ActorType, principal.ActorID, "user", "", map[string]any{"outcome": "failure", "reason": "forbidden"})
 			return c.String(http.StatusForbidden, "forbidden")
 		}
+		auditAuthEvent(c, queries, "admin.users.view", principal.ActorType, principal.ActorID, "user", "", map[string]any{"outcome": "success"})
 		return c.String(http.StatusOK, "admin access granted")
 	}, auth.RequireCapability(auth.CapabilityManageUsers))
 

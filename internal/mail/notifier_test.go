@@ -18,6 +18,13 @@ func (s stubRenderer) RenderMagicLink(MagicLinkTemplateData) (RenderedTemplate, 
 	return s.rendered, nil
 }
 
+func (s stubRenderer) RenderInvitation(InvitationTemplateData) (RenderedTemplate, error) {
+	if s.err != nil {
+		return RenderedTemplate{}, s.err
+	}
+	return s.rendered, nil
+}
+
 type stubMessageSender struct {
 	err  error
 	last Message

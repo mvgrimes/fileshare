@@ -9,6 +9,7 @@ import (
 
 type TemplateRenderer interface {
 	RenderMagicLink(data MagicLinkTemplateData) (RenderedTemplate, error)
+	RenderInvitation(data InvitationTemplateData) (RenderedTemplate, error)
 }
 
 type RenderedTemplate struct {
@@ -26,6 +27,12 @@ type MagicLinkTemplateData struct {
 
 type HermesRenderer struct {
 	engine hermes.Hermes
+}
+
+type InvitationTemplateData struct {
+	ToName       string
+	InviteURL    string
+	InviterLabel string
 }
 
 func NewHermesRenderer(productName, productLink, productLogo string) (*HermesRenderer, error) {
@@ -115,4 +122,37 @@ func magicOutro(supportEmail string) []string {
 		fmt.Sprintf("Need help? Contact %s.", supportEmail),
 		"If you did not request this link, you can safely ignore this email.",
 	}
+}
+
+func (r *HermesRenderer) RenderInvitation(data InvitationTemplateData) (RenderedTemplate, error) {
+	if strings.TrimSpace(data.InviteURL) == "" {
+		return RenderedTemplate{}, fmt.Errorf("invite url is required")
+	}
+	name := strings.TrimSpace(data.ToName)
+	if name == "" {
+		name = "there"
+	}
+	inviter := strings.TrimSpace(data.InviterLabel)
+	if inviter == "" {
+		inviter = "A ShareFile administrator"
+	}
+	body := hermes.Email{Body: hermes.Body{
+		Name:   name,
+		Intros: []string{fmt.Sprintf("%s invited you to access files in ShareFile.", inviter)},
+		Actions: []hermes.Action{{
+			Instructions: "Use the button below to complete your setup:",
+			Button: hermes.Button{Color: "#1A7F64", Text: "Complete setup", Link: data.InviteURL},
+		}},
+		Outros: []string{"If this was unexpected, you can ignore this message."},
+	}}
+
+	htmlBody, err := r.engine.GenerateHTML(body)
+	if err != nil {
+		return RenderedTemplate{}, err
+	}
+	textBody, err := r.engine.GeneratePlainText(body)
+	if err != nil {
+		return RenderedTemplate{}, err
+	}
+	return RenderedTemplate{Subject: "You are invited to ShareFile", HTML: htmlBody, Text: textBody}, nil
 }
