@@ -17,10 +17,11 @@ func TestWithTxCommitsChanges(t *testing.T) {
 
 	err := store.WithTx(context.Background(), func(tx *TxStore) error {
 		return tx.Queries().CreateUser(context.Background(), db.CreateUserParams{
-			ID:       "u-commit",
-			Email:    "commit@example.com",
-			FullName: "Commit User",
-			IsActive: 1,
+			ID:           "u-commit",
+			Email:        "commit@example.com",
+			FullName:     "Commit User",
+			PasswordHash: sql.NullString{},
+			IsActive:     1,
 		})
 	})
 	if err != nil {
@@ -43,10 +44,11 @@ func TestWithTxRollsBackOnError(t *testing.T) {
 	wantErr := errors.New("force rollback")
 	err := store.WithTx(context.Background(), func(tx *TxStore) error {
 		if err := tx.Queries().CreateUser(context.Background(), db.CreateUserParams{
-			ID:       "u-rollback",
-			Email:    "rollback@example.com",
-			FullName: "Rollback User",
-			IsActive: 1,
+			ID:           "u-rollback",
+			Email:        "rollback@example.com",
+			FullName:     "Rollback User",
+			PasswordHash: sql.NullString{},
+			IsActive:     1,
 		}); err != nil {
 			return err
 		}
@@ -79,6 +81,7 @@ func setupTestDB(t *testing.T) *sql.DB {
 		  id TEXT PRIMARY KEY,
 		  email TEXT NOT NULL UNIQUE,
 		  full_name TEXT NOT NULL,
+		  password_hash TEXT,
 		  is_active INTEGER NOT NULL DEFAULT 1,
 		  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
 		  updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))

@@ -51,7 +51,7 @@ type Querier interface {
 	ListEmailEventsByStatus(ctx context.Context, arg ListEmailEventsByStatusParams) ([]EmailEvent, error)
 	ListFilesByUploader(ctx context.Context, arg ListFilesByUploaderParams) ([]File, error)
 	ListGroupClients(ctx context.Context, clientGroupID string) ([]Client, error)
-	ListGroupUsers(ctx context.Context, userGroupID string) ([]User, error)
+	ListGroupUsers(ctx context.Context, userGroupID string) ([]ListGroupUsersRow, error)
 	ListMagicLinksByClient(ctx context.Context, clientID string) ([]MagicLink, error)
 	ListRoles(ctx context.Context) ([]Role, error)
 	ListSessionsByActor(ctx context.Context, arg ListSessionsByActorParams) ([]Session, error)

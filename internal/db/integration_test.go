@@ -21,7 +21,7 @@ func TestMigrationsAndCoreQueries(t *testing.T) {
 	queries := db.New(sqlDB)
 	ctx := context.Background()
 
-	if err := queries.CreateUser(ctx, db.CreateUserParams{ID: "u1", Email: "u1@example.com", FullName: "User One", IsActive: 1}); err != nil {
+	if err := queries.CreateUser(ctx, db.CreateUserParams{ID: "u1", Email: "u1@example.com", FullName: "User One", PasswordHash: sql.NullString{}, IsActive: 1}); err != nil {
 		t.Fatalf("CreateUser() unexpected error: %v", err)
 	}
 	if err := queries.CreateClient(ctx, db.CreateClientParams{ID: "c1", Email: "c1@example.com", DisplayName: "Client One", CanUpload: 1, IsActive: 1}); err != nil {

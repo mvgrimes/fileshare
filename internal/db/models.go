@@ -113,12 +113,13 @@ type Share struct {
 }
 
 type User struct {
-	ID        string `json:"id"`
-	Email     string `json:"email"`
-	FullName  string `json:"full_name"`
-	IsActive  int64  `json:"is_active"`
-	CreatedAt string `json:"created_at"`
-	UpdatedAt string `json:"updated_at"`
+	ID           string         `json:"id"`
+	Email        string         `json:"email"`
+	FullName     string         `json:"full_name"`
+	PasswordHash sql.NullString `json:"password_hash"`
+	IsActive     int64          `json:"is_active"`
+	CreatedAt    string         `json:"created_at"`
+	UpdatedAt    string         `json:"updated_at"`
 }
 
 type UserGroup struct {

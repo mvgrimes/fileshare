@@ -4,6 +4,7 @@ CREATE TABLE users (
   id TEXT PRIMARY KEY,
   email TEXT NOT NULL UNIQUE,
   full_name TEXT NOT NULL,
+  password_hash TEXT,
   is_active INTEGER NOT NULL DEFAULT 1,
   created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
   updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))

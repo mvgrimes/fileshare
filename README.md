@@ -19,7 +19,7 @@ ShareFile is a Go web application for secure file exchange between internal user
 
 ## Implemented Features (Sprint 01)
 
-- Cobra CLI commands: `server`, `migrate`, `seed` (`seed` placeholder)
+- Cobra CLI commands: `server`, `migrate`, `bootstrap`, `add-user`, `add-client`, `seed` (`seed` placeholder)
 - Structured config + logging
 - Migration baseline for core domain tables
 - Generated typed SQL access layer (`internal/db`)
@@ -78,7 +78,28 @@ go run ./... migrate up
 
 Note: Goose migrations use the SQLite driver and do not support `libsql://` URLs directly. For migration commands, use a local SQLite path in `DATABASE_URL` (for example `data/sharefile.db`).
 
-### 4) Start the Server
+### 4) Bootstrap (Optional but Recommended)
+
+```bash
+go run ./... bootstrap
+```
+
+`bootstrap` applies migrations and attempts to create an initial admin user. It is idempotent when run with `--if-missing` (default true).
+
+Environment variables for bootstrap admin user:
+
+- `SHAREFILE_USER_EMAIL` (required)
+- `SHAREFILE_USER_PASSWORD` (required)
+- `SHAREFILE_USER_ROLE` (optional, default `admin`)
+- `SHAREFILE_USER_FULL_NAME` (optional, default email)
+
+For container startup, use an entrypoint/command that runs bootstrap before the server:
+
+```bash
+sharefile bootstrap && sharefile server
+```
+
+### 5) Start the Server
 
 ```bash
 go run ./... server
@@ -86,13 +107,13 @@ go run ./... server
 
 The app runs on `SERVER_ADDRESS:SERVER_PORT` (defaults: `0.0.0.0:8080`).
 
-### 5) Run Tests
+### 6) Run Tests
 
 ```bash
 go test ./...
 ```
 
-### 6) Build Frontend CSS
+### 7) Build Frontend CSS
 
 ```bash
 sfw pnpm install
@@ -111,6 +132,9 @@ pnpm run css:watch
 - `go run ./... migrate up` - apply migrations
 - `go run ./... migrate down` - rollback latest migration
 - `go run ./... migrate status` - show migration status
+- `go run ./... bootstrap` - apply migrations and initialize admin user
+- `go run ./... add-user` - create/update a user
+- `go run ./... add-client` - create/update a client
 - `go run ./... seed` - seed dev data (currently placeholder)
 
 ## Development Notes

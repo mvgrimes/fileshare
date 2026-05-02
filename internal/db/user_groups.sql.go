@@ -77,15 +77,24 @@ WHERE ugm.user_group_id = ?
 ORDER BY u.created_at DESC
 `
 
-func (q *Queries) ListGroupUsers(ctx context.Context, userGroupID string) ([]User, error) {
+type ListGroupUsersRow struct {
+	ID        string `json:"id"`
+	Email     string `json:"email"`
+	FullName  string `json:"full_name"`
+	IsActive  int64  `json:"is_active"`
+	CreatedAt string `json:"created_at"`
+	UpdatedAt string `json:"updated_at"`
+}
+
+func (q *Queries) ListGroupUsers(ctx context.Context, userGroupID string) ([]ListGroupUsersRow, error) {
 	rows, err := q.db.QueryContext(ctx, listGroupUsers, userGroupID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []User
+	var items []ListGroupUsersRow
 	for rows.Next() {
-		var i User
+		var i ListGroupUsersRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.Email,

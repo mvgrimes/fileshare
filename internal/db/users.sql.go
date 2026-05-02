@@ -7,18 +7,20 @@ package db
 
 import (
 	"context"
+	"database/sql"
 )
 
 const createUser = `-- name: CreateUser :exec
-INSERT INTO users (id, email, full_name, is_active)
-VALUES (?, ?, ?, ?)
+INSERT INTO users (id, email, full_name, password_hash, is_active)
+VALUES (?, ?, ?, ?, ?)
 `
 
 type CreateUserParams struct {
-	ID       string `json:"id"`
-	Email    string `json:"email"`
-	FullName string `json:"full_name"`
-	IsActive int64  `json:"is_active"`
+	ID           string         `json:"id"`
+	Email        string         `json:"email"`
+	FullName     string         `json:"full_name"`
+	PasswordHash sql.NullString `json:"password_hash"`
+	IsActive     int64          `json:"is_active"`
 }
 
 func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) error {
@@ -26,6 +28,7 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) error {
 		arg.ID,
 		arg.Email,
 		arg.FullName,
+		arg.PasswordHash,
 		arg.IsActive,
 	)
 	return err
@@ -42,7 +45,7 @@ func (q *Queries) DeleteUser(ctx context.Context, id string) error {
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, email, full_name, is_active, created_at, updated_at
+SELECT id, email, full_name, password_hash, is_active, created_at, updated_at
 FROM users
 WHERE email = ?
 `
@@ -54,6 +57,7 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 		&i.ID,
 		&i.Email,
 		&i.FullName,
+		&i.PasswordHash,
 		&i.IsActive,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -62,7 +66,7 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, email, full_name, is_active, created_at, updated_at
+SELECT id, email, full_name, password_hash, is_active, created_at, updated_at
 FROM users
 WHERE id = ?
 `
@@ -74,6 +78,7 @@ func (q *Queries) GetUserByID(ctx context.Context, id string) (User, error) {
 		&i.ID,
 		&i.Email,
 		&i.FullName,
+		&i.PasswordHash,
 		&i.IsActive,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -82,7 +87,7 @@ func (q *Queries) GetUserByID(ctx context.Context, id string) (User, error) {
 }
 
 const listUsers = `-- name: ListUsers :many
-SELECT id, email, full_name, is_active, created_at, updated_at
+SELECT id, email, full_name, password_hash, is_active, created_at, updated_at
 FROM users
 ORDER BY created_at DESC
 LIMIT ? OFFSET ?
@@ -106,6 +111,7 @@ func (q *Queries) ListUsers(ctx context.Context, arg ListUsersParams) ([]User, e
 			&i.ID,
 			&i.Email,
 			&i.FullName,
+			&i.PasswordHash,
 			&i.IsActive,
 			&i.CreatedAt,
 			&i.UpdatedAt,
@@ -126,18 +132,25 @@ func (q *Queries) ListUsers(ctx context.Context, arg ListUsersParams) ([]User, e
 const updateUser = `-- name: UpdateUser :exec
 UPDATE users
 SET full_name = ?,
+    password_hash = ?,
     is_active = ?,
     updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
 WHERE id = ?
 `
 
 type UpdateUserParams struct {
-	FullName string `json:"full_name"`
-	IsActive int64  `json:"is_active"`
-	ID       string `json:"id"`
+	FullName     string         `json:"full_name"`
+	PasswordHash sql.NullString `json:"password_hash"`
+	IsActive     int64          `json:"is_active"`
+	ID           string         `json:"id"`
 }
 
 func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) error {
-	_, err := q.db.ExecContext(ctx, updateUser, arg.FullName, arg.IsActive, arg.ID)
+	_, err := q.db.ExecContext(ctx, updateUser,
+		arg.FullName,
+		arg.PasswordHash,
+		arg.IsActive,
+		arg.ID,
+	)
 	return err
 }
