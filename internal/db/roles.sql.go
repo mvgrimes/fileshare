@@ -24,6 +24,37 @@ func (q *Queries) AddUserRole(ctx context.Context, arg AddUserRoleParams) error 
 	return err
 }
 
+const listRoleNamesByUserID = `-- name: ListRoleNamesByUserID :many
+SELECT r.name
+FROM user_roles ur
+JOIN roles r ON r.id = ur.role_id
+WHERE ur.user_id = ?
+ORDER BY r.id ASC
+`
+
+func (q *Queries) ListRoleNamesByUserID(ctx context.Context, userID string) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, listRoleNamesByUserID, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			return nil, err
+		}
+		items = append(items, name)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listRoles = `-- name: ListRoles :many
 SELECT id, name
 FROM roles

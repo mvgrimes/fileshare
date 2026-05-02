@@ -53,6 +53,7 @@ type Querier interface {
 	ListGroupClients(ctx context.Context, clientGroupID string) ([]Client, error)
 	ListGroupUsers(ctx context.Context, userGroupID string) ([]ListGroupUsersRow, error)
 	ListMagicLinksByClient(ctx context.Context, clientID string) ([]MagicLink, error)
+	ListRoleNamesByUserID(ctx context.Context, userID string) ([]string, error)
 	ListRoles(ctx context.Context) ([]Role, error)
 	ListSessionsByActor(ctx context.Context, arg ListSessionsByActorParams) ([]Session, error)
 	ListSharesByTarget(ctx context.Context, arg ListSharesByTargetParams) ([]Share, error)

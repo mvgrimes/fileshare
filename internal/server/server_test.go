@@ -1162,6 +1162,62 @@ func TestClientPasswordLoginSuccessWritesAuditEvent(t *testing.T) {
 	}
 }
 
+func TestUserPasswordLoginSuccess(t *testing.T) {
+	s := New(testConfig(), slog.Default())
+	createUserWithPassword(t, "user-pass-1", "user-pass@example.com", "secret-pass", true, 1)
+
+	body := bytes.NewBufferString("actor_type=user&email=user-pass@example.com&password=secret-pass")
+	req := httptest.NewRequest(http.MethodPost, "/auth/password/login", body)
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
+	rec := httptest.NewRecorder()
+	s.e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("status = %d, want %d, body=%q", rec.Code, http.StatusNoContent, rec.Body.String())
+	}
+
+	cookie := cookieByName(rec.Result().Cookies(), "sharefile_session")
+	if cookie == nil {
+		t.Fatal("expected sharefile_session cookie")
+	}
+
+	userReq := httptest.NewRequest(http.MethodGet, "/user/dashboard", nil)
+	userReq.AddCookie(cookie)
+	userRec := httptest.NewRecorder()
+	s.e.ServeHTTP(userRec, userReq)
+	if userRec.Code != http.StatusOK {
+		t.Fatalf("user dashboard status = %d, want %d", userRec.Code, http.StatusOK)
+	}
+}
+
+func TestUserPasswordLoginDisabledAndInvalidCredentials(t *testing.T) {
+	s := New(testConfig(), slog.Default())
+	createUserWithoutPassword(t, "user-no-pass", "user-nopass@example.com", true, 1)
+	createUserWithPassword(t, "user-pass-2", "user-pass2@example.com", "secret-pass", true, 1)
+
+	tests := []struct {
+		name       string
+		body       string
+		wantStatus int
+	}{
+		{name: "password disabled", body: "actor_type=user&email=user-nopass@example.com&password=secret-pass", wantStatus: http.StatusForbidden},
+		{name: "wrong password", body: "actor_type=user&email=user-pass2@example.com&password=wrong", wantStatus: http.StatusUnauthorized},
+		{name: "missing user", body: "actor_type=user&email=missing-user@example.com&password=secret-pass", wantStatus: http.StatusUnauthorized},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodPost, "/auth/password/login", bytes.NewBufferString(tc.body))
+			req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
+			rec := httptest.NewRecorder()
+			s.e.ServeHTTP(rec, req)
+			if rec.Code != tc.wantStatus {
+				t.Fatalf("status = %d, want %d", rec.Code, tc.wantStatus)
+			}
+		})
+	}
+}
+
 func TestTemplateRendererAddsPath(t *testing.T) {
 	s := New(testConfig(), slog.Default())
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
@@ -1312,6 +1368,67 @@ func createClientWithPassword(t *testing.T, id, email, password string, active b
 		IsActive:     isActive,
 	}); err != nil {
 		t.Fatalf("CreateClient() error: %v", err)
+	}
+}
+
+func createUserWithPassword(t *testing.T, id, email, password string, active bool, roleID int64) {
+	t.Helper()
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		t.Fatalf("GenerateFromPassword() error: %v", err)
+	}
+
+	sqlDB, err := sql.Open("sqlite", testConfig().DatabaseURL)
+	if err != nil {
+		t.Fatalf("sql.Open() unexpected error: %v", err)
+	}
+	defer sqlDB.Close()
+
+	isActive := int64(0)
+	if active {
+		isActive = 1
+	}
+
+	queries := db.New(sqlDB)
+	if err := queries.CreateUser(context.Background(), db.CreateUserParams{
+		ID:           id,
+		Email:        email,
+		FullName:     email,
+		PasswordHash: sql.NullString{Valid: true, String: string(hash)},
+		IsActive:     isActive,
+	}); err != nil {
+		t.Fatalf("CreateUser() error: %v", err)
+	}
+	if err := queries.AddUserRole(context.Background(), db.AddUserRoleParams{UserID: id, RoleID: roleID}); err != nil {
+		t.Fatalf("AddUserRole() error: %v", err)
+	}
+}
+
+func createUserWithoutPassword(t *testing.T, id, email string, active bool, roleID int64) {
+	t.Helper()
+	sqlDB, err := sql.Open("sqlite", testConfig().DatabaseURL)
+	if err != nil {
+		t.Fatalf("sql.Open() unexpected error: %v", err)
+	}
+	defer sqlDB.Close()
+
+	isActive := int64(0)
+	if active {
+		isActive = 1
+	}
+
+	queries := db.New(sqlDB)
+	if err := queries.CreateUser(context.Background(), db.CreateUserParams{
+		ID:           id,
+		Email:        email,
+		FullName:     email,
+		PasswordHash: sql.NullString{},
+		IsActive:     isActive,
+	}); err != nil {
+		t.Fatalf("CreateUser() error: %v", err)
+	}
+	if err := queries.AddUserRole(context.Background(), db.AddUserRoleParams{UserID: id, RoleID: roleID}); err != nil {
+		t.Fatalf("AddUserRole() error: %v", err)
 	}
 }
 

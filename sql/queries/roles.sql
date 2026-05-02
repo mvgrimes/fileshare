@@ -16,3 +16,10 @@ SELECT ur.user_id, ur.role_id, ur.created_at
 FROM user_roles ur
 WHERE ur.user_id = ?
 ORDER BY ur.created_at DESC;
+
+-- name: ListRoleNamesByUserID :many
+SELECT r.name
+FROM user_roles ur
+JOIN roles r ON r.id = ur.role_id
+WHERE ur.user_id = ?
+ORDER BY r.id ASC;

@@ -36,6 +36,7 @@ type Server struct {
 	sessions  *auth.Manager
 	authz     *auth.AuthorizationService
 	userSync  *auth.UserSyncer
+	userPwd   *auth.UserPasswordAuthenticator
 	clientPwd *auth.ClientPasswordAuthenticator
 	magic     *auth.MagicManager
 	magicSend auth.MagicSender
@@ -126,6 +127,7 @@ func New(cfg *config.Config, log *slog.Logger) *Server {
 	sessions := auth.NewManager(queries, sessionTTL)
 	authz := auth.NewAuthorizationService(queries, queries)
 	userSync := auth.NewUserSyncer(queries)
+	userPwd := auth.NewUserPasswordAuthenticator(queries)
 	clientPwd := auth.NewClientPasswordAuthenticator(queries)
 	magic := auth.NewMagicManager(queries, 15*time.Minute, 60*time.Second)
 	magicSend := auth.MagicSender(auth.NoopSender{})
@@ -136,7 +138,7 @@ func New(cfg *config.Config, log *slog.Logger) *Server {
 		}
 		magicSend = sender
 	}
-	srv := &Server{e: e, cfg: cfg, log: log, sessions: sessions, authz: authz, userSync: userSync, clientPwd: clientPwd, magic: magic, magicSend: magicSend}
+	srv := &Server{e: e, cfg: cfg, log: log, sessions: sessions, authz: authz, userSync: userSync, userPwd: userPwd, clientPwd: clientPwd, magic: magic, magicSend: magicSend}
 	e.Use(auth.LoadSession(sessions))
 
 	e.GET("/healthz", func(c echo.Context) error {
@@ -157,7 +159,7 @@ func New(cfg *config.Config, log *slog.Logger) *Server {
 	public.GET("/login", func(c echo.Context) error {
 		return c.Render(http.StatusOK, "auth", map[string]any{
 			"Title":           "Login",
-			"Subtitle":        "Sign in with SSO or client password.",
+			"Subtitle":        "Sign in with SSO, user password, or client password.",
 			"FlashError":      c.QueryParam("error"),
 			"FlashSuccess":    c.QueryParam("success"),
 			"ContentTemplate": "login_content",
@@ -340,8 +342,55 @@ func New(cfg *config.Config, log *slog.Logger) *Server {
 		return c.NoContent(http.StatusNoContent)
 	})
 	public.POST("/auth/password/login", func(c echo.Context) error {
+		actorType := strings.TrimSpace(c.FormValue("actor_type"))
+		if actorType == "" {
+			actorType = "client"
+		}
 		email := c.FormValue("email")
 		password := c.FormValue("password")
+
+		if actorType == "user" {
+			user, roles, err := srv.userPwd.Authenticate(c.Request().Context(), email, password)
+			if err != nil {
+				switch err {
+				case auth.ErrUserPasswordDisabled:
+					if isHTMLRequest(c) {
+						return c.Redirect(http.StatusSeeOther, "/login?error="+url.QueryEscape("Password auth disabled"))
+					}
+					auditAuthEvent(c, queries, "auth.password.login", "", "", "user", email, map[string]any{"outcome": "failure", "reason": "disabled"})
+					return c.String(http.StatusForbidden, "password auth disabled")
+				case auth.ErrInvalidUserCredentials:
+					if isHTMLRequest(c) {
+						return c.Redirect(http.StatusSeeOther, "/login?error="+url.QueryEscape("Invalid credentials"))
+					}
+					auditAuthEvent(c, queries, "auth.password.login", "", "", "user", email, map[string]any{"outcome": "failure", "reason": "invalid_credentials"})
+					return c.String(http.StatusUnauthorized, "invalid credentials")
+				default:
+					if isHTMLRequest(c) {
+						return c.Redirect(http.StatusSeeOther, "/login?error="+url.QueryEscape("Failed to authenticate"))
+					}
+					auditAuthEvent(c, queries, "auth.password.login", "", "", "user", email, map[string]any{"outcome": "failure", "reason": "auth_failed"})
+					return c.String(http.StatusInternalServerError, "failed to authenticate")
+				}
+			}
+
+			token, _, err := sessions.CreateSession(c.Request().Context(), auth.Principal{ActorType: "user", ActorID: user.ID, Roles: roles})
+			if err != nil {
+				if isHTMLRequest(c) {
+					return c.Redirect(http.StatusSeeOther, "/login?error="+url.QueryEscape("Unable to create session"))
+				}
+				auditAuthEvent(c, queries, "auth.password.login", "user", user.ID, "user", user.ID, map[string]any{"outcome": "failure", "reason": "session_create_failed"})
+				return c.String(http.StatusInternalServerError, "failed to create session")
+			}
+
+			auditAuthEvent(c, queries, "auth.password.login", "user", user.ID, "user", user.ID, map[string]any{"outcome": "success"})
+			setSessionCookie(c, cfg.Environment, token, sessionTTL)
+			if isHTMLRequest(c) {
+				return c.Redirect(http.StatusSeeOther, "/user/dashboard")
+			}
+			return c.NoContent(http.StatusNoContent)
+		}
+
 		client, err := srv.clientPwd.Authenticate(c.Request().Context(), email, password)
 		if err != nil {
 			switch err {
@@ -389,13 +438,13 @@ func New(cfg *config.Config, log *slog.Logger) *Server {
 		principal, _ := auth.PrincipalFromContext(c)
 		actions := dashboardActions(principal)
 		return c.Render(http.StatusOK, "dashboard", map[string]any{
-			"Title":           "User Dashboard",
-			"Role":            principal.ActorType,
-			"Subtitle":        "Your available actions are based on assigned roles.",
-			"ActorID":         principal.ActorID,
+			"Title":            "User Dashboard",
+			"Role":             principal.ActorType,
+			"Subtitle":         "Your available actions are based on assigned roles.",
+			"ActorID":          principal.ActorID,
 			"DashboardActions": actions,
-			"HasActions":      len(actions) > 0,
-			"ContentTemplate": "dashboard_content",
+			"HasActions":       len(actions) > 0,
+			"ContentTemplate":  "dashboard_content",
 		})
 	})
 	user.GET("/uploads", func(c echo.Context) error {
@@ -628,13 +677,13 @@ func New(cfg *config.Config, log *slog.Logger) *Server {
 			Path:        "/client/files",
 		}}
 		return c.Render(http.StatusOK, "dashboard", map[string]any{
-			"Title":           "Client Dashboard",
-			"Role":            principal.ActorType,
-			"Subtitle":        "Use secure links to access files and upload where permitted.",
-			"ActorID":         principal.ActorID,
+			"Title":            "Client Dashboard",
+			"Role":             principal.ActorType,
+			"Subtitle":         "Use secure links to access files and upload where permitted.",
+			"ActorID":          principal.ActorID,
 			"DashboardActions": actions,
-			"HasActions":      true,
-			"ContentTemplate": "dashboard_content",
+			"HasActions":       true,
+			"ContentTemplate":  "dashboard_content",
 		})
 	})
 	client.GET("/files/:fileID/download", func(c echo.Context) error {
