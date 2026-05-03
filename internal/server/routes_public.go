@@ -1,0 +1,263 @@
+package server
+
+import (
+	"net/http"
+	"net/url"
+	"strings"
+	"time"
+
+	"github.com/labstack/echo/v4"
+
+	"sharefile/internal/auth"
+	"sharefile/internal/db"
+)
+
+func (s *Server) registerPublicRoutes(queries *db.Queries, sessionTTL time.Duration) {
+	public := s.e.Group("")
+	public.GET("/", func(c echo.Context) error {
+		return c.Render(http.StatusOK, "home", map[string]any{"Title": "ShareFile", "ContentTemplate": "home_content"})
+	})
+	public.GET("/login", func(c echo.Context) error {
+		return c.Render(http.StatusOK, "auth", map[string]any{"Title": "Login", "Subtitle": "Sign in with SSO, user password, or client password.", "FlashError": c.QueryParam("error"), "FlashSuccess": c.QueryParam("success"), "ContentTemplate": "login_content"})
+	})
+	public.GET("/request-link", func(c echo.Context) error {
+		return c.Render(http.StatusOK, "auth", map[string]any{"Title": "Request Magic Link", "Subtitle": "Request or verify a one-time login token.", "FlashError": c.QueryParam("error"), "FlashSuccess": c.QueryParam("success"), "ContentTemplate": "request_link_content"})
+	})
+	public.POST("/auth/session", func(c echo.Context) error {
+		actorType := c.FormValue("actor_type")
+		actorID := c.FormValue("actor_id")
+		roles := parseRoles(c.FormValue("roles"))
+		if actorType == "" || actorID == "" {
+			return c.String(http.StatusBadRequest, "actor_type and actor_id are required")
+		}
+		if actorType != "user" && actorType != "client" {
+			return c.String(http.StatusBadRequest, "actor_type must be user or client")
+		}
+		token, _, err := s.sessions.CreateSession(c.Request().Context(), auth.Principal{ActorType: actorType, ActorID: actorID, Roles: roles})
+		if err != nil {
+			return c.String(http.StatusInternalServerError, "failed to create session")
+		}
+		setSessionCookie(c, s.cfg.Environment, token, sessionTTL)
+		return c.NoContent(http.StatusNoContent)
+	})
+	public.POST("/auth/logout", func(c echo.Context) error {
+		cookie, err := c.Cookie(auth.SessionCookieName)
+		if err == nil {
+			if session, loadErr := s.sessions.LoadSession(c.Request().Context(), cookie.Value); loadErr == nil {
+				auditAuthEvent(c, queries, "auth.logout", session.Principal.ActorType, session.Principal.ActorID, "session", session.TokenHash, map[string]any{"outcome": "success"})
+			}
+			_ = s.sessions.RevokeSession(c.Request().Context(), cookie.Value)
+		}
+		c.SetCookie(&http.Cookie{Name: auth.SessionCookieName, Value: "", Path: "/", HttpOnly: true, Secure: sCookieSecure(s.cfg.Environment), SameSite: http.SameSiteLaxMode, MaxAge: -1})
+		return c.NoContent(http.StatusNoContent)
+	})
+
+	public.POST("/auth/sso/login", func(c echo.Context) error {
+		ssoCookie, err := c.Cookie(s.cfg.SSOCookieName)
+		if err != nil || ssoCookie.Value == "" {
+			if isHTMLRequest(c) {
+				return c.Redirect(http.StatusSeeOther, "/login?error="+url.QueryEscape("Missing SSO cookie"))
+			}
+			auditAuthEvent(c, queries, "auth.sso.login", "", "", "user", "", map[string]any{"outcome": "failure", "reason": "missing_cookie"})
+			return c.String(http.StatusUnauthorized, "missing sso cookie")
+		}
+		validator := auth.NewSSOValidator(s.cfg.JWTSecret, s.cfg.SSOIssuer, s.cfg.SSOAudience)
+		claims, err := validator.Validate(ssoCookie.Value)
+		if err != nil {
+			if isHTMLRequest(c) {
+				return c.Redirect(http.StatusSeeOther, "/login?error="+url.QueryEscape("Invalid SSO token"))
+			}
+			auditAuthEvent(c, queries, "auth.sso.login", "", "", "user", "", map[string]any{"outcome": "failure", "reason": "invalid_token"})
+			return c.String(http.StatusUnauthorized, "invalid sso token")
+		}
+		actorID, err := s.userSync.UpsertFromSSOClaims(c.Request().Context(), claims)
+		if err != nil {
+			if isHTMLRequest(c) {
+				return c.Redirect(http.StatusSeeOther, "/login?error="+url.QueryEscape("Invalid SSO claims"))
+			}
+			auditAuthEvent(c, queries, "auth.sso.login", "", "", "user", "", map[string]any{"outcome": "failure", "reason": "invalid_claims"})
+			return c.String(http.StatusUnauthorized, "invalid sso token")
+		}
+		token, _, err := s.sessions.CreateSession(c.Request().Context(), auth.Principal{ActorType: "user", ActorID: actorID, Roles: claims.Roles})
+		if err != nil {
+			if isHTMLRequest(c) {
+				return c.Redirect(http.StatusSeeOther, "/login?error="+url.QueryEscape("Unable to create session"))
+			}
+			auditAuthEvent(c, queries, "auth.sso.login", "user", actorID, "user", actorID, map[string]any{"outcome": "failure", "reason": "session_create_failed"})
+			return c.String(http.StatusInternalServerError, "failed to create session")
+		}
+		auditAuthEvent(c, queries, "auth.sso.login", "user", actorID, "user", actorID, map[string]any{"outcome": "success"})
+		setSessionCookie(c, s.cfg.Environment, token, sessionTTL)
+		if isHTMLRequest(c) {
+			return c.Redirect(http.StatusSeeOther, "/user/dashboard")
+		}
+		return c.NoContent(http.StatusNoContent)
+	})
+
+	public.POST("/auth/magic/request", func(c echo.Context) error {
+		clientID := c.FormValue("client_id")
+		if clientID == "" {
+			if isHTMLRequest(c) {
+				return c.Redirect(http.StatusSeeOther, "/request-link?error="+url.QueryEscape("Client ID is required"))
+			}
+			auditAuthEvent(c, queries, "auth.magic.request", "", "", "client", "", map[string]any{"outcome": "failure", "reason": "missing_client_id"})
+			return c.String(http.StatusBadRequest, "client_id is required")
+		}
+		token, _, err := s.magic.Create(c.Request().Context(), clientID)
+		if err != nil {
+			if err == auth.ErrMagicLinkThrottled {
+				if isHTMLRequest(c) {
+					return c.Redirect(http.StatusSeeOther, "/request-link?error="+url.QueryEscape("Magic link request throttled"))
+				}
+				auditAuthEvent(c, queries, "auth.magic.request", "", "", "client", clientID, map[string]any{"outcome": "failure", "reason": "throttled"})
+				return c.String(http.StatusTooManyRequests, "magic link request throttled")
+			}
+			if isHTMLRequest(c) {
+				return c.Redirect(http.StatusSeeOther, "/request-link?error="+url.QueryEscape("Unable to create magic link"))
+			}
+			auditAuthEvent(c, queries, "auth.magic.request", "", "", "client", clientID, map[string]any{"outcome": "failure", "reason": "create_failed"})
+			return c.String(http.StatusInternalServerError, "failed to create magic link")
+		}
+		if err := s.magicSend.SendMagicLink(c.Request().Context(), clientID, token); err != nil {
+			s.log.Error("magic link delivery failed", "client_id", clientID, "error", err.Error())
+			if isHTMLRequest(c) {
+				return c.Redirect(http.StatusSeeOther, "/request-link?error="+url.QueryEscape("Failed to deliver magic link"))
+			}
+			auditAuthEvent(c, queries, "auth.magic.request", "", "", "client", clientID, map[string]any{"outcome": "failure", "reason": "delivery_failed"})
+			return c.String(http.StatusBadGateway, "failed to deliver magic link")
+		}
+		auditAuthEvent(c, queries, "auth.magic.request", "", "", "client", clientID, map[string]any{"outcome": "success"})
+		if isHTMLRequest(c) {
+			return c.Redirect(http.StatusSeeOther, "/request-link?success="+url.QueryEscape("Magic link sent"))
+		}
+		return c.NoContent(http.StatusNoContent)
+	})
+
+	public.POST("/auth/magic/verify", func(c echo.Context) error {
+		clientID := c.FormValue("client_id")
+		token := c.FormValue("token")
+		if clientID == "" || token == "" {
+			if isHTMLRequest(c) {
+				return c.Redirect(http.StatusSeeOther, "/request-link?error="+url.QueryEscape("Client ID and token are required"))
+			}
+			auditAuthEvent(c, queries, "auth.magic.verify", "", "", "client", clientID, map[string]any{"outcome": "failure", "reason": "missing_input"})
+			return c.String(http.StatusBadRequest, "client_id and token are required")
+		}
+		_, err := s.magic.Consume(c.Request().Context(), clientID, token)
+		if err != nil {
+			switch err {
+			case auth.ErrMagicLinkExpired, auth.ErrMagicLinkConsumed, auth.ErrMagicLinkNotFound:
+				if isHTMLRequest(c) {
+					return c.Redirect(http.StatusSeeOther, "/request-link?error="+url.QueryEscape("Invalid or expired magic link"))
+				}
+				auditAuthEvent(c, queries, "auth.magic.verify", "", "", "client", clientID, map[string]any{"outcome": "failure", "reason": "invalid_or_expired"})
+				return c.String(http.StatusUnauthorized, "invalid or expired magic link")
+			default:
+				if isHTMLRequest(c) {
+					return c.Redirect(http.StatusSeeOther, "/request-link?error="+url.QueryEscape("Failed to verify magic link"))
+				}
+				auditAuthEvent(c, queries, "auth.magic.verify", "", "", "client", clientID, map[string]any{"outcome": "failure", "reason": "verify_failed"})
+				return c.String(http.StatusInternalServerError, "failed to verify magic link")
+			}
+		}
+		sessionToken, _, err := s.sessions.CreateSession(c.Request().Context(), auth.Principal{ActorType: "client", ActorID: clientID})
+		if err != nil {
+			if isHTMLRequest(c) {
+				return c.Redirect(http.StatusSeeOther, "/request-link?error="+url.QueryEscape("Unable to create session"))
+			}
+			auditAuthEvent(c, queries, "auth.magic.verify", "client", clientID, "client", clientID, map[string]any{"outcome": "failure", "reason": "session_create_failed"})
+			return c.String(http.StatusInternalServerError, "failed to create session")
+		}
+		auditAuthEvent(c, queries, "auth.magic.verify", "client", clientID, "client", clientID, map[string]any{"outcome": "success"})
+		setSessionCookie(c, s.cfg.Environment, sessionToken, sessionTTL)
+		if isHTMLRequest(c) {
+			return c.Redirect(http.StatusSeeOther, "/client/dashboard")
+		}
+		return c.NoContent(http.StatusNoContent)
+	})
+
+	public.POST("/auth/password/login", func(c echo.Context) error {
+		actorType := strings.TrimSpace(c.FormValue("actor_type"))
+		if actorType == "" {
+			actorType = "client"
+		}
+		email := c.FormValue("email")
+		password := c.FormValue("password")
+		if actorType == "user" {
+			user, roles, err := s.userPwd.Authenticate(c.Request().Context(), email, password)
+			if err != nil {
+				switch err {
+				case auth.ErrUserPasswordDisabled:
+					if isHTMLRequest(c) {
+						return c.Redirect(http.StatusSeeOther, "/login?error="+url.QueryEscape("Password auth disabled"))
+					}
+					auditAuthEvent(c, queries, "auth.password.login", "", "", "user", email, map[string]any{"outcome": "failure", "reason": "disabled"})
+					return c.String(http.StatusForbidden, "password auth disabled")
+				case auth.ErrInvalidUserCredentials:
+					if isHTMLRequest(c) {
+						return c.Redirect(http.StatusSeeOther, "/login?error="+url.QueryEscape("Invalid credentials"))
+					}
+					auditAuthEvent(c, queries, "auth.password.login", "", "", "user", email, map[string]any{"outcome": "failure", "reason": "invalid_credentials"})
+					return c.String(http.StatusUnauthorized, "invalid credentials")
+				default:
+					if isHTMLRequest(c) {
+						return c.Redirect(http.StatusSeeOther, "/login?error="+url.QueryEscape("Failed to authenticate"))
+					}
+					auditAuthEvent(c, queries, "auth.password.login", "", "", "user", email, map[string]any{"outcome": "failure", "reason": "auth_failed"})
+					return c.String(http.StatusInternalServerError, "failed to authenticate")
+				}
+			}
+			token, _, err := s.sessions.CreateSession(c.Request().Context(), auth.Principal{ActorType: "user", ActorID: user.ID, Roles: roles})
+			if err != nil {
+				if isHTMLRequest(c) {
+					return c.Redirect(http.StatusSeeOther, "/login?error="+url.QueryEscape("Unable to create session"))
+				}
+				auditAuthEvent(c, queries, "auth.password.login", "user", user.ID, "user", user.ID, map[string]any{"outcome": "failure", "reason": "session_create_failed"})
+				return c.String(http.StatusInternalServerError, "failed to create session")
+			}
+			auditAuthEvent(c, queries, "auth.password.login", "user", user.ID, "user", user.ID, map[string]any{"outcome": "success"})
+			setSessionCookie(c, s.cfg.Environment, token, sessionTTL)
+			if isHTMLRequest(c) {
+				return c.Redirect(http.StatusSeeOther, "/user/dashboard")
+			}
+			return c.NoContent(http.StatusNoContent)
+		}
+		client, err := s.clientPwd.Authenticate(c.Request().Context(), email, password)
+		if err != nil {
+			switch err {
+			case auth.ErrClientPasswordDisabled:
+				if isHTMLRequest(c) {
+					return c.Redirect(http.StatusSeeOther, "/login?error="+url.QueryEscape("Password auth disabled"))
+				}
+				auditAuthEvent(c, queries, "auth.password.login", "", "", "client", email, map[string]any{"outcome": "failure", "reason": "disabled"})
+				return c.String(http.StatusForbidden, "password auth disabled")
+			case auth.ErrInvalidClientCredentials:
+				if isHTMLRequest(c) {
+					return c.Redirect(http.StatusSeeOther, "/login?error="+url.QueryEscape("Invalid credentials"))
+				}
+				auditAuthEvent(c, queries, "auth.password.login", "", "", "client", email, map[string]any{"outcome": "failure", "reason": "invalid_credentials"})
+				return c.String(http.StatusUnauthorized, "invalid credentials")
+			default:
+				if isHTMLRequest(c) {
+					return c.Redirect(http.StatusSeeOther, "/login?error="+url.QueryEscape("Failed to authenticate"))
+				}
+				auditAuthEvent(c, queries, "auth.password.login", "", "", "client", email, map[string]any{"outcome": "failure", "reason": "auth_failed"})
+				return c.String(http.StatusInternalServerError, "failed to authenticate")
+			}
+		}
+		token, _, err := s.sessions.CreateSession(c.Request().Context(), auth.Principal{ActorType: "client", ActorID: client.ID})
+		if err != nil {
+			if isHTMLRequest(c) {
+				return c.Redirect(http.StatusSeeOther, "/login?error="+url.QueryEscape("Unable to create session"))
+			}
+			auditAuthEvent(c, queries, "auth.password.login", "client", client.ID, "client", client.ID, map[string]any{"outcome": "failure", "reason": "session_create_failed"})
+			return c.String(http.StatusInternalServerError, "failed to create session")
+		}
+		auditAuthEvent(c, queries, "auth.password.login", "client", client.ID, "client", client.ID, map[string]any{"outcome": "success"})
+		setSessionCookie(c, s.cfg.Environment, token, sessionTTL)
+		if isHTMLRequest(c) {
+			return c.Redirect(http.StatusSeeOther, "/client/dashboard")
+		}
+		return c.NoContent(http.StatusNoContent)
+	})
+}
