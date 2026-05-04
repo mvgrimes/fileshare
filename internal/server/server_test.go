@@ -148,6 +148,33 @@ func TestAuthPagesContainFormTargets(t *testing.T) {
 	}
 }
 
+func TestNavLogoutButtonVisibility(t *testing.T) {
+	s := New(testConfig(), slog.Default())
+
+	anonReq := httptest.NewRequest(http.MethodGet, "/login", nil)
+	anonRec := httptest.NewRecorder()
+	s.e.ServeHTTP(anonRec, anonReq)
+	if anonRec.Code != http.StatusOK {
+		t.Fatalf("anonymous page status = %d, want %d", anonRec.Code, http.StatusOK)
+	}
+	if strings.Contains(anonRec.Body.String(), "action=\"/auth/logout\"") {
+		t.Fatalf("anonymous nav should not render logout button: %q", anonRec.Body.String())
+	}
+
+	cookie := login(t, s, "user", "u-nav", "")
+	authedReq := httptest.NewRequest(http.MethodGet, "/user/dashboard", nil)
+	authedReq.AddCookie(cookie)
+	authedRec := httptest.NewRecorder()
+	s.e.ServeHTTP(authedRec, authedReq)
+	if authedRec.Code != http.StatusOK {
+		t.Fatalf("authenticated page status = %d, want %d", authedRec.Code, http.StatusOK)
+	}
+	authedBody := authedRec.Body.String()
+	if !strings.Contains(authedBody, "action=\"/auth/logout\"") || !strings.Contains(authedBody, ">Logout<") {
+		t.Fatalf("authenticated nav should render logout button: %q", authedBody)
+	}
+}
+
 func TestProgressiveEnhancementScriptRenderedOnForms(t *testing.T) {
 	s := New(testConfig(), slog.Default())
 	cookie := login(t, s, "user", "u-enhance", "account_manager")

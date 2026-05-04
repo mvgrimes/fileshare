@@ -66,6 +66,8 @@ func (r *TemplateRenderer) Render(w io.Writer, name string, data any, c echo.Con
 		viewData = map[string]any{}
 	}
 	viewData["Path"] = c.Request().URL.Path
+	_, isAuthenticated := auth.PrincipalFromContext(c)
+	viewData["IsAuthenticated"] = isAuthenticated
 	return r.templates.ExecuteTemplate(w, name, viewData)
 }
 
