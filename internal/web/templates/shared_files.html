@@ -17,7 +17,7 @@
             <td>{{.ContentType}}</td>
             <td>{{.SizeBytes}}</td>
             <td>{{.SharedVia}}</td>
-            <td><a class="btn btn-xs btn-primary" href="{{$.DetailBasePath}}/{{.ID}}">Details</a></td>
+            <td class="space-x-1"><a class="btn btn-xs btn-primary" href="{{$.DetailBasePath}}/{{.ID}}">Details</a>{{if $.DownloadBasePath}}<a class="btn btn-xs btn-outline" href="{{$.DownloadBasePath}}/{{.ID}}/download">Download</a>{{end}}</td>
           </tr>
           {{end}}
         </tbody>
@@ -39,6 +39,7 @@
     <p><strong>Content Type:</strong> {{.File.ContentType}}</p>
     <p><strong>Size:</strong> {{.File.SizeBytes}}</p>
     <p><strong>Shared Via:</strong> {{.File.SharedVia}}</p>
+    {{if .DownloadPath}}<a class="btn btn-sm btn-outline" href="{{.DownloadPath}}">Download</a>{{end}}
     {{if .ManageFile}}
     <div class="divider my-1"></div>
     <h3 class="text-lg font-semibold">Rename File</h3>

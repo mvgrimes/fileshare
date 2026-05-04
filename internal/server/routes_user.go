@@ -69,7 +69,23 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 		for _, f := range files {
 			items = append(items, fileListItem{ID: f.ID, Name: f.OriginalFilename, ContentType: f.ContentType, SizeBytes: f.SizeBytes, SharedVia: "owned"})
 		}
-		return c.Render(http.StatusOK, "shared_files", map[string]any{"Title": "Shared Files", "Subtitle": "Files uploaded by your account.", "ContentTemplate": "shared_files_content", "Files": items, "EmptyMessage": "No files uploaded yet.", "DetailBasePath": "/user/files"})
+		return c.Render(http.StatusOK, "shared_files", map[string]any{"Title": "Shared Files", "Subtitle": "Files uploaded by your account.", "ContentTemplate": "shared_files_content", "Files": items, "EmptyMessage": "No files uploaded yet.", "DetailBasePath": "/user/files", "DownloadBasePath": "/user/files"})
+	})
+
+	user.GET("/files/:fileID/download", func(c echo.Context) error {
+		principal, _ := auth.PrincipalFromContext(c)
+		fileID := c.Param("fileID")
+		file, err := queries.GetFileByID(c.Request().Context(), fileID)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return c.String(http.StatusNotFound, "file not found")
+			}
+			return c.String(http.StatusInternalServerError, "failed to load file")
+		}
+		if file.UploaderType != "user" || file.UploaderID != principal.ActorID {
+			return c.String(http.StatusForbidden, "forbidden")
+		}
+		return c.String(http.StatusOK, "download access granted")
 	})
 
 	user.GET("/files/:fileID", func(c echo.Context) error {
@@ -109,7 +125,7 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 		if err != nil {
 			return c.String(http.StatusInternalServerError, "failed to load user groups")
 		}
-		return c.Render(http.StatusOK, "shared_files", map[string]any{"Title": "File Detail", "Subtitle": "Detailed metadata for your uploaded file.", "ContentTemplate": "file_detail_content", "File": fileListItem{ID: file.ID, Name: file.OriginalFilename, ContentType: file.ContentType, SizeBytes: file.SizeBytes, SharedVia: "owned"}, "BackPath": "/user/files", "ManageFile": true, "ShareTargets": shareItems, "Clients": clients, "ClientGroups": clientGroups, "Users": users, "UserGroups": userGroups, "FlashError": c.QueryParam("error"), "FlashSuccess": c.QueryParam("success")})
+		return c.Render(http.StatusOK, "shared_files", map[string]any{"Title": "File Detail", "Subtitle": "Detailed metadata for your uploaded file.", "ContentTemplate": "file_detail_content", "File": fileListItem{ID: file.ID, Name: file.OriginalFilename, ContentType: file.ContentType, SizeBytes: file.SizeBytes, SharedVia: "owned"}, "BackPath": "/user/files", "DownloadPath": "/user/files/" + file.ID + "/download", "ManageFile": true, "ShareTargets": shareItems, "Clients": clients, "ClientGroups": clientGroups, "Users": users, "UserGroups": userGroups, "FlashError": c.QueryParam("error"), "FlashSuccess": c.QueryParam("success")})
 	})
 
 	user.POST("/files/:fileID/rename", func(c echo.Context) error {

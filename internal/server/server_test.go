@@ -521,6 +521,9 @@ func TestUserSharedFilesListAndDetail(t *testing.T) {
 	if !strings.Contains(body, "file-owned.dat") {
 		t.Fatalf("list body = %q, want owned file", body)
 	}
+	if !strings.Contains(body, "href=\"/user/files/file-owned/download\"") {
+		t.Fatalf("list body = %q, want download link", body)
+	}
 	if strings.Contains(body, "file-other.dat") {
 		t.Fatalf("list body = %q, should not include other user's file", body)
 	}
@@ -532,6 +535,9 @@ func TestUserSharedFilesListAndDetail(t *testing.T) {
 	if ownerDetailRec.Code != http.StatusOK {
 		t.Fatalf("owner detail status = %d, want %d", ownerDetailRec.Code, http.StatusOK)
 	}
+	if !strings.Contains(ownerDetailRec.Body.String(), "href=\"/user/files/file-owned/download\"") {
+		t.Fatalf("owner detail body = %q, want detail download link", ownerDetailRec.Body.String())
+	}
 
 	forbiddenReq := httptest.NewRequest(http.MethodGet, "/user/files/file-owned", nil)
 	forbiddenReq.AddCookie(otherCookie)
@@ -539,6 +545,22 @@ func TestUserSharedFilesListAndDetail(t *testing.T) {
 	s.e.ServeHTTP(forbiddenRec, forbiddenReq)
 	if forbiddenRec.Code != http.StatusForbidden {
 		t.Fatalf("forbidden detail status = %d, want %d", forbiddenRec.Code, http.StatusForbidden)
+	}
+
+	downloaderReq := httptest.NewRequest(http.MethodGet, "/user/files/file-owned/download", nil)
+	downloaderReq.AddCookie(ownerCookie)
+	downloaderRec := httptest.NewRecorder()
+	s.e.ServeHTTP(downloaderRec, downloaderReq)
+	if downloaderRec.Code != http.StatusOK {
+		t.Fatalf("owner download status = %d, want %d", downloaderRec.Code, http.StatusOK)
+	}
+
+	forbiddenDownloadReq := httptest.NewRequest(http.MethodGet, "/user/files/file-owned/download", nil)
+	forbiddenDownloadReq.AddCookie(otherCookie)
+	forbiddenDownloadRec := httptest.NewRecorder()
+	s.e.ServeHTTP(forbiddenDownloadRec, forbiddenDownloadReq)
+	if forbiddenDownloadRec.Code != http.StatusForbidden {
+		t.Fatalf("forbidden download status = %d, want %d", forbiddenDownloadRec.Code, http.StatusForbidden)
 	}
 }
 
