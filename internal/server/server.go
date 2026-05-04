@@ -120,10 +120,7 @@ func New(cfg *config.Config, log *slog.Logger) *Server {
 	}
 
 	t := template.Must(loadTemplates())
-	brandingLabel := strings.TrimSpace(cfg.Branding)
-	if brandingLabel == "" {
-		brandingLabel = "ShareFile"
-	}
+	brandingLabel := brandProductName(cfg.Branding)
 	e.Renderer = &TemplateRenderer{templates: t, brandingLabel: brandingLabel, faviconURL: normalizeBrandAsset(cfg.Favicon), logoURL: normalizeBrandAsset(cfg.Logo), logoHeroURL: normalizeBrandAsset(cfg.LogoHero)}
 	assetsFS := mustSubFS(webassets.Files, "dist")
 	e.StaticFS("/assets", assetsFS)
@@ -175,7 +172,7 @@ func New(cfg *config.Config, log *slog.Logger) *Server {
 	magic := auth.NewMagicManager(queries, 15*time.Minute, 60*time.Second)
 	resetPwd := auth.NewPasswordResetManager(queries, 15*time.Minute, 60*time.Second, 12)
 	magicSend := auth.MagicSender(auth.NoopSender{})
-	renderer, renderErr := mail.NewHermesRenderer("ShareFile", cfg.ServerUrl, cfg.ServerUrl)
+	renderer, renderErr := mail.NewHermesRenderer(brandingLabel, cfg.ServerUrl, cfg.ServerUrl)
 	if renderErr != nil {
 		panic(renderErr)
 	}
@@ -433,6 +430,17 @@ func normalizeBrandAsset(raw string) string {
 		return v
 	}
 	return "data:image/png;base64," + v
+}
+
+func brandProductName(raw string) string {
+	base := strings.TrimSpace(raw)
+	if base == "" {
+		base = "ShareFile"
+	}
+	if strings.Contains(strings.ToLower(base), "file share") {
+		return base
+	}
+	return base + " File Share"
 }
 
 func isHTMLRequest(c echo.Context) bool {

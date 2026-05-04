@@ -19,10 +19,7 @@ import (
 func (s *Server) registerPublicRoutes(queries *db.Queries, sessionTTL time.Duration) {
 	public := s.e.Group("")
 	public.GET("/", func(c echo.Context) error {
-		branding := strings.TrimSpace(s.cfg.Branding)
-		if branding == "" {
-			branding = "ShareFile"
-		}
+		branding := brandProductName(s.cfg.Branding)
 		return c.Render(http.StatusOK, "home", map[string]any{"Title": branding, "Subtitle": branding, "ContentTemplate": "home_content"})
 	})
 	public.GET("/login", func(c echo.Context) error {

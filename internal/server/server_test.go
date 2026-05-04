@@ -101,7 +101,7 @@ func TestRouteGroupsRender(t *testing.T) {
 		wantStatus int
 		wantBody   string
 	}{
-		{name: "public home", path: "/", wantStatus: http.StatusOK, wantBody: "ShareFile"},
+		{name: "public home", path: "/", wantStatus: http.StatusOK, wantBody: "ShareFile File Share"},
 		{name: "login page", path: "/login", wantStatus: http.StatusOK, wantBody: "Password Login"},
 		{name: "request link page", path: "/request-link", wantStatus: http.StatusOK, wantBody: "Send Magic Link"},
 		{name: "verify token page", path: "/verify-token", wantStatus: http.StatusOK, wantBody: "Verify and Sign In"},
@@ -140,7 +140,7 @@ func TestHomeBrandingAssetsFromConfig(t *testing.T) {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
 	}
 	body := rec.Body.String()
-	if !strings.Contains(body, "<title>Company, Inc.</title>") {
+	if !strings.Contains(body, "<title>Company, Inc. File Share</title>") {
 		t.Fatalf("body = %q, want branded page title", body)
 	}
 	if !strings.Contains(body, "rel=\"icon\" href=\"https://cdn.example.com/favicon.ico\"") {

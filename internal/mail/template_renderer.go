@@ -87,18 +87,22 @@ func (r *HermesRenderer) RenderMagicLink(data MagicLinkTemplateData) (RenderedTe
 	}
 
 	actions := []hermes.Action{}
-	intro := "Use the secure link below to sign in to ShareFile."
+	productName := strings.TrimSpace(r.engine.Product.Name)
+	if productName == "" {
+		productName = "ShareFile"
+	}
+	intro := fmt.Sprintf("Use the secure link below to sign in to %s.", productName)
 	if hasURL {
 		actions = append(actions, hermes.Action{
 			Instructions: "This sign-in link expires soon for your security:",
 			Button: hermes.Button{
 				Color: "#1A7F64",
-				Text:  "Sign in to ShareFile",
+				Text:  fmt.Sprintf("Sign in to %s", productName),
 				Link:  loginURL,
 			},
 		})
 	} else {
-		intro = "Use the one-time token below to sign in to ShareFile."
+		intro = fmt.Sprintf("Use the one-time token below to sign in to %s.", productName)
 		actions = append(actions, hermes.Action{
 			Instructions: "Enter this one-time token to sign in:",
 			InviteCode:   data.Token,
@@ -127,7 +131,7 @@ func (r *HermesRenderer) RenderMagicLink(data MagicLinkTemplateData) (RenderedTe
 	}
 
 	return RenderedTemplate{
-		Subject: "Your ShareFile magic login link",
+		Subject: fmt.Sprintf("Your %s magic login link", productName),
 		HTML:    htmlBody,
 		Text:    textBody,
 	}, nil
@@ -153,12 +157,16 @@ func (r *HermesRenderer) RenderInvitation(data InvitationTemplateData) (Rendered
 		name = "there"
 	}
 	inviter := strings.TrimSpace(data.InviterLabel)
+	productName := strings.TrimSpace(r.engine.Product.Name)
+	if productName == "" {
+		productName = "ShareFile"
+	}
 	if inviter == "" {
-		inviter = "A ShareFile administrator"
+		inviter = fmt.Sprintf("A %s administrator", productName)
 	}
 	body := hermes.Email{Body: hermes.Body{
 		Name:   name,
-		Intros: []string{fmt.Sprintf("%s invited you to access files in ShareFile.", inviter)},
+		Intros: []string{fmt.Sprintf("%s invited you to access files in %s.", inviter, productName)},
 		Actions: []hermes.Action{{
 			Instructions: "Use the button below to complete your setup:",
 			Button: hermes.Button{Color: "#1A7F64", Text: "Complete setup", Link: data.InviteURL},
@@ -174,7 +182,7 @@ func (r *HermesRenderer) RenderInvitation(data InvitationTemplateData) (Rendered
 	if err != nil {
 		return RenderedTemplate{}, err
 	}
-	return RenderedTemplate{Subject: "You are invited to ShareFile", HTML: htmlBody, Text: textBody}, nil
+	return RenderedTemplate{Subject: fmt.Sprintf("You are invited to %s", productName), HTML: htmlBody, Text: textBody}, nil
 }
 
 func (r *HermesRenderer) RenderFileShared(data FileSharedTemplateData) (RenderedTemplate, error) {
@@ -261,5 +269,9 @@ func (r *HermesRenderer) RenderPasswordReset(data PasswordResetTemplateData) (Re
 	if err != nil {
 		return RenderedTemplate{}, err
 	}
-	return RenderedTemplate{Subject: "Reset your ShareFile password", HTML: htmlBody, Text: textBody}, nil
+	productName := strings.TrimSpace(r.engine.Product.Name)
+	if productName == "" {
+		productName = "ShareFile"
+	}
+	return RenderedTemplate{Subject: fmt.Sprintf("Reset your %s password", productName), HTML: htmlBody, Text: textBody}, nil
 }
