@@ -23,18 +23,32 @@
       <label class="form-control w-full">
         <span class="label-text">Target Type</span>
         <select class="select select-bordered w-full" name="target_type" required data-target-type-select>
+          {{if .ClientUploadMode}}
+          <option value="user" selected>User</option>
+          <option value="user_group">User Group</option>
+          {{else}}
           <option value="client" selected>Client</option>
           <option value="client_group">Client Group</option>
+          {{end}}
         </select>
       </label>
       <label class="form-control w-full">
         <span class="label-text">Target ID</span>
         <select class="select select-bordered w-full" name="target_id" required data-target-id-select>
+          {{if .ClientUploadMode}}
+          {{range .Users}}
+          <option value="{{.ID}}" data-target-option="user">{{.FullName}} ({{.Email}})</option>
+          {{end}}
+          {{range .UserGroups}}
+          <option value="{{.ID}}" data-target-option="user_group" hidden>{{.Name}} ({{.ID}})</option>
+          {{end}}
+          {{else}}
           {{range .Clients}}
           <option value="{{.ID}}" data-target-option="client">{{.DisplayName}} ({{.ID}})</option>
           {{end}}
           {{range .ClientGroups}}
           <option value="{{.ID}}" data-target-option="client_group" hidden>{{.Name}} ({{.ID}})</option>
+          {{end}}
           {{end}}
         </select>
       </label>

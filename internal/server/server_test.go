@@ -937,6 +937,12 @@ func TestUploadFormsRenderForAuthorizedActors(t *testing.T) {
 	if !strings.Contains(clientBody, "action=\"/client/uploads\"") || strings.Contains(clientBody, "name=\"filename\"") {
 		t.Fatalf("client upload form body = %q, want client form without filename field", clientBody)
 	}
+	if !strings.Contains(clientBody, "<option value=\"user\" selected>User</option>") || !strings.Contains(clientBody, "<option value=\"user_group\">User Group</option>") {
+		t.Fatalf("client upload form body = %q, want user and user_group target types", clientBody)
+	}
+	if strings.Contains(clientBody, "<option value=\"client\" selected>Client</option>") || strings.Contains(clientBody, "<option value=\"client_group\">Client Group</option>") {
+		t.Fatalf("client upload form body = %q, should not offer client target types", clientBody)
+	}
 }
 
 func TestUserUploadSubmissionValidationAndSuccess(t *testing.T) {

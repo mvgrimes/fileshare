@@ -20,7 +20,15 @@ func (s *Server) registerClientRoutes(queries *db.Queries) {
 	client.Use(auth.RequireAuth(), auth.RequireActorType("client"))
 	client.GET("/uploads", func(c echo.Context) error {
 		principal, _ := auth.PrincipalFromContext(c)
-		return c.Render(http.StatusOK, "upload_share", map[string]any{"Title": "Client Upload", "Subtitle": "Submit upload targets permitted for your account.", "ActorID": principal.ActorID, "ContentTemplate": "upload_share_content", "FormAction": "/client/uploads", "FlashError": c.QueryParam("error"), "FlashSuccess": c.QueryParam("success")})
+		users, userErr := queries.ListUsers(c.Request().Context(), db.ListUsersParams{Limit: 200, Offset: 0})
+		if userErr != nil {
+			return c.String(http.StatusInternalServerError, "failed to load users")
+		}
+		userGroups, groupErr := queries.ListUserGroups(c.Request().Context(), db.ListUserGroupsParams{Limit: 200, Offset: 0})
+		if groupErr != nil {
+			return c.String(http.StatusInternalServerError, "failed to load user groups")
+		}
+		return c.Render(http.StatusOK, "upload_share", map[string]any{"Title": "Client Upload", "Subtitle": "Submit upload targets permitted for your account.", "ActorID": principal.ActorID, "ContentTemplate": "upload_share_content", "FormAction": "/client/uploads", "FlashError": c.QueryParam("error"), "FlashSuccess": c.QueryParam("success"), "ClientUploadMode": true, "Users": users, "UserGroups": userGroups})
 	})
 	client.GET("/dashboard", func(c echo.Context) error {
 		principal, _ := auth.PrincipalFromContext(c)
