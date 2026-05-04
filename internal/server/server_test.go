@@ -1124,12 +1124,16 @@ func TestMagicLinkRequestThrottled(t *testing.T) {
 
 func TestMagicLinkVerifyCreatesClientSession(t *testing.T) {
 	s := New(testConfig(), slog.Default())
+	createClientWithoutPassword(t, "client-verify", "client-verify@example.com", true)
+	createFileForTests(t, "file-magic-verify")
+	createShareForTests(t, "share-magic-verify", "file-magic-verify", "client", "client-verify")
+
 	token, _, err := s.magic.Create(context.Background(), "client-verify")
 	if err != nil {
 		t.Fatalf("Create() unexpected error: %v", err)
 	}
 
-	body := bytes.NewBufferString(fmt.Sprintf("client_id=client-verify&token=%s", token))
+	body := bytes.NewBufferString(fmt.Sprintf("client_id=client-verify@example.com&token=%s", token))
 	req := httptest.NewRequest(http.MethodPost, "/auth/magic/verify", body)
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
 	rec := httptest.NewRecorder()
@@ -1156,6 +1160,17 @@ func TestMagicLinkVerifyCreatesClientSession(t *testing.T) {
 	s.e.ServeHTTP(clientRec, clientReq)
 	if clientRec.Code != http.StatusOK {
 		t.Fatalf("client dashboard status = %d, want %d", clientRec.Code, http.StatusOK)
+	}
+
+	filesReq := httptest.NewRequest(http.MethodGet, "/client/files", nil)
+	filesReq.AddCookie(sessionCookie)
+	filesRec := httptest.NewRecorder()
+	s.e.ServeHTTP(filesRec, filesReq)
+	if filesRec.Code != http.StatusOK {
+		t.Fatalf("client files status = %d, want %d", filesRec.Code, http.StatusOK)
+	}
+	if !strings.Contains(filesRec.Body.String(), "file-magic-verify") {
+		t.Fatalf("client files body = %q, want shared file", filesRec.Body.String())
 	}
 }
 

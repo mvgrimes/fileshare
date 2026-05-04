@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"net/http"
 	"net/url"
 	"strings"
@@ -98,38 +99,39 @@ func (s *Server) registerPublicRoutes(queries *db.Queries, sessionTTL time.Durat
 	})
 
 	public.POST("/auth/magic/request", func(c echo.Context) error {
-		clientID := c.FormValue("client_id")
-		if clientID == "" {
+		clientIdentifier := strings.TrimSpace(c.FormValue("client_id"))
+		if clientIdentifier == "" {
 			if isHTMLRequest(c) {
 				return c.Redirect(http.StatusSeeOther, "/request-link?error="+url.QueryEscape("Email address is required"))
 			}
 			auditAuthEvent(c, queries, "auth.magic.request", "", "", "client", "", map[string]any{"outcome": "failure", "reason": "missing_client_id"})
 			return c.String(http.StatusBadRequest, "client_id is required")
 		}
+		clientID := resolvedClientID(queries, c.Request().Context(), clientIdentifier)
 		token, _, err := s.magic.Create(c.Request().Context(), clientID)
 		if err != nil {
 			if err == auth.ErrMagicLinkThrottled {
 				if isHTMLRequest(c) {
 					return c.Redirect(http.StatusSeeOther, "/request-link?error="+url.QueryEscape("Magic link request throttled"))
 				}
-				auditAuthEvent(c, queries, "auth.magic.request", "", "", "client", clientID, map[string]any{"outcome": "failure", "reason": "throttled"})
+				auditAuthEvent(c, queries, "auth.magic.request", "", "", "client", clientIdentifier, map[string]any{"outcome": "failure", "reason": "throttled"})
 				return c.String(http.StatusTooManyRequests, "magic link request throttled")
 			}
 			if isHTMLRequest(c) {
 				return c.Redirect(http.StatusSeeOther, "/request-link?error="+url.QueryEscape("Unable to create magic link"))
 			}
-			auditAuthEvent(c, queries, "auth.magic.request", "", "", "client", clientID, map[string]any{"outcome": "failure", "reason": "create_failed"})
+			auditAuthEvent(c, queries, "auth.magic.request", "", "", "client", clientIdentifier, map[string]any{"outcome": "failure", "reason": "create_failed"})
 			return c.String(http.StatusInternalServerError, "failed to create magic link")
 		}
-		if err := s.magicSend.SendMagicLink(c.Request().Context(), clientID, token); err != nil {
-			s.log.Error("magic link delivery failed", "client_id", clientID, "error", err.Error())
+		if err := s.magicSend.SendMagicLink(c.Request().Context(), clientIdentifier, token); err != nil {
+			s.log.Error("magic link delivery failed", "client_id", clientIdentifier, "error", err.Error())
 			if isHTMLRequest(c) {
 				return c.Redirect(http.StatusSeeOther, "/request-link?error="+url.QueryEscape("Failed to deliver magic link"))
 			}
-			auditAuthEvent(c, queries, "auth.magic.request", "", "", "client", clientID, map[string]any{"outcome": "failure", "reason": "delivery_failed"})
+			auditAuthEvent(c, queries, "auth.magic.request", "", "", "client", clientIdentifier, map[string]any{"outcome": "failure", "reason": "delivery_failed"})
 			return c.String(http.StatusBadGateway, "failed to deliver magic link")
 		}
-		auditAuthEvent(c, queries, "auth.magic.request", "", "", "client", clientID, map[string]any{"outcome": "success"})
+		auditAuthEvent(c, queries, "auth.magic.request", "", "", "client", clientIdentifier, map[string]any{"outcome": "success"})
 		if isHTMLRequest(c) {
 			return c.Redirect(http.StatusSeeOther, "/request-link?success="+url.QueryEscape("Magic link sent"))
 		}
@@ -137,15 +139,16 @@ func (s *Server) registerPublicRoutes(queries *db.Queries, sessionTTL time.Durat
 	})
 
 	public.POST("/auth/magic/verify", func(c echo.Context) error {
-		clientID := c.FormValue("client_id")
+		clientIdentifier := strings.TrimSpace(c.FormValue("client_id"))
 		token := c.FormValue("token")
-		if clientID == "" || token == "" {
+		if clientIdentifier == "" || token == "" {
 			if isHTMLRequest(c) {
 				return c.Redirect(http.StatusSeeOther, "/verify-token?error="+url.QueryEscape("Email address and token are required"))
 			}
-			auditAuthEvent(c, queries, "auth.magic.verify", "", "", "client", clientID, map[string]any{"outcome": "failure", "reason": "missing_input"})
+			auditAuthEvent(c, queries, "auth.magic.verify", "", "", "client", clientIdentifier, map[string]any{"outcome": "failure", "reason": "missing_input"})
 			return c.String(http.StatusBadRequest, "client_id and token are required")
 		}
+		clientID := resolvedClientID(queries, c.Request().Context(), clientIdentifier)
 		_, err := s.magic.Consume(c.Request().Context(), clientID, token)
 		if err != nil {
 			switch err {
@@ -153,13 +156,13 @@ func (s *Server) registerPublicRoutes(queries *db.Queries, sessionTTL time.Durat
 				if isHTMLRequest(c) {
 					return c.Redirect(http.StatusSeeOther, "/verify-token?error="+url.QueryEscape("Invalid or expired magic link"))
 				}
-				auditAuthEvent(c, queries, "auth.magic.verify", "", "", "client", clientID, map[string]any{"outcome": "failure", "reason": "invalid_or_expired"})
+				auditAuthEvent(c, queries, "auth.magic.verify", "", "", "client", clientIdentifier, map[string]any{"outcome": "failure", "reason": "invalid_or_expired"})
 				return c.String(http.StatusUnauthorized, "invalid or expired magic link")
 			default:
 				if isHTMLRequest(c) {
 					return c.Redirect(http.StatusSeeOther, "/verify-token?error="+url.QueryEscape("Failed to verify magic link"))
 				}
-				auditAuthEvent(c, queries, "auth.magic.verify", "", "", "client", clientID, map[string]any{"outcome": "failure", "reason": "verify_failed"})
+				auditAuthEvent(c, queries, "auth.magic.verify", "", "", "client", clientIdentifier, map[string]any{"outcome": "failure", "reason": "verify_failed"})
 				return c.String(http.StatusInternalServerError, "failed to verify magic link")
 			}
 		}
@@ -263,4 +266,12 @@ func (s *Server) registerPublicRoutes(queries *db.Queries, sessionTTL time.Durat
 		}
 		return c.NoContent(http.StatusNoContent)
 	})
+}
+
+func resolvedClientID(queries *db.Queries, ctx context.Context, identifier string) string {
+	client, err := queries.GetClientByEmail(ctx, identifier)
+	if err != nil {
+		return identifier
+	}
+	return client.ID
 }
