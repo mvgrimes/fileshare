@@ -10,7 +10,7 @@ WHERE id = ?;
 -- name: GetUserByEmail :one
 SELECT id, email, full_name, password_hash, is_active, created_at, updated_at
 FROM users
-WHERE email = ?;
+WHERE LOWER(email) = LOWER(?);
 
 -- name: ListUsers :many
 SELECT id, email, full_name, password_hash, is_active, created_at, updated_at

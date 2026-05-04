@@ -10,7 +10,7 @@ WHERE id = ?;
 -- name: GetClientByEmail :one
 SELECT id, email, display_name, password_hash, can_upload, is_active, created_at, updated_at
 FROM clients
-WHERE email = ?;
+WHERE LOWER(email) = LOWER(?);
 
 -- name: ListClients :many
 SELECT id, email, display_name, password_hash, can_upload, is_active, created_at, updated_at

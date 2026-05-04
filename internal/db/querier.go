@@ -33,14 +33,14 @@ type Querier interface {
 	DeleteShare(ctx context.Context, id string) error
 	DeleteUser(ctx context.Context, id string) error
 	DeleteUserGroup(ctx context.Context, id string) error
-	GetClientByEmail(ctx context.Context, email string) (Client, error)
+	GetClientByEmail(ctx context.Context, lower string) (Client, error)
 	GetClientByID(ctx context.Context, id string) (Client, error)
 	GetClientGroupByID(ctx context.Context, id string) (ClientGroup, error)
 	GetFileByID(ctx context.Context, id string) (File, error)
 	GetMagicLinkByTokenHash(ctx context.Context, tokenHash string) (MagicLink, error)
 	GetSessionByTokenHash(ctx context.Context, tokenHash string) (Session, error)
 	GetShareByID(ctx context.Context, id string) (Share, error)
-	GetUserByEmail(ctx context.Context, email string) (User, error)
+	GetUserByEmail(ctx context.Context, lower string) (User, error)
 	GetUserByID(ctx context.Context, id string) (User, error)
 	GetUserGroupByID(ctx context.Context, id string) (UserGroup, error)
 	ListAuditLogsByActor(ctx context.Context, arg ListAuditLogsByActorParams) ([]AuditLog, error)

@@ -47,11 +47,11 @@ func (q *Queries) DeleteUser(ctx context.Context, id string) error {
 const getUserByEmail = `-- name: GetUserByEmail :one
 SELECT id, email, full_name, password_hash, is_active, created_at, updated_at
 FROM users
-WHERE email = ?
+WHERE LOWER(email) = LOWER(?)
 `
 
-func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error) {
-	row := q.db.QueryRowContext(ctx, getUserByEmail, email)
+func (q *Queries) GetUserByEmail(ctx context.Context, lower string) (User, error) {
+	row := q.db.QueryRowContext(ctx, getUserByEmail, lower)
 	var i User
 	err := row.Scan(
 		&i.ID,

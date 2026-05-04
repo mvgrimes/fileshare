@@ -99,7 +99,7 @@ func TestRouteGroupsRender(t *testing.T) {
 		wantBody   string
 	}{
 		{name: "public home", path: "/", wantStatus: http.StatusOK, wantBody: "ShareFile"},
-		{name: "login page", path: "/login", wantStatus: http.StatusOK, wantBody: "Client Password Login"},
+		{name: "login page", path: "/login", wantStatus: http.StatusOK, wantBody: "Password Login"},
 		{name: "request link page", path: "/request-link", wantStatus: http.StatusOK, wantBody: "Send Magic Link"},
 		{name: "verify token page", path: "/verify-token", wantStatus: http.StatusOK, wantBody: "Verify and Sign In"},
 	}
@@ -1601,7 +1601,7 @@ func TestUserPasswordLoginSuccess(t *testing.T) {
 	s := New(testConfig(), slog.Default())
 	createUserWithPassword(t, "user-pass-1", "user-pass@example.com", "secret-pass", true, 1)
 
-	body := bytes.NewBufferString("actor_type=user&email=user-pass@example.com&password=secret-pass")
+	body := bytes.NewBufferString("email=USER-pass@example.com&password=secret-pass")
 	req := httptest.NewRequest(http.MethodPost, "/auth/password/login", body)
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
 	rec := httptest.NewRecorder()
@@ -1635,9 +1635,9 @@ func TestUserPasswordLoginDisabledAndInvalidCredentials(t *testing.T) {
 		body       string
 		wantStatus int
 	}{
-		{name: "password disabled", body: "actor_type=user&email=user-nopass@example.com&password=secret-pass", wantStatus: http.StatusForbidden},
-		{name: "wrong password", body: "actor_type=user&email=user-pass2@example.com&password=wrong", wantStatus: http.StatusUnauthorized},
-		{name: "missing user", body: "actor_type=user&email=missing-user@example.com&password=secret-pass", wantStatus: http.StatusUnauthorized},
+		{name: "password disabled", body: "email=user-nopass@example.com&password=secret-pass", wantStatus: http.StatusForbidden},
+		{name: "wrong password", body: "email=user-pass2@example.com&password=wrong", wantStatus: http.StatusUnauthorized},
+		{name: "missing user", body: "email=missing-user@example.com&password=secret-pass", wantStatus: http.StatusUnauthorized},
 	}
 
 	for _, tc := range tests {
@@ -1650,6 +1650,55 @@ func TestUserPasswordLoginDisabledAndInvalidCredentials(t *testing.T) {
 				t.Fatalf("status = %d, want %d", rec.Code, tc.wantStatus)
 			}
 		})
+	}
+}
+
+func TestPasswordLoginRejectsInvalidActorType(t *testing.T) {
+	s := New(testConfig(), slog.Default())
+	req := httptest.NewRequest(http.MethodPost, "/auth/password/login", bytes.NewBufferString("actor_type=admin&email=user@example.com&password=secret-pass"))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
+	rec := httptest.NewRecorder()
+	s.e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusBadRequest)
+	}
+}
+
+func TestUserClientEmailUniquenessIsCaseInsensitive(t *testing.T) {
+	sqlDB, err := sql.Open("sqlite", testConfig().DatabaseURL)
+	if err != nil {
+		t.Fatalf("opening db: %v", err)
+	}
+	defer sqlDB.Close()
+
+	queries := db.New(sqlDB)
+	if err := queries.CreateClient(context.Background(), db.CreateClientParams{
+		ID:          "client-email-unique",
+		Email:       "person@example.com",
+		DisplayName: "Person",
+		PasswordHash: sql.NullString{
+			Valid:  true,
+			String: "$2a$10$VfDQFGvx6nWfJPA6RQ73AuoQaRnnz29xI8A4yiA4lp95raJ.4fwwG",
+		},
+		CanUpload: 0,
+		IsActive:  1,
+	}); err != nil {
+		t.Fatalf("CreateClient() error = %v", err)
+	}
+
+	err = queries.CreateUser(context.Background(), db.CreateUserParams{
+		ID:       "user-email-unique",
+		Email:    "PERSON@example.com",
+		FullName: "Person User",
+		PasswordHash: sql.NullString{
+			Valid:  true,
+			String: "$2a$10$VfDQFGvx6nWfJPA6RQ73AuoQaRnnz29xI8A4yiA4lp95raJ.4fwwG",
+		},
+		IsActive: 1,
+	})
+	if err == nil {
+		t.Fatal("expected cross-table case-insensitive duplicate email to fail")
 	}
 }
 

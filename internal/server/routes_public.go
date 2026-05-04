@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"net/http"
 	"net/url"
 	"strings"
@@ -201,12 +202,27 @@ func (s *Server) registerPublicRoutes(queries *db.Queries, sessionTTL time.Durat
 	})
 
 	public.POST("/auth/password/login", func(c echo.Context) error {
+		email := strings.TrimSpace(c.FormValue("email"))
+		password := c.FormValue("password")
 		actorType := strings.TrimSpace(c.FormValue("actor_type"))
 		if actorType == "" {
-			actorType = "client"
+			resolvedActorType, err := resolvePasswordActorType(c.Request().Context(), queries, email)
+			if err != nil {
+				if errors.Is(err, errPasswordLoginEmailConflict) {
+					if isHTMLRequest(c) {
+						return c.Redirect(http.StatusSeeOther, "/login?error="+url.QueryEscape("Account configuration conflict for email"))
+					}
+					auditAuthEvent(c, queries, "auth.password.login", "", "", "account", email, map[string]any{"outcome": "failure", "reason": "email_conflict"})
+					return c.String(http.StatusConflict, "account email conflict")
+				}
+				if isHTMLRequest(c) {
+					return c.Redirect(http.StatusSeeOther, "/login?error="+url.QueryEscape("Failed to authenticate"))
+				}
+				auditAuthEvent(c, queries, "auth.password.login", "", "", "account", email, map[string]any{"outcome": "failure", "reason": "actor_resolve_failed"})
+				return c.String(http.StatusInternalServerError, "failed to resolve account")
+			}
+			actorType = resolvedActorType
 		}
-		email := c.FormValue("email")
-		password := c.FormValue("password")
 		if actorType == "user" {
 			user, roles, err := s.userPwd.Authenticate(c.Request().Context(), email, password)
 			if err != nil {
@@ -246,6 +262,13 @@ func (s *Server) registerPublicRoutes(queries *db.Queries, sessionTTL time.Durat
 			}
 			return c.NoContent(http.StatusNoContent)
 		}
+		if actorType != "client" {
+			if isHTMLRequest(c) {
+				return c.Redirect(http.StatusSeeOther, "/login?error="+url.QueryEscape("Invalid account type"))
+			}
+			auditAuthEvent(c, queries, "auth.password.login", "", "", "account", email, map[string]any{"outcome": "failure", "reason": "invalid_actor_type"})
+			return c.String(http.StatusBadRequest, "actor_type must be user or client")
+		}
 		client, err := s.clientPwd.Authenticate(c.Request().Context(), email, password)
 		if err != nil {
 			switch err {
@@ -284,6 +307,31 @@ func (s *Server) registerPublicRoutes(queries *db.Queries, sessionTTL time.Durat
 		}
 		return c.NoContent(http.StatusNoContent)
 	})
+}
+
+var errPasswordLoginEmailConflict = errors.New("email belongs to both user and client")
+
+func resolvePasswordActorType(ctx context.Context, queries *db.Queries, email string) (string, error) {
+	_, userErr := queries.GetUserByEmail(ctx, email)
+	userExists := userErr == nil
+	if userErr != nil && !errors.Is(userErr, sql.ErrNoRows) {
+		return "", userErr
+	}
+
+	_, clientErr := queries.GetClientByEmail(ctx, email)
+	clientExists := clientErr == nil
+	if clientErr != nil && !errors.Is(clientErr, sql.ErrNoRows) {
+		return "", clientErr
+	}
+
+	switch {
+	case userExists && clientExists:
+		return "", errPasswordLoginEmailConflict
+	case userExists:
+		return "user", nil
+	default:
+		return "client", nil
+	}
 }
 
 func resolvedClientID(queries *db.Queries, ctx context.Context, identifier string) (string, error) {
