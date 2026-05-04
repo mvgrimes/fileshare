@@ -48,7 +48,10 @@ func (s *MailgunSender) SendMagicLink(ctx context.Context, clientID, token strin
 	if strings.TrimSpace(clientID) == "" || strings.TrimSpace(token) == "" {
 		return fmt.Errorf("client id and token are required")
 	}
-	rendered, err := s.renderer.RenderMagicLink(MagicLinkTemplateData{ToName: clientID, Token: token})
+	verifyParams := url.Values{}
+	verifyParams.Set("client_id", clientID)
+	verifyParams.Set("token", token)
+	rendered, err := s.renderer.RenderMagicLink(MagicLinkTemplateData{ToName: clientID, LoginURL: "/request-link?" + verifyParams.Encode(), Token: token})
 	if err != nil {
 		return err
 	}

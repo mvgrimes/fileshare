@@ -59,7 +59,7 @@
       <form method="post" action="/auth/magic/request" class="space-y-3" data-enhance="submission">
         <label class="form-control w-full">
           <span class="label-text">Client ID</span>
-          <input class="input input-bordered w-full" type="text" name="client_id" required>
+          <input class="input input-bordered w-full" type="text" name="client_id" required value="{{.MagicClientID}}">
         </label>
         <button class="btn btn-primary w-full" type="submit" data-pending-text="Sending...">Send Magic Link</button>
       </form>
@@ -72,11 +72,11 @@
       <form method="post" action="/auth/magic/verify" class="space-y-3" data-enhance="submission">
         <label class="form-control w-full">
           <span class="label-text">Client ID</span>
-          <input class="input input-bordered w-full" type="text" name="client_id" required>
+          <input class="input input-bordered w-full" type="text" name="client_id" required value="{{.MagicClientID}}">
         </label>
         <label class="form-control w-full">
           <span class="label-text">Token</span>
-          <input class="input input-bordered w-full" type="text" name="token" required>
+          <input class="input input-bordered w-full" type="text" name="token" required value="{{.MagicToken}}">
         </label>
         <button class="btn btn-primary w-full" type="submit" data-pending-text="Verifying...">Verify and Sign In</button>
       </form>

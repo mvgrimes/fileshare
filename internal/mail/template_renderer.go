@@ -69,6 +69,10 @@ func (r *HermesRenderer) RenderMagicLink(data MagicLinkTemplateData) (RenderedTe
 	if !hasURL && !hasToken {
 		return RenderedTemplate{}, fmt.Errorf("login url or token is required")
 	}
+	loginURL := strings.TrimSpace(data.LoginURL)
+	if strings.HasPrefix(loginURL, "/") {
+		loginURL = strings.TrimRight(r.engine.Product.Link, "/") + loginURL
+	}
 
 	name := strings.TrimSpace(data.ToName)
 	if name == "" {
@@ -83,7 +87,7 @@ func (r *HermesRenderer) RenderMagicLink(data MagicLinkTemplateData) (RenderedTe
 			Button: hermes.Button{
 				Color: "#1A7F64",
 				Text:  "Sign in to ShareFile",
-				Link:  data.LoginURL,
+				Link:  loginURL,
 			},
 		})
 	} else {

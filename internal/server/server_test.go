@@ -136,7 +136,7 @@ func TestAuthPagesContainFormTargets(t *testing.T) {
 		t.Fatalf("/login body = %q, want progressive enhancement hooks", loginBody)
 	}
 
-	requestReq := httptest.NewRequest(http.MethodGet, "/request-link", nil)
+	requestReq := httptest.NewRequest(http.MethodGet, "/request-link?client_id=client%40example.com&token=tok-abc", nil)
 	requestRec := httptest.NewRecorder()
 	s.e.ServeHTTP(requestRec, requestReq)
 	if requestRec.Code != http.StatusOK {
@@ -145,6 +145,9 @@ func TestAuthPagesContainFormTargets(t *testing.T) {
 	requestBody := requestRec.Body.String()
 	if !strings.Contains(requestBody, "action=\"/auth/magic/request\"") || !strings.Contains(requestBody, "action=\"/auth/magic/verify\"") {
 		t.Fatalf("/request-link body = %q, want magic-link form actions", requestBody)
+	}
+	if !strings.Contains(requestBody, "name=\"client_id\" required value=\"client@example.com\"") || !strings.Contains(requestBody, "name=\"token\" required value=\"tok-abc\"") {
+		t.Fatalf("/request-link body = %q, want prefilled verify values", requestBody)
 	}
 }
 

@@ -51,6 +51,9 @@ func TestMailgunSenderSendMagicLink(t *testing.T) {
 	if !strings.Contains(gotBody.Get("text"), "tok-1") {
 		t.Fatalf("text = %q, want token", gotBody.Get("text"))
 	}
+	if !strings.Contains(gotBody.Get("html"), "https://sharefile.example/request-link?client_id=client%40example.com&amp;token=tok-1") {
+		t.Fatalf("html = %q, want verify link with embedded client and token", gotBody.Get("html"))
+	}
 	if gotBody.Get("html") == "" {
 		t.Fatalf("html = %q, want non-empty html", gotBody.Get("html"))
 	}

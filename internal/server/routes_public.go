@@ -21,7 +21,7 @@ func (s *Server) registerPublicRoutes(queries *db.Queries, sessionTTL time.Durat
 		return c.Render(http.StatusOK, "auth", map[string]any{"Title": "Login", "Subtitle": "Sign in with SSO, user password, or client password.", "FlashError": c.QueryParam("error"), "FlashSuccess": c.QueryParam("success"), "ContentTemplate": "login_content"})
 	})
 	public.GET("/request-link", func(c echo.Context) error {
-		return c.Render(http.StatusOK, "auth", map[string]any{"Title": "Request Magic Link", "Subtitle": "Request or verify a one-time login token.", "FlashError": c.QueryParam("error"), "FlashSuccess": c.QueryParam("success"), "ContentTemplate": "request_link_content"})
+		return c.Render(http.StatusOK, "auth", map[string]any{"Title": "Request Magic Link", "Subtitle": "Request or verify a one-time login token.", "FlashError": c.QueryParam("error"), "FlashSuccess": c.QueryParam("success"), "MagicClientID": c.QueryParam("client_id"), "MagicToken": c.QueryParam("token"), "ContentTemplate": "request_link_content"})
 	})
 	public.POST("/auth/session", func(c echo.Context) error {
 		actorType := c.FormValue("actor_type")
