@@ -23,8 +23,35 @@ func (s *Server) registerClientRoutes(queries *db.Queries) {
 	})
 	client.GET("/dashboard", func(c echo.Context) error {
 		principal, _ := auth.PrincipalFromContext(c)
-		actions := []dashboardAction{{Label: "Upload Files", Description: "Submit upload targets; permissions are validated per client.", Path: "/client/uploads"}, {Label: "View Shared Files", Description: "Browse files shared directly or through your client groups.", Path: "/client/files"}}
+		actions := []dashboardAction{{Label: "Upload Files", Description: "Submit upload targets; permissions are validated per client.", Path: "/client/uploads"}, {Label: "View Shared Files", Description: "Browse files shared directly or through your client groups.", Path: "/client/files"}, {Label: "View Uploaded Files", Description: "Review files uploaded from your client account.", Path: "/client/uploads/files"}}
 		return c.Render(http.StatusOK, "dashboard", map[string]any{"Title": "Client Dashboard", "Role": principal.ActorType, "Subtitle": "Use secure links to access files and upload where permitted.", "ActorID": principal.ActorID, "DashboardActions": actions, "HasActions": true, "ContentTemplate": "dashboard_content"})
+	})
+	client.GET("/uploads/files", func(c echo.Context) error {
+		principal, _ := auth.PrincipalFromContext(c)
+		uploads, err := queries.ListFilesByUploader(c.Request().Context(), db.ListFilesByUploaderParams{UploaderType: "client", UploaderID: principal.ActorID, Limit: 50, Offset: 0})
+		if err != nil {
+			return c.String(http.StatusInternalServerError, "failed to load uploaded files")
+		}
+		items := make([]fileListItem, 0, len(uploads))
+		for _, f := range uploads {
+			items = append(items, fileListItem{ID: f.ID, Name: f.OriginalFilename, ContentType: f.ContentType, SizeBytes: f.SizeBytes, SharedVia: "uploaded", UploadedAt: f.CreatedAt})
+		}
+		return c.Render(http.StatusOK, "shared_files", map[string]any{"Title": "Uploaded Files", "Subtitle": "Files uploaded by your client account.", "ContentTemplate": "shared_files_content", "Files": items, "EmptyMessage": "No uploaded files are available yet.", "DetailBasePath": "/client/uploads/files"})
+	})
+	client.GET("/uploads/files/:fileID", func(c echo.Context) error {
+		principal, _ := auth.PrincipalFromContext(c)
+		fileID := c.Param("fileID")
+		file, err := queries.GetFileByID(c.Request().Context(), fileID)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return c.String(http.StatusNotFound, "file not found")
+			}
+			return c.String(http.StatusInternalServerError, "failed to load file")
+		}
+		if file.UploaderType != "client" || file.UploaderID != principal.ActorID {
+			return c.String(http.StatusForbidden, "forbidden")
+		}
+		return c.Render(http.StatusOK, "shared_files", map[string]any{"Title": "Uploaded File Detail", "Subtitle": "File metadata and details.", "ContentTemplate": "file_detail_content", "File": fileListItem{ID: file.ID, Name: file.OriginalFilename, ContentType: file.ContentType, SizeBytes: file.SizeBytes, SharedVia: "uploaded", UploadedAt: file.CreatedAt}, "BackPath": "/client/uploads/files"})
 	})
 	client.GET("/files/:fileID/download", func(c echo.Context) error {
 		principal, _ := auth.PrincipalFromContext(c)
@@ -116,6 +143,13 @@ func (s *Server) registerClientRoutes(queries *db.Queries) {
 				return c.Redirect(http.StatusSeeOther, "/client/uploads?error="+url.QueryEscape("target_type and target_id are required"))
 			}
 			return c.String(http.StatusBadRequest, "target_type and target_id are required")
+		}
+		if targetType != "user" && targetType != "user_group" {
+			auditAuthEvent(c, queries, "authz.client.upload", principal.ActorType, principal.ActorID, targetType, targetID, map[string]any{"outcome": "denied", "reason": "invalid_target_type"})
+			if isHTMLRequest(c) {
+				return c.Redirect(http.StatusSeeOther, "/client/uploads?error="+url.QueryEscape("target_type must be user or user_group"))
+			}
+			return c.String(http.StatusBadRequest, "target_type must be user or user_group")
 		}
 		if err := s.authz.AuthorizeClientUpload(c.Request().Context(), principal, targetType, targetID); err != nil {
 			auditAuthEvent(c, queries, "authz.client.upload", principal.ActorType, principal.ActorID, targetType, targetID, map[string]any{"outcome": "denied", "reason": "forbidden"})

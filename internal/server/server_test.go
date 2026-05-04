@@ -439,6 +439,54 @@ func TestClientDashboardShowsMagicLinkAction(t *testing.T) {
 	if !strings.Contains(body, "View Shared Files") || !strings.Contains(body, "href=\"/client/files\"") {
 		t.Fatalf("body = %q, want shared files dashboard action", body)
 	}
+	if !strings.Contains(body, "View Uploaded Files") || !strings.Contains(body, "href=\"/client/uploads/files\"") {
+		t.Fatalf("body = %q, want uploaded files dashboard action", body)
+	}
+}
+
+func TestClientUploadedFilesListAndDetail(t *testing.T) {
+	s := New(testConfig(), slog.Default())
+	createClientWithoutPassword(t, "client-uploader-files", "client-uploader-files@example.com", true)
+	createClientWithoutPassword(t, "client-uploader-other", "client-uploader-other@example.com", true)
+
+	createFileWithUploaderType(t, "file-client-own", "client", "client-uploader-files")
+	createFileWithUploaderType(t, "file-client-other", "client", "client-uploader-other")
+
+	ownerCookie := login(t, s, "client", "client-uploader-files", "")
+	otherCookie := login(t, s, "client", "client-uploader-other", "")
+
+	listReq := httptest.NewRequest(http.MethodGet, "/client/uploads/files", nil)
+	listReq.AddCookie(ownerCookie)
+	listRec := httptest.NewRecorder()
+	s.e.ServeHTTP(listRec, listReq)
+	if listRec.Code != http.StatusOK {
+		t.Fatalf("list status = %d, want %d", listRec.Code, http.StatusOK)
+	}
+	if !strings.Contains(listRec.Body.String(), "file-client-own.dat") {
+		t.Fatalf("list body = %q, want own uploaded file", listRec.Body.String())
+	}
+	if strings.Contains(listRec.Body.String(), "file-client-other.dat") {
+		t.Fatalf("list body = %q, should not include other client uploads", listRec.Body.String())
+	}
+
+	detailReq := httptest.NewRequest(http.MethodGet, "/client/uploads/files/file-client-own", nil)
+	detailReq.AddCookie(ownerCookie)
+	detailRec := httptest.NewRecorder()
+	s.e.ServeHTTP(detailRec, detailReq)
+	if detailRec.Code != http.StatusOK {
+		t.Fatalf("detail status = %d, want %d", detailRec.Code, http.StatusOK)
+	}
+	if !strings.Contains(detailRec.Body.String(), "<strong>Uploaded At:</strong>") {
+		t.Fatalf("detail body = %q, want uploaded timestamp", detailRec.Body.String())
+	}
+
+	forbiddenReq := httptest.NewRequest(http.MethodGet, "/client/uploads/files/file-client-own", nil)
+	forbiddenReq.AddCookie(otherCookie)
+	forbiddenRec := httptest.NewRecorder()
+	s.e.ServeHTTP(forbiddenRec, forbiddenReq)
+	if forbiddenRec.Code != http.StatusForbidden {
+		t.Fatalf("forbidden detail status = %d, want %d", forbiddenRec.Code, http.StatusForbidden)
+	}
 }
 
 func TestClientSharedFilesListAndDetail(t *testing.T) {
@@ -1450,6 +1498,7 @@ func TestClientUploadAuthorizationConstraints(t *testing.T) {
 	}{
 		{name: "enabled and allowed target", cookie: enabledCookie, body: "target_type=user&target_id=u-target-1", wantStatus: http.StatusOK},
 		{name: "enabled but disallowed target", cookie: enabledCookie, body: "target_type=user&target_id=u-target-2", wantStatus: http.StatusForbidden},
+		{name: "enabled invalid target type", cookie: enabledCookie, body: "target_type=client&target_id=c-target-1", wantStatus: http.StatusBadRequest},
 		{name: "disabled upload", cookie: disabledCookie, body: "target_type=user&target_id=u-target-1", wantStatus: http.StatusForbidden},
 		{name: "inactive client", cookie: inactiveCookie, body: "target_type=user&target_id=u-target-1", wantStatus: http.StatusForbidden},
 	}
@@ -2112,6 +2161,10 @@ func createFileForTests(t *testing.T, fileID string) {
 }
 
 func createFileWithUploader(t *testing.T, fileID, uploaderID string) {
+	createFileWithUploaderType(t, fileID, "user", uploaderID)
+}
+
+func createFileWithUploaderType(t *testing.T, fileID, uploaderType, uploaderID string) {
 	t.Helper()
 	sqlDB, err := sql.Open("sqlite", testConfig().DatabaseURL)
 	if err != nil {
@@ -2121,7 +2174,7 @@ func createFileWithUploader(t *testing.T, fileID, uploaderID string) {
 
 	if err := db.New(sqlDB).CreateFile(context.Background(), db.CreateFileParams{
 		ID:               fileID,
-		UploaderType:     "user",
+		UploaderType:     uploaderType,
 		UploaderID:       uploaderID,
 		OriginalFilename: fileID + ".dat",
 		StorageKey:       "s3/" + fileID,
