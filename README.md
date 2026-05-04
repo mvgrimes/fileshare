@@ -126,6 +126,23 @@ For iterative UI work:
 pnpm run css:watch
 ```
 
+Run a minio server for local S3 emulation:
+
+```bash
+podman run --rm \
+  --name sharefile-minio \
+  -p 9000:9000 \
+  -p 9001:9001 \
+  -e MINIO_ROOT_USER=sharefile \
+  -e MINIO_ROOT_PASSWORD=sharefile123 \
+  -v "$(pwd)/data/minio:/data" \
+  quay.io/minio/minio server /data --console-address ":9001"
+
+podman run --rm --network host \
+  quay.io/minio/mc \
+  sh -c "mc alias set local http://127.0.0.1:9000 sharefile sharefile123 && mc mb -p local/sharefile-uploads"
+```
+
 ## CLI Commands
 
 - `go run ./... server` - start HTTP server
