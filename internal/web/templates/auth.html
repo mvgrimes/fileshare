@@ -52,27 +52,32 @@
 {{end}}
 
 {{define "request_link_content"}}
-<section class="grid gap-4 md:grid-cols-2">
+<section class="grid gap-4">
   <article class="card bg-base-100 shadow-sm">
     <div class="card-body gap-3">
       {{template "page_header" .}}
       <form method="post" action="/auth/magic/request" class="space-y-3" data-enhance="submission">
         <label class="form-control w-full">
-          <span class="label-text">Client ID</span>
-          <input class="input input-bordered w-full" type="text" name="client_id" required value="{{.MagicClientID}}">
+          <span class="label-text">Email Address</span>
+          <input class="input input-bordered w-full" type="email" name="client_id" required value="{{.MagicClientID}}">
         </label>
         <button class="btn btn-primary w-full" type="submit" data-pending-text="Sending...">Send Magic Link</button>
       </form>
+      <a class="link link-primary text-sm" href="/verify-token">Already have a token? Verify it</a>
     </div>
   </article>
+</section>
+{{end}}
 
+{{define "verify_token_content"}}
+<section class="grid gap-4">
   <article class="card bg-base-100 shadow-sm">
     <div class="card-body gap-3">
-      <h2 class="text-xl font-semibold">Verify Token</h2>
+      {{template "page_header" .}}
       <form method="post" action="/auth/magic/verify" class="space-y-3" data-enhance="submission">
         <label class="form-control w-full">
-          <span class="label-text">Client ID</span>
-          <input class="input input-bordered w-full" type="text" name="client_id" required value="{{.MagicClientID}}">
+          <span class="label-text">Email Address</span>
+          <input class="input input-bordered w-full" type="email" name="client_id" required value="{{.MagicClientID}}">
         </label>
         <label class="form-control w-full">
           <span class="label-text">Token</span>
@@ -80,6 +85,7 @@
         </label>
         <button class="btn btn-primary w-full" type="submit" data-pending-text="Verifying...">Verify and Sign In</button>
       </form>
+      <a class="link link-primary text-sm" href="/request-link">Need a token? Request one</a>
       <a class="link link-primary text-sm" href="/login">Back to login options</a>
     </div>
   </article>

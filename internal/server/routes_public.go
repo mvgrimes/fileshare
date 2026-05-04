@@ -21,7 +21,10 @@ func (s *Server) registerPublicRoutes(queries *db.Queries, sessionTTL time.Durat
 		return c.Render(http.StatusOK, "auth", map[string]any{"Title": "Login", "Subtitle": "Sign in with SSO, user password, or client password.", "FlashError": c.QueryParam("error"), "FlashSuccess": c.QueryParam("success"), "ContentTemplate": "login_content"})
 	})
 	public.GET("/request-link", func(c echo.Context) error {
-		return c.Render(http.StatusOK, "auth", map[string]any{"Title": "Request Magic Link", "Subtitle": "Request or verify a one-time login token.", "FlashError": c.QueryParam("error"), "FlashSuccess": c.QueryParam("success"), "MagicClientID": c.QueryParam("client_id"), "MagicToken": c.QueryParam("token"), "ContentTemplate": "request_link_content"})
+		return c.Render(http.StatusOK, "auth", map[string]any{"Title": "Request Magic Link", "Subtitle": "Enter your email address to receive a one-time login token.", "FlashError": c.QueryParam("error"), "FlashSuccess": c.QueryParam("success"), "MagicClientID": c.QueryParam("client_id"), "ContentTemplate": "request_link_content"})
+	})
+	public.GET("/verify-token", func(c echo.Context) error {
+		return c.Render(http.StatusOK, "auth", map[string]any{"Title": "Verify Token", "Subtitle": "Enter your email address and token to sign in.", "FlashError": c.QueryParam("error"), "FlashSuccess": c.QueryParam("success"), "MagicClientID": c.QueryParam("client_id"), "MagicToken": c.QueryParam("token"), "ContentTemplate": "verify_token_content"})
 	})
 	public.POST("/auth/session", func(c echo.Context) error {
 		actorType := c.FormValue("actor_type")
@@ -98,7 +101,7 @@ func (s *Server) registerPublicRoutes(queries *db.Queries, sessionTTL time.Durat
 		clientID := c.FormValue("client_id")
 		if clientID == "" {
 			if isHTMLRequest(c) {
-				return c.Redirect(http.StatusSeeOther, "/request-link?error="+url.QueryEscape("Client ID is required"))
+				return c.Redirect(http.StatusSeeOther, "/request-link?error="+url.QueryEscape("Email address is required"))
 			}
 			auditAuthEvent(c, queries, "auth.magic.request", "", "", "client", "", map[string]any{"outcome": "failure", "reason": "missing_client_id"})
 			return c.String(http.StatusBadRequest, "client_id is required")
@@ -138,7 +141,7 @@ func (s *Server) registerPublicRoutes(queries *db.Queries, sessionTTL time.Durat
 		token := c.FormValue("token")
 		if clientID == "" || token == "" {
 			if isHTMLRequest(c) {
-				return c.Redirect(http.StatusSeeOther, "/request-link?error="+url.QueryEscape("Client ID and token are required"))
+				return c.Redirect(http.StatusSeeOther, "/verify-token?error="+url.QueryEscape("Email address and token are required"))
 			}
 			auditAuthEvent(c, queries, "auth.magic.verify", "", "", "client", clientID, map[string]any{"outcome": "failure", "reason": "missing_input"})
 			return c.String(http.StatusBadRequest, "client_id and token are required")
@@ -148,13 +151,13 @@ func (s *Server) registerPublicRoutes(queries *db.Queries, sessionTTL time.Durat
 			switch err {
 			case auth.ErrMagicLinkExpired, auth.ErrMagicLinkConsumed, auth.ErrMagicLinkNotFound:
 				if isHTMLRequest(c) {
-					return c.Redirect(http.StatusSeeOther, "/request-link?error="+url.QueryEscape("Invalid or expired magic link"))
+					return c.Redirect(http.StatusSeeOther, "/verify-token?error="+url.QueryEscape("Invalid or expired magic link"))
 				}
 				auditAuthEvent(c, queries, "auth.magic.verify", "", "", "client", clientID, map[string]any{"outcome": "failure", "reason": "invalid_or_expired"})
 				return c.String(http.StatusUnauthorized, "invalid or expired magic link")
 			default:
 				if isHTMLRequest(c) {
-					return c.Redirect(http.StatusSeeOther, "/request-link?error="+url.QueryEscape("Failed to verify magic link"))
+					return c.Redirect(http.StatusSeeOther, "/verify-token?error="+url.QueryEscape("Failed to verify magic link"))
 				}
 				auditAuthEvent(c, queries, "auth.magic.verify", "", "", "client", clientID, map[string]any{"outcome": "failure", "reason": "verify_failed"})
 				return c.String(http.StatusInternalServerError, "failed to verify magic link")
@@ -163,7 +166,7 @@ func (s *Server) registerPublicRoutes(queries *db.Queries, sessionTTL time.Durat
 		sessionToken, _, err := s.sessions.CreateSession(c.Request().Context(), auth.Principal{ActorType: "client", ActorID: clientID})
 		if err != nil {
 			if isHTMLRequest(c) {
-				return c.Redirect(http.StatusSeeOther, "/request-link?error="+url.QueryEscape("Unable to create session"))
+				return c.Redirect(http.StatusSeeOther, "/verify-token?error="+url.QueryEscape("Unable to create session"))
 			}
 			auditAuthEvent(c, queries, "auth.magic.verify", "client", clientID, "client", clientID, map[string]any{"outcome": "failure", "reason": "session_create_failed"})
 			return c.String(http.StatusInternalServerError, "failed to create session")

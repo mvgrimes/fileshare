@@ -51,7 +51,7 @@ func (s *MailgunSender) SendMagicLink(ctx context.Context, clientID, token strin
 	verifyParams := url.Values{}
 	verifyParams.Set("client_id", clientID)
 	verifyParams.Set("token", token)
-	rendered, err := s.renderer.RenderMagicLink(MagicLinkTemplateData{ToName: clientID, LoginURL: "/request-link?" + verifyParams.Encode(), Token: token})
+	rendered, err := s.renderer.RenderMagicLink(MagicLinkTemplateData{ToName: clientID, LoginURL: "/verify-token?" + verifyParams.Encode(), Token: token})
 	if err != nil {
 		return err
 	}
