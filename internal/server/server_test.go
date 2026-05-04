@@ -191,6 +191,47 @@ func TestNavLogoutButtonVisibility(t *testing.T) {
 	if !strings.Contains(authedBody, "action=\"/auth/logout\"") || !strings.Contains(authedBody, ">Logout<") {
 		t.Fatalf("authenticated nav should render logout button: %q", authedBody)
 	}
+	if !strings.Contains(authedBody, "href=\"/user/dashboard\"") || !strings.Contains(authedBody, ">Dashboard<") {
+		t.Fatalf("authenticated nav should render dashboard link: %q", authedBody)
+	}
+	if strings.Index(authedBody, "href=\"/user/dashboard\"") > strings.Index(authedBody, "action=\"/auth/logout\"") {
+		t.Fatalf("dashboard link should be before logout button: %q", authedBody)
+	}
+}
+
+func TestNavDashboardLinkTargetsRelevantDashboard(t *testing.T) {
+	s := New(testConfig(), slog.Default())
+
+	tests := []struct {
+		name     string
+		cookie   *http.Cookie
+		path     string
+		wantHref string
+	}{
+		{name: "user dashboard link", cookie: login(t, s, "user", "u-nav-user", ""), path: "/user/dashboard", wantHref: "href=\"/user/dashboard\""},
+		{name: "client dashboard link", cookie: login(t, s, "client", "c-nav-client", ""), path: "/client/dashboard", wantHref: "href=\"/client/dashboard\""},
+		{name: "admin dashboard link", cookie: login(t, s, "user", "u-nav-admin", "admin"), path: "/admin/dashboard", wantHref: "href=\"/admin/dashboard\""},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, tc.path, nil)
+			req.AddCookie(tc.cookie)
+			rec := httptest.NewRecorder()
+			s.e.ServeHTTP(rec, req)
+
+			if rec.Code != http.StatusOK {
+				t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+			}
+			body := rec.Body.String()
+			if !strings.Contains(body, tc.wantHref) {
+				t.Fatalf("body = %q, want dashboard href %q", body, tc.wantHref)
+			}
+			if strings.Index(body, tc.wantHref) > strings.Index(body, "action=\"/auth/logout\"") {
+				t.Fatalf("dashboard link should be before logout button: %q", body)
+			}
+		})
+	}
 }
 
 func TestProgressiveEnhancementScriptRenderedOnForms(t *testing.T) {

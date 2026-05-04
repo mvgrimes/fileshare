@@ -6,6 +6,7 @@
     </div>
     <div class="flex gap-2">
       {{if .IsAuthenticated}}
+      <a class="btn btn-sm btn-ghost" href="{{.DashboardPath}}">Dashboard</a>
       <form method="post" action="/auth/logout" data-enhance="submission">
         <button class="btn btn-sm btn-outline" type="submit" data-pending-text="Logging out...">Logout</button>
       </form>

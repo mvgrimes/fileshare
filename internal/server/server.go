@@ -73,9 +73,24 @@ func (r *TemplateRenderer) Render(w io.Writer, name string, data any, c echo.Con
 		viewData = map[string]any{}
 	}
 	viewData["Path"] = c.Request().URL.Path
-	_, isAuthenticated := auth.PrincipalFromContext(c)
+	principal, isAuthenticated := auth.PrincipalFromContext(c)
 	viewData["IsAuthenticated"] = isAuthenticated
+	if isAuthenticated {
+		viewData["DashboardPath"] = dashboardPathForPrincipal(principal)
+	}
 	return r.templates.ExecuteTemplate(w, name, viewData)
+}
+
+func dashboardPathForPrincipal(principal auth.Principal) string {
+	if principal.ActorType == "client" {
+		return "/client/dashboard"
+	}
+	for _, role := range principal.Roles {
+		if role == "admin" {
+			return "/admin/dashboard"
+		}
+	}
+	return "/user/dashboard"
 }
 
 func New(cfg *config.Config, log *slog.Logger) *Server {
