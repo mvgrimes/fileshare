@@ -25,6 +25,13 @@ func (s stubRenderer) RenderInvitation(InvitationTemplateData) (RenderedTemplate
 	return s.rendered, nil
 }
 
+func (s stubRenderer) RenderFileShared(FileSharedTemplateData) (RenderedTemplate, error) {
+	if s.err != nil {
+		return RenderedTemplate{}, s.err
+	}
+	return s.rendered, nil
+}
+
 type stubMessageSender struct {
 	err  error
 	last Message
@@ -48,7 +55,7 @@ func TestNotifierNotifyFileShared(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NotifyFileShared() error: %v", err)
 	}
-	if sender.last.Subject != "A file was shared with you" {
+	if sender.last.Subject != "base" {
 		t.Fatalf("subject = %q", sender.last.Subject)
 	}
 }

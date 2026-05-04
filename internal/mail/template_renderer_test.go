@@ -107,3 +107,38 @@ func TestHermesRendererRenderInvitation(t *testing.T) {
 		t.Fatal("RenderInvitation() expected validation error")
 	}
 }
+
+func TestHermesRendererRenderFileShared(t *testing.T) {
+	t.Parallel()
+	renderer, err := NewHermesRenderer("ShareFile", "https://sharefile.example", "")
+	if err != nil {
+		t.Fatalf("NewHermesRenderer() error: %v", err)
+	}
+
+	out, err := renderer.RenderFileShared(FileSharedTemplateData{
+		ToName:      "Chris",
+		ActorLabel:  "user-17",
+		FileName:    "q1-report.pdf",
+		Message:     "Please review before Friday",
+		FileListURL: "/client/files",
+	})
+	if err != nil {
+		t.Fatalf("RenderFileShared() error: %v", err)
+	}
+	if out.Subject != "A file was shared with you" {
+		t.Fatalf("subject = %q", out.Subject)
+	}
+	if !strings.Contains(out.Text, "user-17 shared q1-report.pdf with you") {
+		t.Fatalf("text missing share details: %q", out.Text)
+	}
+	if !strings.Contains(out.Text, "https://sharefile.example/client/files") {
+		t.Fatalf("text missing file list url: %q", out.Text)
+	}
+	if !strings.Contains(out.Text, "asked to log in") {
+		t.Fatalf("text missing login guidance: %q", out.Text)
+	}
+
+	if _, err := renderer.RenderFileShared(FileSharedTemplateData{}); err == nil {
+		t.Fatal("RenderFileShared() expected validation error")
+	}
+}

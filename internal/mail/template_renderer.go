@@ -10,6 +10,7 @@ import (
 type TemplateRenderer interface {
 	RenderMagicLink(data MagicLinkTemplateData) (RenderedTemplate, error)
 	RenderInvitation(data InvitationTemplateData) (RenderedTemplate, error)
+	RenderFileShared(data FileSharedTemplateData) (RenderedTemplate, error)
 }
 
 type RenderedTemplate struct {
@@ -33,6 +34,14 @@ type InvitationTemplateData struct {
 	ToName       string
 	InviteURL    string
 	InviterLabel string
+}
+
+type FileSharedTemplateData struct {
+	ToName      string
+	ActorLabel  string
+	FileName    string
+	Message     string
+	FileListURL string
 }
 
 func NewHermesRenderer(productName, productLink, productLogo string) (*HermesRenderer, error) {
@@ -155,4 +164,54 @@ func (r *HermesRenderer) RenderInvitation(data InvitationTemplateData) (Rendered
 		return RenderedTemplate{}, err
 	}
 	return RenderedTemplate{Subject: "You are invited to ShareFile", HTML: htmlBody, Text: textBody}, nil
+}
+
+func (r *HermesRenderer) RenderFileShared(data FileSharedTemplateData) (RenderedTemplate, error) {
+	if strings.TrimSpace(data.FileListURL) == "" {
+		return RenderedTemplate{}, fmt.Errorf("file list url is required")
+	}
+	fileListURL := strings.TrimSpace(data.FileListURL)
+	if strings.HasPrefix(fileListURL, "/") {
+		fileListURL = strings.TrimRight(r.engine.Product.Link, "/") + fileListURL
+	}
+
+	name := strings.TrimSpace(data.ToName)
+	if name == "" {
+		name = "there"
+	}
+	actor := strings.TrimSpace(data.ActorLabel)
+	if actor == "" {
+		actor = "Someone"
+	}
+	fileName := strings.TrimSpace(data.FileName)
+	if fileName == "" {
+		fileName = "a file"
+	}
+
+	intros := []string{fmt.Sprintf("%s shared %s with you.", actor, fileName)}
+	message := strings.TrimSpace(data.Message)
+	if message != "" {
+		intros = append(intros, fmt.Sprintf("Message: %s", message))
+	}
+
+	body := hermes.Email{Body: hermes.Body{
+		Name:   name,
+		Intros: intros,
+		Actions: []hermes.Action{{
+			Instructions: "Use the button below to view your shared files:",
+			Button: hermes.Button{Color: "#1A7F64", Text: "View shared files", Link: fileListURL},
+		}},
+		Outros: []string{"You may be asked to log in before you can view the file."},
+	}}
+
+	htmlBody, err := r.engine.GenerateHTML(body)
+	if err != nil {
+		return RenderedTemplate{}, err
+	}
+	textBody, err := r.engine.GeneratePlainText(body)
+	if err != nil {
+		return RenderedTemplate{}, err
+	}
+
+	return RenderedTemplate{Subject: "A file was shared with you", HTML: htmlBody, Text: textBody}, nil
 }

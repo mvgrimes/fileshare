@@ -46,21 +46,16 @@ func NewNotifier(renderer TemplateRenderer, sender MessageSender, events *EventS
 }
 
 func (n *Notifier) NotifyFileShared(ctx context.Context, in FileSharedNotification) error {
-	rendered, err := n.renderer.RenderMagicLink(MagicLinkTemplateData{
-		ToName:       in.RecipientName,
-		Token:        "Check your ShareFile dashboard for access details.",
-		SupportEmail: "",
+	rendered, err := n.renderer.RenderFileShared(FileSharedTemplateData{
+		ToName:      in.RecipientName,
+		ActorLabel:  in.ActorLabel,
+		FileName:    in.FileName,
+		Message:     in.Message,
+		FileListURL: "/client/files",
 	})
 	if err != nil {
 		return err
 	}
-	rendered.Subject = "A file was shared with you"
-	rendered.Text = strings.Join([]string{
-		fmt.Sprintf("%s shared a file with you.", in.ActorLabel),
-		fmt.Sprintf("File: %s", in.FileName),
-		nullableLine("Message", in.Message),
-		rendered.Text,
-	}, "\n")
 
 	eventID := ""
 	if n.events != nil {
@@ -105,12 +100,4 @@ func (n *Notifier) NotifyClientUpload(ctx context.Context, in ClientUploadNotifi
 		}
 	}
 	return err
-}
-
-func nullableLine(label, value string) string {
-	value = strings.TrimSpace(value)
-	if value == "" {
-		return ""
-	}
-	return fmt.Sprintf("%s: %s", label, value)
 }
