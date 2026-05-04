@@ -71,7 +71,7 @@
       {{if .Clients}}
       <ul class="menu bg-base-100 w-full">
         {{range .Clients}}
-        <li><a href="/user/clients/{{.ID}}"><strong>{{.ID}}</strong> - {{.DisplayName}} ({{.Email}})</a></li>
+        <li><a href="/user/clients/{{.ID}}">{{.DisplayName}} ({{.Email}})</a></li>
         {{end}}
       </ul>
       {{else}}
