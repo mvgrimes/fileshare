@@ -5,7 +5,7 @@
   <div class="card-body gap-4">
     {{template "page_header" .}}
     <p class="text-sm opacity-80">Actor ID: <code>{{.ActorID}}</code></p>
-    <form method="post" action="{{.FormAction}}" class="grid gap-3 md:grid-cols-2" data-enhance="submission">
+    <form method="post" action="{{.FormAction}}" class="grid gap-3 md:grid-cols-2" data-enhance="submission" data-target-select-form>
       {{if .ShowShareFields}}
       <label class="form-control w-full md:col-span-2">
         <span class="label-text">Upload File</span>
@@ -22,17 +22,21 @@
       {{end}}
       <label class="form-control w-full">
         <span class="label-text">Target Type</span>
-        <select class="select select-bordered w-full" name="target_type" required>
-          <option value="">Select target type</option>
-          <option value="user">User</option>
-          <option value="user_group">User Group</option>
-          <option value="client">Client</option>
+        <select class="select select-bordered w-full" name="target_type" required data-target-type-select>
+          <option value="client" selected>Client</option>
           <option value="client_group">Client Group</option>
         </select>
       </label>
       <label class="form-control w-full">
         <span class="label-text">Target ID</span>
-        <input class="input input-bordered w-full" type="text" name="target_id" required>
+        <select class="select select-bordered w-full" name="target_id" required data-target-id-select>
+          {{range .Clients}}
+          <option value="{{.ID}}" data-target-option="client">{{.DisplayName}} ({{.ID}})</option>
+          {{end}}
+          {{range .ClientGroups}}
+          <option value="{{.ID}}" data-target-option="client_group" hidden>{{.Name}} ({{.ID}})</option>
+          {{end}}
+        </select>
       </label>
       <label class="form-control w-full md:col-span-2">
         <span class="label-text">Message (optional)</span>
@@ -42,4 +46,41 @@
     </form>
   </div>
 </section>
+<script>
+  (() => {
+    const forms = document.querySelectorAll("form[data-target-select-form]");
+    for (const form of forms) {
+      const typeSelect = form.querySelector("select[data-target-type-select]");
+      const targetSelect = form.querySelector("select[data-target-id-select]");
+      if (!typeSelect || !targetSelect) continue;
+
+      const syncTargetOptions = () => {
+        const targetType = typeSelect.value;
+        let firstVisibleOption = null;
+
+        for (const option of targetSelect.options) {
+          const optionType = option.dataset.targetOption;
+          const isVisible = optionType === targetType;
+          option.hidden = !isVisible;
+          option.disabled = !isVisible;
+          if (isVisible && !firstVisibleOption) {
+            firstVisibleOption = option;
+          }
+        }
+
+        const selectedOption = targetSelect.selectedOptions[0];
+        if (!selectedOption || selectedOption.hidden || selectedOption.disabled) {
+          if (firstVisibleOption) {
+            targetSelect.value = firstVisibleOption.value;
+          } else {
+            targetSelect.value = "";
+          }
+        }
+      };
+
+      typeSelect.addEventListener("change", syncTargetOptions);
+      syncTargetOptions();
+    }
+  })();
+</script>
 {{end}}

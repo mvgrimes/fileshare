@@ -37,6 +37,14 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 		if err := s.authz.AuthorizeUploadFiles(principal); err != nil {
 			return c.String(http.StatusForbidden, "forbidden")
 		}
+		clients, err := queries.ListClients(c.Request().Context(), db.ListClientsParams{Limit: 200, Offset: 0})
+		if err != nil {
+			return c.String(http.StatusInternalServerError, "failed to load clients")
+		}
+		clientGroups, err := queries.ListClientGroups(c.Request().Context(), db.ListClientGroupsParams{Limit: 200, Offset: 0})
+		if err != nil {
+			return c.String(http.StatusInternalServerError, "failed to load client groups")
+		}
 		return c.Render(http.StatusOK, "upload_share", map[string]any{
 			"Title":           "Upload and Share",
 			"Subtitle":        "Upload metadata and sharing targets for processing.",
@@ -46,6 +54,8 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 			"FlashError":      c.QueryParam("error"),
 			"FlashSuccess":    c.QueryParam("success"),
 			"ShowShareFields": true,
+			"Clients":         clients,
+			"ClientGroups":    clientGroups,
 		})
 	}, auth.RequireCapability(auth.CapabilityUploadFiles))
 

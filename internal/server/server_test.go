@@ -433,6 +433,8 @@ func TestUserSharedFilesListAndDetail(t *testing.T) {
 
 func TestUploadFormsRenderForAuthorizedActors(t *testing.T) {
 	s := New(testConfig(), slog.Default())
+	createClientWithoutPassword(t, "c-form-client", "c-form-client@example.com", true)
+	createClientGroupForTests(t, "cg-form-group")
 
 	uploaderCookie := login(t, s, "user", "u-form", "uploader")
 	userReq := httptest.NewRequest(http.MethodGet, "/user/uploads", nil)
@@ -445,6 +447,12 @@ func TestUploadFormsRenderForAuthorizedActors(t *testing.T) {
 	userBody := userRec.Body.String()
 	if !strings.Contains(userBody, "action=\"/user/uploads\"") || !strings.Contains(userBody, "name=\"filename\"") {
 		t.Fatalf("user upload form body = %q, want user form fields", userBody)
+	}
+	if !strings.Contains(userBody, "name=\"target_type\"") || !strings.Contains(userBody, "<option value=\"client\" selected>Client</option>") {
+		t.Fatalf("user upload form body = %q, want target type defaulting to client", userBody)
+	}
+	if !strings.Contains(userBody, "name=\"target_id\"") || !strings.Contains(userBody, "c-form-client") || !strings.Contains(userBody, "cg-form-group") {
+		t.Fatalf("user upload form body = %q, want target_id select options from clients and groups", userBody)
 	}
 
 	clientCookie := login(t, s, "client", "c-form", "")
