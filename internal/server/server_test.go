@@ -404,6 +404,9 @@ func TestClientSharedFilesListAndDetail(t *testing.T) {
 
 	createFileForTests(t, "file-list-direct")
 	createShareForTests(t, "share-list-direct", "file-list-direct", "client", "client-files-direct")
+	createClientGroupForTests(t, "cg-files-direct")
+	addClientToGroupForTests(t, "cg-files-direct", "client-files-direct")
+	createShareForTests(t, "share-list-direct-group", "file-list-direct", "client_group", "cg-files-direct")
 	createFileForTests(t, "file-list-group")
 	createClientGroupForTests(t, "cg-files")
 	addClientToGroupForTests(t, "cg-files", "client-files-group")
@@ -422,6 +425,12 @@ func TestClientSharedFilesListAndDetail(t *testing.T) {
 	}
 	if !strings.Contains(listRec.Body.String(), "file-list-direct.txt") {
 		t.Fatalf("list body = %q, want direct shared file", listRec.Body.String())
+	}
+	if strings.Count(listRec.Body.String(), "file-list-direct.txt") != 1 {
+		t.Fatalf("list body = %q, want direct shared file listed once", listRec.Body.String())
+	}
+	if !strings.Contains(listRec.Body.String(), "client, client_group") {
+		t.Fatalf("list body = %q, want merged share target types", listRec.Body.String())
 	}
 
 	groupListReq := httptest.NewRequest(http.MethodGet, "/client/files", nil)

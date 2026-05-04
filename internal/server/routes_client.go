@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"net/http"
 	"net/url"
+	"sort"
 	"strings"
 
 	"github.com/labstack/echo/v4"
@@ -45,12 +46,27 @@ func (s *Server) registerClientRoutes(queries *db.Queries) {
 			return c.String(http.StatusInternalServerError, "failed to load shared files")
 		}
 		items := make([]fileListItem, 0, len(shares))
+		itemIndex := make(map[string]int, len(shares))
+		fileVia := make(map[string]map[string]struct{}, len(shares))
 		for _, sh := range shares {
 			f, fileErr := queries.GetFileByID(c.Request().Context(), sh.FileID)
 			if fileErr != nil {
 				continue
 			}
-			items = append(items, fileListItem{ID: f.ID, Name: f.OriginalFilename, ContentType: f.ContentType, SizeBytes: f.SizeBytes, SharedVia: sh.TargetType})
+			viaSet, ok := fileVia[f.ID]
+			if !ok {
+				viaSet = map[string]struct{}{}
+				fileVia[f.ID] = viaSet
+			}
+			viaSet[sh.TargetType] = struct{}{}
+
+			if idx, exists := itemIndex[f.ID]; exists {
+				items[idx].SharedVia = joinedShareTargets(viaSet)
+				continue
+			}
+
+			itemIndex[f.ID] = len(items)
+			items = append(items, fileListItem{ID: f.ID, Name: f.OriginalFilename, ContentType: f.ContentType, SizeBytes: f.SizeBytes, SharedVia: joinedShareTargets(viaSet)})
 		}
 		return c.Render(http.StatusOK, "shared_files", map[string]any{"Title": "Shared Files", "Subtitle": "Files currently accessible to your client account.", "ContentTemplate": "shared_files_content", "Files": items, "EmptyMessage": "No files are currently shared with your account.", "DetailBasePath": "/client/files"})
 	})
@@ -110,4 +126,16 @@ func (s *Server) registerClientRoutes(queries *db.Queries) {
 		}
 		return c.String(http.StatusOK, "upload access granted")
 	})
+}
+
+func joinedShareTargets(viaSet map[string]struct{}) string {
+	if len(viaSet) == 0 {
+		return ""
+	}
+	types := make([]string, 0, len(viaSet))
+	for targetType := range viaSet {
+		types = append(types, targetType)
+	}
+	sort.Strings(types)
+	return strings.Join(types, ", ")
 }
