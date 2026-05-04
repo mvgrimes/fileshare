@@ -85,11 +85,6 @@ func dashboardPathForPrincipal(principal auth.Principal) string {
 	if principal.ActorType == "client" {
 		return "/client/dashboard"
 	}
-	for _, role := range principal.Roles {
-		if role == "admin" {
-			return "/admin/dashboard"
-		}
-	}
 	return "/user/dashboard"
 }
 
