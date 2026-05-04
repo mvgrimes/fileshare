@@ -454,6 +454,9 @@ func TestUploadFormsRenderForAuthorizedActors(t *testing.T) {
 	if !strings.Contains(userBody, "name=\"target_id\"") || !strings.Contains(userBody, "c-form-client") || !strings.Contains(userBody, "cg-form-group") {
 		t.Fatalf("user upload form body = %q, want target_id select options from clients and groups", userBody)
 	}
+	if !strings.Contains(userBody, "<span class=\"label-text\">Message...</span>") || !strings.Contains(userBody, "textarea textarea-bordered w-full") {
+		t.Fatalf("user upload form body = %q, want full-width message field with standard header", userBody)
+	}
 
 	clientCookie := login(t, s, "client", "c-form", "")
 	clientReq := httptest.NewRequest(http.MethodGet, "/client/uploads", nil)
