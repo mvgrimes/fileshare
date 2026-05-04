@@ -155,7 +155,7 @@ func New(cfg *config.Config, log *slog.Logger) *Server {
 	clientPwd := auth.NewClientPasswordAuthenticator(queries)
 	magic := auth.NewMagicManager(queries, 15*time.Minute, 60*time.Second)
 	magicSend := auth.MagicSender(auth.NoopSender{})
-	renderer, renderErr := mail.NewHermesRenderer("ShareFile", "https://sharefile.local", "")
+	renderer, renderErr := mail.NewHermesRenderer("ShareFile", cfg.ServerUrl, "")
 	if renderErr != nil {
 		panic(renderErr)
 	}

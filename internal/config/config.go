@@ -10,6 +10,7 @@ import (
 type Config struct {
 	ServerAddress string
 	ServerPort    int
+	ServerUrl     string
 	Environment   string
 	LogLevel      string
 	SessionTTL    int
@@ -31,6 +32,7 @@ func Load() (*Config, error) {
 	cfg := &Config{
 		ServerAddress:     envOrDefault("SERVER_ADDRESS", "0.0.0.0"),
 		ServerPort:        intEnvOrDefault("SERVER_PORT", 8080),
+		ServerUrl:         os.Getenv("SERVER_URL"),
 		Environment:       envOrDefault("ENVIRONMENT", "development"),
 		LogLevel:          envOrDefault("LOG_LEVEL", "info"),
 		SessionTTL:        intEnvOrDefault("SESSION_TTL_HOURS", 12),
@@ -57,6 +59,9 @@ func (c *Config) Validate() error {
 	missing := make([]string, 0, 3)
 	if strings.TrimSpace(c.DatabaseURL) == "" {
 		missing = append(missing, "DATABASE_URL")
+	}
+	if strings.TrimSpace(c.ServerUrl) == "" {
+		missing = append(missing, "SERVER_URL")
 	}
 	if strings.TrimSpace(c.SessionSecret) == "" {
 		missing = append(missing, "SESSION_SECRET")
