@@ -83,10 +83,10 @@
   <article class="card bg-base-100 shadow-sm">
     <div class="card-body">
       <h2 class="text-xl font-semibold">Client Groups</h2>
-      {{if .ClientGroups}}
+      {{if .ClientGroupItems}}
       <ul class="menu bg-base-100 w-full">
-        {{range .ClientGroups}}
-        <li><span><strong>{{.ID}}</strong> - {{.Name}}</span></li>
+        {{range .ClientGroupItems}}
+        <li><span>{{.Name}} ({{.MemberCount}} members)</span></li>
         {{end}}
       </ul>
       {{else}}

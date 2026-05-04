@@ -1189,6 +1189,54 @@ func TestClientManagementCreateAndMembershipFlows(t *testing.T) {
 	}
 }
 
+func TestClientManagementGroupListShowsMemberCount(t *testing.T) {
+	s := New(testConfig(), slog.Default())
+	managerCookie := login(t, s, "user", "u-manager-group-count", "account_manager")
+
+	createClientReq := httptest.NewRequest(http.MethodPost, "/user/clients", bytes.NewBufferString("email=count-client@example.com&display_name=Count+Client&can_upload=1&is_active=1"))
+	createClientReq.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
+	createClientReq.AddCookie(managerCookie)
+	createClientRec := httptest.NewRecorder()
+	s.e.ServeHTTP(createClientRec, createClientReq)
+	if createClientRec.Code != http.StatusCreated {
+		t.Fatalf("create client status = %d, want %d", createClientRec.Code, http.StatusCreated)
+	}
+
+	createGroupReq := httptest.NewRequest(http.MethodPost, "/user/client-groups", bytes.NewBufferString("name=CountGroup"))
+	createGroupReq.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
+	createGroupReq.AddCookie(managerCookie)
+	createGroupRec := httptest.NewRecorder()
+	s.e.ServeHTTP(createGroupRec, createGroupReq)
+	if createGroupRec.Code != http.StatusCreated {
+		t.Fatalf("create group status = %d, want %d", createGroupRec.Code, http.StatusCreated)
+	}
+
+	clientID := lookupClientIDByEmail(t, "count-client@example.com")
+	groupID := latestClientGroupID(t)
+
+	addMemberReq := httptest.NewRequest(http.MethodPost, "/user/client-groups/memberships", bytes.NewBufferString("group_id="+groupID+"&client_id="+clientID))
+	addMemberReq.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
+	addMemberReq.AddCookie(managerCookie)
+	addMemberRec := httptest.NewRecorder()
+	s.e.ServeHTTP(addMemberRec, addMemberReq)
+	if addMemberRec.Code != http.StatusCreated {
+		t.Fatalf("add membership status = %d, want %d", addMemberRec.Code, http.StatusCreated)
+	}
+
+	pageReq := httptest.NewRequest(http.MethodGet, "/user/clients", nil)
+	pageReq.AddCookie(managerCookie)
+	pageRec := httptest.NewRecorder()
+	s.e.ServeHTTP(pageRec, pageReq)
+
+	if pageRec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", pageRec.Code, http.StatusOK)
+	}
+	body := pageRec.Body.String()
+	if !strings.Contains(body, "CountGroup (1 members)") {
+		t.Fatalf("body = %q, want group member count", body)
+	}
+}
+
 func TestClientManagementHTMLValidationRedirect(t *testing.T) {
 	s := New(testConfig(), slog.Default())
 	managerCookie := login(t, s, "user", "u-manager-html", "account_manager")

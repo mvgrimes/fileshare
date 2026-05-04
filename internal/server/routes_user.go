@@ -18,6 +18,12 @@ import (
 )
 
 func (s *Server) registerUserRoutes(queries *db.Queries) {
+	type clientGroupListItem struct {
+		ID          string
+		Name        string
+		MemberCount int
+	}
+
 	user := s.e.Group("/user")
 	user.Use(auth.RequireAuth(), auth.RequireActorType("user"))
 
@@ -446,7 +452,15 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 		if err != nil {
 			return c.String(http.StatusInternalServerError, "failed to load client groups")
 		}
-		return c.Render(http.StatusOK, "clients_management", map[string]any{"Title": "Client Management", "Subtitle": "Create clients, groups, and memberships.", "ContentTemplate": "clients_management_content", "FlashError": c.QueryParam("error"), "FlashSuccess": c.QueryParam("success"), "Clients": clients, "ClientGroups": groups})
+		groupItems := make([]clientGroupListItem, 0, len(groups))
+		for _, g := range groups {
+			members, memberErr := queries.ListGroupClients(c.Request().Context(), g.ID)
+			if memberErr != nil {
+				return c.String(http.StatusInternalServerError, "failed to load client groups")
+			}
+			groupItems = append(groupItems, clientGroupListItem{ID: g.ID, Name: g.Name, MemberCount: len(members)})
+		}
+		return c.Render(http.StatusOK, "clients_management", map[string]any{"Title": "Client Management", "Subtitle": "Create clients, groups, and memberships.", "ContentTemplate": "clients_management_content", "FlashError": c.QueryParam("error"), "FlashSuccess": c.QueryParam("success"), "Clients": clients, "ClientGroups": groups, "ClientGroupItems": groupItems})
 	}, auth.RequireCapability(auth.CapabilityManageClients))
 
 	user.POST("/clients", func(c echo.Context) error {
