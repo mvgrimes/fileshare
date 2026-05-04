@@ -124,6 +124,36 @@ func TestRouteGroupsRender(t *testing.T) {
 	}
 }
 
+func TestHomeBrandingAssetsFromConfig(t *testing.T) {
+	cfg := testConfig()
+	cfg.Branding = "Company, Inc."
+	cfg.Favicon = "https://cdn.example.com/favicon.ico"
+	cfg.Logo = "R0lGODlhAQABAAAAACw="
+	cfg.LogoHero = "https://cdn.example.com/hero.svg"
+	s := New(cfg, slog.Default())
+
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	rec := httptest.NewRecorder()
+	s.e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+	}
+	body := rec.Body.String()
+	if !strings.Contains(body, "<title>Company, Inc.</title>") {
+		t.Fatalf("body = %q, want branded page title", body)
+	}
+	if !strings.Contains(body, "rel=\"icon\" href=\"https://cdn.example.com/favicon.ico\"") {
+		t.Fatalf("body = %q, want configured favicon", body)
+	}
+	if !strings.Contains(body, "src=\"data:image/png;base64,R0lGODlhAQABAAAAACw=\"") {
+		t.Fatalf("body = %q, want normalized base64 header logo", body)
+	}
+	if !strings.Contains(body, "src=\"https://cdn.example.com/hero.svg\"") {
+		t.Fatalf("body = %q, want configured hero logo", body)
+	}
+}
+
 func TestAuthPagesContainFormTargets(t *testing.T) {
 	s := New(testConfig(), slog.Default())
 

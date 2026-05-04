@@ -47,7 +47,11 @@ type Server struct {
 }
 
 type TemplateRenderer struct {
-	templates *template.Template
+	templates     *template.Template
+	brandingLabel string
+	faviconURL    string
+	logoURL       string
+	logoHeroURL   string
 }
 
 type dashboardAction struct {
@@ -79,6 +83,10 @@ func (r *TemplateRenderer) Render(w io.Writer, name string, data any, c echo.Con
 		viewData = map[string]any{}
 	}
 	viewData["Path"] = c.Request().URL.Path
+	viewData["BrandingLabel"] = r.brandingLabel
+	viewData["BrandFavicon"] = template.URL(r.faviconURL)
+	viewData["BrandLogo"] = template.URL(r.logoURL)
+	viewData["BrandLogoHero"] = template.URL(r.logoHeroURL)
 	principal, isAuthenticated := auth.PrincipalFromContext(c)
 	viewData["IsAuthenticated"] = isAuthenticated
 	if isAuthenticated {
@@ -112,7 +120,11 @@ func New(cfg *config.Config, log *slog.Logger) *Server {
 	}
 
 	t := template.Must(loadTemplates())
-	e.Renderer = &TemplateRenderer{templates: t}
+	brandingLabel := strings.TrimSpace(cfg.Branding)
+	if brandingLabel == "" {
+		brandingLabel = "ShareFile"
+	}
+	e.Renderer = &TemplateRenderer{templates: t, brandingLabel: brandingLabel, faviconURL: normalizeBrandAsset(cfg.Favicon), logoURL: normalizeBrandAsset(cfg.Logo), logoHeroURL: normalizeBrandAsset(cfg.LogoHero)}
 	assetsFS := mustSubFS(webassets.Files, "dist")
 	e.StaticFS("/assets", assetsFS)
 
@@ -409,6 +421,18 @@ func dashboardActions(principal auth.Principal) []dashboardAction {
 		})
 	}
 	return actions
+}
+
+func normalizeBrandAsset(raw string) string {
+	v := strings.TrimSpace(raw)
+	if v == "" {
+		return ""
+	}
+	lower := strings.ToLower(v)
+	if strings.HasPrefix(lower, "http://") || strings.HasPrefix(lower, "https://") || strings.HasPrefix(lower, "data:") || strings.HasPrefix(v, "/") {
+		return v
+	}
+	return "data:image/png;base64," + v
 }
 
 func isHTMLRequest(c echo.Context) bool {

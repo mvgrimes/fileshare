@@ -2,7 +2,7 @@
 <header class="border-b border-base-300 bg-base-100">
   <nav class="navbar mx-auto max-w-5xl px-4">
     <div class="flex-1 gap-2">
-      <a class="btn btn-ghost text-lg" href="/">ShareFile</a>
+      <a class="btn btn-ghost text-lg gap-2" href="/">{{if .BrandLogo}}<img src="{{.BrandLogo}}" alt="{{.BrandingLabel}} logo" class="h-6 w-6 object-contain">{{end}}<span>{{.BrandingLabel}}</span></a>
     </div>
     <div class="flex gap-2">
       {{if .IsAuthenticated}}

@@ -34,6 +34,11 @@ type Config struct {
 	S3Endpoint         string
 	S3Bucket           string
 	S3ForcePathStyle   bool
+
+	Branding     string
+	Favicon      string
+	Logo         string
+	LogoHero     string
 }
 
 func Load() (*Config, error) {
@@ -61,6 +66,10 @@ func Load() (*Config, error) {
 		S3Endpoint:         strings.TrimSpace(os.Getenv("S3_ENDPOINT")),
 		S3Bucket:           envOrDefault("S3_BUCKET", "sharefile-uploads"),
 		S3ForcePathStyle:   boolEnvOrDefault("S3_FORCE_PATH_STYLE", false),
+		Branding:           envOrDefault("SHAREFILE_BRANDING", "ShareFile"),
+		Favicon:            strings.TrimSpace(os.Getenv("SHAREFILE_FAVICON")),
+		Logo:               strings.TrimSpace(os.Getenv("SHAREFILE_LOGO")),
+		LogoHero:           strings.TrimSpace(os.Getenv("SHAREFILE_LOGO_HERO")),
 	}
 
 	if err := cfg.Validate(); err != nil {

@@ -3,6 +3,7 @@
 {{define "home_content"}}
 <section class="card bg-base-100 shadow-sm">
   <div class="card-body gap-4">
+    {{if .BrandLogoHero}}<img src="{{.BrandLogoHero}}" alt="{{.BrandingLabel}} hero logo" class="h-16 w-auto object-contain">{{end}}
     {{template "page_header" .}}
     <p>Securely share files with your clients.</p>
     <p class="text-sm opacity-70">Current path: <code>{{.Path}}</code></p>

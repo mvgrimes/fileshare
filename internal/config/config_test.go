@@ -21,6 +21,10 @@ func TestLoadSuccess(t *testing.T) {
 	t.Setenv("AWS_REGION", "us-west-2")
 	t.Setenv("S3_BUCKET", "uploads-test")
 	t.Setenv("S3_FORCE_PATH_STYLE", "true")
+	t.Setenv("SHAREFILE_BRANDING", "Company, Inc.")
+	t.Setenv("SHAREFILE_FAVICON", "https://assets.example/favicon.ico")
+	t.Setenv("SHAREFILE_LOGO", "https://assets.example/logo.svg")
+	t.Setenv("SHAREFILE_LOGO_HERO", "https://assets.example/logo-hero.svg")
 
 	cfg, err := Load()
 	if err != nil {
@@ -56,6 +60,12 @@ func TestLoadSuccess(t *testing.T) {
 	}
 	if !cfg.S3ForcePathStyle {
 		t.Fatal("S3ForcePathStyle = false, want true")
+	}
+	if cfg.Branding != "Company, Inc." {
+		t.Fatalf("Branding = %q, want %q", cfg.Branding, "Company, Inc.")
+	}
+	if cfg.Favicon != "https://assets.example/favicon.ico" {
+		t.Fatalf("Favicon = %q, want configured value", cfg.Favicon)
 	}
 }
 
