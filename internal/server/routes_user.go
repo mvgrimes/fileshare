@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
+	"golang.org/x/crypto/bcrypt"
 
 	"sharefile/internal/auth"
 	"sharefile/internal/db"
@@ -32,6 +33,59 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 			"HasActions":       len(actions) > 0,
 			"ContentTemplate":  "dashboard_content",
 		})
+	})
+
+	user.GET("/profile", func(c echo.Context) error {
+		principal, _ := auth.PrincipalFromContext(c)
+		account, err := queries.GetUserByID(c.Request().Context(), principal.ActorID)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return c.String(http.StatusNotFound, "user not found")
+			}
+			return c.String(http.StatusInternalServerError, "failed to load profile")
+		}
+		return c.Render(http.StatusOK, "profile", map[string]any{"Title": "Profile", "Subtitle": "Update your name and password.", "ContentTemplate": "profile_content", "ProfileType": "user", "ActorID": principal.ActorID, "Email": account.Email, "DisplayName": account.FullName, "FormAction": "/user/profile", "FlashError": c.QueryParam("error"), "FlashSuccess": c.QueryParam("success")})
+	})
+
+	user.POST("/profile", func(c echo.Context) error {
+		principal, _ := auth.PrincipalFromContext(c)
+		account, err := queries.GetUserByID(c.Request().Context(), principal.ActorID)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return c.String(http.StatusNotFound, "user not found")
+			}
+			return c.String(http.StatusInternalServerError, "failed to load profile")
+		}
+		fullName := strings.TrimSpace(c.FormValue("display_name"))
+		if fullName == "" {
+			if isHTMLRequest(c) {
+				return c.Redirect(http.StatusSeeOther, "/user/profile?error="+url.QueryEscape("display_name is required"))
+			}
+			return c.String(http.StatusBadRequest, "display_name is required")
+		}
+		newPassword := strings.TrimSpace(c.FormValue("new_password"))
+		if len(newPassword) > 0 && len(newPassword) < 12 {
+			if isHTMLRequest(c) {
+				return c.Redirect(http.StatusSeeOther, "/user/profile?error="+url.QueryEscape("Password must be at least 12 characters"))
+			}
+			return c.String(http.StatusBadRequest, "password must be at least 12 characters")
+		}
+		if err := queries.UpdateUser(c.Request().Context(), db.UpdateUserParams{ID: account.ID, FullName: fullName, PasswordHash: account.PasswordHash, IsActive: account.IsActive}); err != nil {
+			return c.String(http.StatusInternalServerError, "failed to update profile")
+		}
+		if newPassword != "" {
+			hash, hashErr := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+			if hashErr != nil {
+				return c.String(http.StatusInternalServerError, "failed to update password")
+			}
+			if err := queries.UpdateUserPasswordHashByID(c.Request().Context(), account.ID, sql.NullString{Valid: true, String: string(hash)}); err != nil {
+				return c.String(http.StatusInternalServerError, "failed to update password")
+			}
+		}
+		if isHTMLRequest(c) {
+			return c.Redirect(http.StatusSeeOther, "/user/profile?success="+url.QueryEscape("Profile updated"))
+		}
+		return c.NoContent(http.StatusNoContent)
 	})
 
 	user.GET("/uploads", func(c echo.Context) error {

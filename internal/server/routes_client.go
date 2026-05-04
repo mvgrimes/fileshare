@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/labstack/echo/v4"
+	"golang.org/x/crypto/bcrypt"
 
 	"sharefile/internal/auth"
 	"sharefile/internal/db"
@@ -23,8 +24,59 @@ func (s *Server) registerClientRoutes(queries *db.Queries) {
 	})
 	client.GET("/dashboard", func(c echo.Context) error {
 		principal, _ := auth.PrincipalFromContext(c)
-		actions := []dashboardAction{{Label: "Upload Files", Description: "Submit upload targets; permissions are validated per client.", Path: "/client/uploads"}, {Label: "View Shared Files", Description: "Browse files shared directly or through your client groups.", Path: "/client/files"}, {Label: "View Uploaded Files", Description: "Review files uploaded from your client account.", Path: "/client/uploads/files"}}
+		actions := []dashboardAction{{Label: "Profile", Description: "Manage your display name and password.", Path: "/client/profile"}, {Label: "Upload Files", Description: "Submit upload targets; permissions are validated per client.", Path: "/client/uploads"}, {Label: "View Shared Files", Description: "Browse files shared directly or through your client groups.", Path: "/client/files"}, {Label: "View Uploaded Files", Description: "Review files uploaded from your client account.", Path: "/client/uploads/files"}}
 		return c.Render(http.StatusOK, "dashboard", map[string]any{"Title": "Client Dashboard", "Role": principal.ActorType, "Subtitle": "Use secure links to access files and upload where permitted.", "ActorID": principal.ActorID, "DashboardActions": actions, "HasActions": true, "ContentTemplate": "dashboard_content"})
+	})
+	client.GET("/profile", func(c echo.Context) error {
+		principal, _ := auth.PrincipalFromContext(c)
+		account, err := queries.GetClientByID(c.Request().Context(), principal.ActorID)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return c.String(http.StatusNotFound, "client not found")
+			}
+			return c.String(http.StatusInternalServerError, "failed to load profile")
+		}
+		return c.Render(http.StatusOK, "profile", map[string]any{"Title": "Profile", "Subtitle": "Update your display name and password.", "ContentTemplate": "profile_content", "ProfileType": "client", "ActorID": principal.ActorID, "Email": account.Email, "DisplayName": account.DisplayName, "FormAction": "/client/profile", "FlashError": c.QueryParam("error"), "FlashSuccess": c.QueryParam("success")})
+	})
+	client.POST("/profile", func(c echo.Context) error {
+		principal, _ := auth.PrincipalFromContext(c)
+		account, err := queries.GetClientByID(c.Request().Context(), principal.ActorID)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return c.String(http.StatusNotFound, "client not found")
+			}
+			return c.String(http.StatusInternalServerError, "failed to load profile")
+		}
+		displayName := strings.TrimSpace(c.FormValue("display_name"))
+		if displayName == "" {
+			if isHTMLRequest(c) {
+				return c.Redirect(http.StatusSeeOther, "/client/profile?error="+url.QueryEscape("display_name is required"))
+			}
+			return c.String(http.StatusBadRequest, "display_name is required")
+		}
+		newPassword := strings.TrimSpace(c.FormValue("new_password"))
+		if len(newPassword) > 0 && len(newPassword) < 12 {
+			if isHTMLRequest(c) {
+				return c.Redirect(http.StatusSeeOther, "/client/profile?error="+url.QueryEscape("Password must be at least 12 characters"))
+			}
+			return c.String(http.StatusBadRequest, "password must be at least 12 characters")
+		}
+		if err := queries.UpdateClient(c.Request().Context(), db.UpdateClientParams{ID: account.ID, DisplayName: displayName, CanUpload: account.CanUpload, IsActive: account.IsActive}); err != nil {
+			return c.String(http.StatusInternalServerError, "failed to update profile")
+		}
+		if newPassword != "" {
+			hash, hashErr := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+			if hashErr != nil {
+				return c.String(http.StatusInternalServerError, "failed to update password")
+			}
+			if err := queries.UpdateClientPasswordHashByID(c.Request().Context(), account.ID, sql.NullString{Valid: true, String: string(hash)}); err != nil {
+				return c.String(http.StatusInternalServerError, "failed to update password")
+			}
+		}
+		if isHTMLRequest(c) {
+			return c.Redirect(http.StatusSeeOther, "/client/profile?success="+url.QueryEscape("Profile updated"))
+		}
+		return c.NoContent(http.StatusNoContent)
 	})
 	client.GET("/uploads/files", func(c echo.Context) error {
 		principal, _ := auth.PrincipalFromContext(c)

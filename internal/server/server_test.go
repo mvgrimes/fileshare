@@ -414,8 +414,8 @@ func TestUserDashboardShowsEmptyStateWithoutRoles(t *testing.T) {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
 	}
 	body := rec.Body.String()
-	if !strings.Contains(body, "No dashboard actions are currently available") {
-		t.Fatalf("body = %q, want empty-state message", body)
+	if !strings.Contains(body, "Profile") || !strings.Contains(body, "href=\"/user/profile\"") {
+		t.Fatalf("body = %q, want profile dashboard action", body)
 	}
 }
 
@@ -439,8 +439,106 @@ func TestClientDashboardShowsMagicLinkAction(t *testing.T) {
 	if !strings.Contains(body, "View Shared Files") || !strings.Contains(body, "href=\"/client/files\"") {
 		t.Fatalf("body = %q, want shared files dashboard action", body)
 	}
+	if !strings.Contains(body, "Profile") || !strings.Contains(body, "href=\"/client/profile\"") {
+		t.Fatalf("body = %q, want profile dashboard action", body)
+	}
 	if !strings.Contains(body, "View Uploaded Files") || !strings.Contains(body, "href=\"/client/uploads/files\"") {
 		t.Fatalf("body = %q, want uploaded files dashboard action", body)
+	}
+}
+
+func TestUserProfileUpdateNameAndPassword(t *testing.T) {
+	s := New(testConfig(), slog.Default())
+	createUserWithPassword(t, "u-profile", "u-profile@example.com", "old-password-123", true, 3)
+	cookie := login(t, s, "user", "u-profile", "uploader")
+
+	getReq := httptest.NewRequest(http.MethodGet, "/user/profile", nil)
+	getReq.AddCookie(cookie)
+	getRec := httptest.NewRecorder()
+	s.e.ServeHTTP(getRec, getReq)
+	if getRec.Code != http.StatusOK {
+		t.Fatalf("profile get status = %d, want %d", getRec.Code, http.StatusOK)
+	}
+	if !strings.Contains(getRec.Body.String(), "name=\"display_name\"") {
+		t.Fatalf("profile body = %q, want display_name field", getRec.Body.String())
+	}
+
+	body := bytes.NewBufferString("display_name=Updated+User&new_password=new-password-123")
+	postReq := httptest.NewRequest(http.MethodPost, "/user/profile", body)
+	postReq.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
+	postReq.Header.Set(echo.HeaderAccept, echo.MIMETextHTML)
+	postReq.AddCookie(cookie)
+	postRec := httptest.NewRecorder()
+	s.e.ServeHTTP(postRec, postReq)
+	if postRec.Code != http.StatusSeeOther {
+		t.Fatalf("profile post status = %d, want %d", postRec.Code, http.StatusSeeOther)
+	}
+
+	sqlDB, err := sql.Open("sqlite", testConfig().DatabaseURL)
+	if err != nil {
+		t.Fatalf("sql.Open() unexpected error: %v", err)
+	}
+	defer sqlDB.Close()
+	updatedUser, err := db.New(sqlDB).GetUserByID(context.Background(), "u-profile")
+	if err != nil {
+		t.Fatalf("GetUserByID() error: %v", err)
+	}
+	if updatedUser.FullName != "Updated User" {
+		t.Fatalf("full_name = %q, want %q", updatedUser.FullName, "Updated User")
+	}
+
+	loginReq := httptest.NewRequest(http.MethodPost, "/auth/password/login", bytes.NewBufferString("actor_type=user&email=u-profile@example.com&password=new-password-123"))
+	loginReq.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
+	loginRec := httptest.NewRecorder()
+	s.e.ServeHTTP(loginRec, loginReq)
+	if loginRec.Code != http.StatusNoContent {
+		t.Fatalf("password login status = %d, want %d", loginRec.Code, http.StatusNoContent)
+	}
+}
+
+func TestClientProfileUpdateNameAndPassword(t *testing.T) {
+	s := New(testConfig(), slog.Default())
+	createClientWithPassword(t, "c-profile", "c-profile@example.com", "old-password-123", true)
+	cookie := login(t, s, "client", "c-profile", "")
+
+	getReq := httptest.NewRequest(http.MethodGet, "/client/profile", nil)
+	getReq.AddCookie(cookie)
+	getRec := httptest.NewRecorder()
+	s.e.ServeHTTP(getRec, getReq)
+	if getRec.Code != http.StatusOK {
+		t.Fatalf("profile get status = %d, want %d", getRec.Code, http.StatusOK)
+	}
+
+	body := bytes.NewBufferString("display_name=Updated+Client&new_password=new-password-123")
+	postReq := httptest.NewRequest(http.MethodPost, "/client/profile", body)
+	postReq.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
+	postReq.Header.Set(echo.HeaderAccept, echo.MIMETextHTML)
+	postReq.AddCookie(cookie)
+	postRec := httptest.NewRecorder()
+	s.e.ServeHTTP(postRec, postReq)
+	if postRec.Code != http.StatusSeeOther {
+		t.Fatalf("profile post status = %d, want %d", postRec.Code, http.StatusSeeOther)
+	}
+
+	sqlDB, err := sql.Open("sqlite", testConfig().DatabaseURL)
+	if err != nil {
+		t.Fatalf("sql.Open() unexpected error: %v", err)
+	}
+	defer sqlDB.Close()
+	updatedClient, err := db.New(sqlDB).GetClientByID(context.Background(), "c-profile")
+	if err != nil {
+		t.Fatalf("GetClientByID() error: %v", err)
+	}
+	if updatedClient.DisplayName != "Updated Client" {
+		t.Fatalf("display_name = %q, want %q", updatedClient.DisplayName, "Updated Client")
+	}
+
+	loginReq := httptest.NewRequest(http.MethodPost, "/auth/password/login", bytes.NewBufferString("actor_type=client&email=c-profile@example.com&password=new-password-123"))
+	loginReq.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
+	loginRec := httptest.NewRecorder()
+	s.e.ServeHTTP(loginRec, loginReq)
+	if loginRec.Code != http.StatusNoContent {
+		t.Fatalf("password login status = %d, want %d", loginRec.Code, http.StatusNoContent)
 	}
 }
 

@@ -29,6 +29,8 @@
         {{template "shared_files_content" .}}
       {{else if eq .ContentTemplate "file_detail_content"}}
         {{template "file_detail_content" .}}
+      {{else if eq .ContentTemplate "profile_content"}}
+        {{template "profile_content" .}}
       {{else}}
         <p>missing content template</p>
       {{end}}
