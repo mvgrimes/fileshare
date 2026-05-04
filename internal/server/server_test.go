@@ -501,6 +501,106 @@ func TestUserSharedFilesListAndDetail(t *testing.T) {
 	}
 }
 
+func TestUserFileDetailManageShareRenameDeleteFlow(t *testing.T) {
+	s := New(testConfig(), slog.Default())
+	ownerCookie := login(t, s, "user", "u-manage-file", "uploader")
+
+	createFileWithUploader(t, "file-manage", "u-manage-file")
+	createClientWithoutPassword(t, "c-manage-target", "c-manage-target@example.com", true)
+	createUserWithoutPassword(t, "u-manage-target", "u-manage-target@example.com", true, 1)
+
+	sqlDB, err := sql.Open("sqlite", testConfig().DatabaseURL)
+	if err != nil {
+		t.Fatalf("sql.Open() unexpected error: %v", err)
+	}
+	defer sqlDB.Close()
+	queries := db.New(sqlDB)
+	if err := queries.CreateUserGroup(context.Background(), db.CreateUserGroupParams{ID: "ug-manage", Name: "Manage Group", CreatedByUserID: sql.NullString{}}); err != nil {
+		t.Fatalf("CreateUserGroup() error: %v", err)
+	}
+
+	detailReq := httptest.NewRequest(http.MethodGet, "/user/files/file-manage", nil)
+	detailReq.AddCookie(ownerCookie)
+	detailRec := httptest.NewRecorder()
+	s.e.ServeHTTP(detailRec, detailReq)
+	if detailRec.Code != http.StatusOK {
+		t.Fatalf("detail status = %d, want %d", detailRec.Code, http.StatusOK)
+	}
+	body := detailRec.Body.String()
+	if !strings.Contains(body, "Rename File") || !strings.Contains(body, "Current Shares") || !strings.Contains(body, "Delete File") {
+		t.Fatalf("detail body = %q, want file management controls", body)
+	}
+
+	renameReq := httptest.NewRequest(http.MethodPost, "/user/files/file-manage/rename", bytes.NewBufferString("filename=renamed-file.pdf"))
+	renameReq.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
+	renameReq.AddCookie(ownerCookie)
+	renameRec := httptest.NewRecorder()
+	s.e.ServeHTTP(renameRec, renameReq)
+	if renameRec.Code != http.StatusNoContent {
+		t.Fatalf("rename status = %d, want %d", renameRec.Code, http.StatusNoContent)
+	}
+	fileAfterRename, err := queries.GetFileByID(context.Background(), "file-manage")
+	if err != nil {
+		t.Fatalf("GetFileByID() error: %v", err)
+	}
+	if fileAfterRename.OriginalFilename != "renamed-file.pdf" {
+		t.Fatalf("filename = %q, want %q", fileAfterRename.OriginalFilename, "renamed-file.pdf")
+	}
+
+	shareReq := httptest.NewRequest(http.MethodPost, "/user/files/file-manage/shares", bytes.NewBufferString("target_type=client&target_id=c-manage-target"))
+	shareReq.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
+	shareReq.AddCookie(ownerCookie)
+	shareRec := httptest.NewRecorder()
+	s.e.ServeHTTP(shareRec, shareReq)
+	if shareRec.Code != http.StatusCreated {
+		t.Fatalf("share status = %d, want %d", shareRec.Code, http.StatusCreated)
+	}
+
+	shareReq2 := httptest.NewRequest(http.MethodPost, "/user/files/file-manage/shares", bytes.NewBufferString("target_type=user_group&target_id=ug-manage"))
+	shareReq2.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
+	shareReq2.AddCookie(ownerCookie)
+	shareRec2 := httptest.NewRecorder()
+	s.e.ServeHTTP(shareRec2, shareReq2)
+	if shareRec2.Code != http.StatusCreated {
+		t.Fatalf("share2 status = %d, want %d", shareRec2.Code, http.StatusCreated)
+	}
+
+	shares, err := queries.ListSharesByFileID(context.Background(), "file-manage")
+	if err != nil {
+		t.Fatalf("ListSharesByFileID() error: %v", err)
+	}
+	if len(shares) != 2 {
+		t.Fatalf("share count = %d, want %d", len(shares), 2)
+	}
+
+	unshareReq := httptest.NewRequest(http.MethodPost, "/user/files/file-manage/shares/"+shares[0].ID+"/delete", nil)
+	unshareReq.AddCookie(ownerCookie)
+	unshareRec := httptest.NewRecorder()
+	s.e.ServeHTTP(unshareRec, unshareReq)
+	if unshareRec.Code != http.StatusNoContent {
+		t.Fatalf("unshare status = %d, want %d", unshareRec.Code, http.StatusNoContent)
+	}
+
+	sharesAfterUnshare, err := queries.ListSharesByFileID(context.Background(), "file-manage")
+	if err != nil {
+		t.Fatalf("ListSharesByFileID() error: %v", err)
+	}
+	if len(sharesAfterUnshare) != 1 {
+		t.Fatalf("share count after unshare = %d, want %d", len(sharesAfterUnshare), 1)
+	}
+
+	deleteReq := httptest.NewRequest(http.MethodPost, "/user/files/file-manage/delete", nil)
+	deleteReq.AddCookie(ownerCookie)
+	deleteRec := httptest.NewRecorder()
+	s.e.ServeHTTP(deleteRec, deleteReq)
+	if deleteRec.Code != http.StatusNoContent {
+		t.Fatalf("delete status = %d, want %d", deleteRec.Code, http.StatusNoContent)
+	}
+	if _, err := queries.GetFileByID(context.Background(), "file-manage"); err != sql.ErrNoRows {
+		t.Fatalf("GetFileByID() error = %v, want sql.ErrNoRows", err)
+	}
+}
+
 func TestUploadFormsRenderForAuthorizedActors(t *testing.T) {
 	s := New(testConfig(), slog.Default())
 	createClientWithoutPassword(t, "c-form-client", "c-form-client@example.com", true)

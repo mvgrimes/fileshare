@@ -85,7 +85,168 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 		if file.UploaderType != "user" || file.UploaderID != principal.ActorID {
 			return c.String(http.StatusForbidden, "forbidden")
 		}
-		return c.Render(http.StatusOK, "shared_files", map[string]any{"Title": "File Detail", "Subtitle": "Detailed metadata for your uploaded file.", "ContentTemplate": "file_detail_content", "File": fileListItem{ID: file.ID, Name: file.OriginalFilename, ContentType: file.ContentType, SizeBytes: file.SizeBytes, SharedVia: "owned"}, "BackPath": "/user/files"})
+		shares, err := queries.ListSharesByFileID(c.Request().Context(), fileID)
+		if err != nil {
+			return c.String(http.StatusInternalServerError, "failed to load shares")
+		}
+		shareItems := make([]fileShareListItem, 0, len(shares))
+		for _, sh := range shares {
+			shareItems = append(shareItems, fileShareListItem{ID: sh.ID, TargetType: sh.TargetType, TargetID: sh.TargetID, TargetLabel: sh.TargetType + ":" + sh.TargetID})
+		}
+		clients, err := queries.ListClients(c.Request().Context(), db.ListClientsParams{Limit: 200, Offset: 0})
+		if err != nil {
+			return c.String(http.StatusInternalServerError, "failed to load clients")
+		}
+		clientGroups, err := queries.ListClientGroups(c.Request().Context(), db.ListClientGroupsParams{Limit: 200, Offset: 0})
+		if err != nil {
+			return c.String(http.StatusInternalServerError, "failed to load client groups")
+		}
+		users, err := queries.ListUsers(c.Request().Context(), db.ListUsersParams{Limit: 200, Offset: 0})
+		if err != nil {
+			return c.String(http.StatusInternalServerError, "failed to load users")
+		}
+		userGroups, err := queries.ListUserGroups(c.Request().Context(), db.ListUserGroupsParams{Limit: 200, Offset: 0})
+		if err != nil {
+			return c.String(http.StatusInternalServerError, "failed to load user groups")
+		}
+		return c.Render(http.StatusOK, "shared_files", map[string]any{"Title": "File Detail", "Subtitle": "Detailed metadata for your uploaded file.", "ContentTemplate": "file_detail_content", "File": fileListItem{ID: file.ID, Name: file.OriginalFilename, ContentType: file.ContentType, SizeBytes: file.SizeBytes, SharedVia: "owned"}, "BackPath": "/user/files", "ManageFile": true, "ShareTargets": shareItems, "Clients": clients, "ClientGroups": clientGroups, "Users": users, "UserGroups": userGroups, "FlashError": c.QueryParam("error"), "FlashSuccess": c.QueryParam("success")})
+	})
+
+	user.POST("/files/:fileID/rename", func(c echo.Context) error {
+		principal, _ := auth.PrincipalFromContext(c)
+		fileID := c.Param("fileID")
+		file, err := queries.GetFileByID(c.Request().Context(), fileID)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return c.String(http.StatusNotFound, "file not found")
+			}
+			return c.String(http.StatusInternalServerError, "failed to load file")
+		}
+		if file.UploaderType != "user" || file.UploaderID != principal.ActorID {
+			return c.String(http.StatusForbidden, "forbidden")
+		}
+		name := strings.TrimSpace(c.FormValue("filename"))
+		if name == "" {
+			if isHTMLRequest(c) {
+				return c.Redirect(http.StatusSeeOther, "/user/files/"+fileID+"?error="+url.QueryEscape("filename is required"))
+			}
+			return c.String(http.StatusBadRequest, "filename is required")
+		}
+		if err := queries.UpdateFileNameByID(c.Request().Context(), db.UpdateFileNameByIDParams{ID: fileID, OriginalFilename: name}); err != nil {
+			return c.String(http.StatusInternalServerError, "failed to rename file")
+		}
+		if isHTMLRequest(c) {
+			return c.Redirect(http.StatusSeeOther, "/user/files/"+fileID+"?success="+url.QueryEscape("File renamed"))
+		}
+		return c.NoContent(http.StatusNoContent)
+	})
+
+	user.POST("/files/:fileID/delete", func(c echo.Context) error {
+		principal, _ := auth.PrincipalFromContext(c)
+		fileID := c.Param("fileID")
+		file, err := queries.GetFileByID(c.Request().Context(), fileID)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return c.String(http.StatusNotFound, "file not found")
+			}
+			return c.String(http.StatusInternalServerError, "failed to load file")
+		}
+		if file.UploaderType != "user" || file.UploaderID != principal.ActorID {
+			return c.String(http.StatusForbidden, "forbidden")
+		}
+		if err := queries.DeleteFile(c.Request().Context(), fileID); err != nil {
+			return c.String(http.StatusInternalServerError, "failed to delete file")
+		}
+		if isHTMLRequest(c) {
+			return c.Redirect(http.StatusSeeOther, "/user/files?success="+url.QueryEscape("File deleted"))
+		}
+		return c.NoContent(http.StatusNoContent)
+	})
+
+	user.POST("/files/:fileID/shares", func(c echo.Context) error {
+		principal, _ := auth.PrincipalFromContext(c)
+		fileID := c.Param("fileID")
+		file, err := queries.GetFileByID(c.Request().Context(), fileID)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return c.String(http.StatusNotFound, "file not found")
+			}
+			return c.String(http.StatusInternalServerError, "failed to load file")
+		}
+		if file.UploaderType != "user" || file.UploaderID != principal.ActorID {
+			return c.String(http.StatusForbidden, "forbidden")
+		}
+		targetType := strings.TrimSpace(c.FormValue("target_type"))
+		targetID := strings.TrimSpace(c.FormValue("target_id"))
+		message := strings.TrimSpace(c.FormValue("message"))
+		if targetType == "" || targetID == "" {
+			if isHTMLRequest(c) {
+				return c.Redirect(http.StatusSeeOther, "/user/files/"+fileID+"?error="+url.QueryEscape("target_type and target_id are required"))
+			}
+			return c.String(http.StatusBadRequest, "target_type and target_id are required")
+		}
+		switch targetType {
+		case "client":
+			_, err = queries.GetClientByID(c.Request().Context(), targetID)
+		case "client_group":
+			_, err = queries.GetClientGroupByID(c.Request().Context(), targetID)
+		case "user":
+			_, err = queries.GetUserByID(c.Request().Context(), targetID)
+		case "user_group":
+			_, err = queries.GetUserGroupByID(c.Request().Context(), targetID)
+		default:
+			err = sql.ErrNoRows
+		}
+		if err != nil {
+			if isHTMLRequest(c) {
+				return c.Redirect(http.StatusSeeOther, "/user/files/"+fileID+"?error="+url.QueryEscape("invalid share target"))
+			}
+			return c.String(http.StatusBadRequest, "invalid share target")
+		}
+		msgNull := sql.NullString{}
+		if message != "" {
+			msgNull = sql.NullString{Valid: true, String: message}
+		}
+		if err := queries.CreateShare(c.Request().Context(), db.CreateShareParams{ID: uuid.NewString(), FileID: fileID, SharedByType: "user", SharedByID: principal.ActorID, TargetType: targetType, TargetID: targetID, Message: msgNull}); err != nil {
+			return c.String(http.StatusInternalServerError, "failed to create share")
+		}
+		if isHTMLRequest(c) {
+			return c.Redirect(http.StatusSeeOther, "/user/files/"+fileID+"?success="+url.QueryEscape("Share added"))
+		}
+		return c.NoContent(http.StatusCreated)
+	})
+
+	user.POST("/files/:fileID/shares/:shareID/delete", func(c echo.Context) error {
+		principal, _ := auth.PrincipalFromContext(c)
+		fileID := c.Param("fileID")
+		file, err := queries.GetFileByID(c.Request().Context(), fileID)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return c.String(http.StatusNotFound, "file not found")
+			}
+			return c.String(http.StatusInternalServerError, "failed to load file")
+		}
+		if file.UploaderType != "user" || file.UploaderID != principal.ActorID {
+			return c.String(http.StatusForbidden, "forbidden")
+		}
+		shareID := c.Param("shareID")
+		share, err := queries.GetShareByID(c.Request().Context(), shareID)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return c.String(http.StatusNotFound, "share not found")
+			}
+			return c.String(http.StatusInternalServerError, "failed to load share")
+		}
+		if share.FileID != fileID {
+			return c.String(http.StatusBadRequest, "share does not belong to file")
+		}
+		if err := queries.DeleteShare(c.Request().Context(), shareID); err != nil {
+			return c.String(http.StatusInternalServerError, "failed to remove share")
+		}
+		if isHTMLRequest(c) {
+			return c.Redirect(http.StatusSeeOther, "/user/files/"+fileID+"?success="+url.QueryEscape("Share removed"))
+		}
+		return c.NoContent(http.StatusNoContent)
 	})
 
 	user.POST("/uploads", func(c echo.Context) error {

@@ -60,6 +60,13 @@ type fileListItem struct {
 	SharedVia   string
 }
 
+type fileShareListItem struct {
+	ID          string
+	TargetType  string
+	TargetID    string
+	TargetLabel string
+}
+
 func (r *TemplateRenderer) Render(w io.Writer, name string, data any, c echo.Context) error {
 	viewData, ok := data.(map[string]any)
 	if !ok {
@@ -111,7 +118,7 @@ func New(cfg *config.Config, log *slog.Logger) *Server {
 	e.Use(middleware.Secure())
 	e.Use(middleware.CSRFWithConfig(middleware.CSRFConfig{
 		Skipper: func(c echo.Context) bool {
-			return c.Path() == "/auth/session" || c.Path() == "/auth/logout" || c.Path() == "/auth/sso/login" || c.Path() == "/auth/magic/request" || c.Path() == "/auth/magic/verify" || c.Path() == "/auth/password/login" || c.Path() == "/client/uploads" || c.Path() == "/user/uploads" || c.Path() == "/user/clients" || c.Path() == "/user/client-groups" || c.Path() == "/user/client-groups/memberships"
+			return c.Path() == "/auth/session" || c.Path() == "/auth/logout" || c.Path() == "/auth/sso/login" || c.Path() == "/auth/magic/request" || c.Path() == "/auth/magic/verify" || c.Path() == "/auth/password/login" || c.Path() == "/client/uploads" || c.Path() == "/user/uploads" || c.Path() == "/user/clients" || c.Path() == "/user/client-groups" || c.Path() == "/user/client-groups/memberships" || c.Path() == "/user/files/:fileID/rename" || c.Path() == "/user/files/:fileID/delete" || c.Path() == "/user/files/:fileID/shares" || c.Path() == "/user/files/:fileID/shares/:shareID/delete"
 		},
 	}))
 	e.Use(middleware.RateLimiter(middleware.NewRateLimiterMemoryStore(20)))

@@ -39,6 +39,55 @@
     <p><strong>Content Type:</strong> {{.File.ContentType}}</p>
     <p><strong>Size:</strong> {{.File.SizeBytes}}</p>
     <p><strong>Shared Via:</strong> {{.File.SharedVia}}</p>
+    {{if .ManageFile}}
+    <div class="divider my-1"></div>
+    <h3 class="text-lg font-semibold">Rename File</h3>
+    <form method="post" action="/user/files/{{.File.ID}}/rename" class="space-y-2" data-enhance="submission">
+      <input class="input input-bordered w-full" type="text" name="filename" required value="{{.File.Name}}">
+      <button class="btn btn-sm btn-primary" type="submit" data-pending-text="Renaming...">Rename</button>
+    </form>
+
+    <h3 class="text-lg font-semibold mt-3">Share With Additional Targets</h3>
+    <form method="post" action="/user/files/{{.File.ID}}/shares" class="grid gap-2 md:grid-cols-2" data-enhance="submission">
+      <label class="form-control w-full">
+        <span class="label-text">Target Type</span>
+        <select class="select select-bordered w-full" name="target_type" required>
+          <option value="client">Client</option>
+          <option value="client_group">Client Group</option>
+          <option value="user">User</option>
+          <option value="user_group">User Group</option>
+        </select>
+      </label>
+      <label class="form-control w-full">
+        <span class="label-text">Target ID</span>
+        <input class="input input-bordered w-full" type="text" name="target_id" required>
+      </label>
+      <label class="form-control w-full md:col-span-2">
+        <span class="label-text">Message (optional)</span>
+        <input class="input input-bordered w-full" type="text" name="message">
+      </label>
+      <button class="btn btn-sm btn-primary md:col-span-2" type="submit" data-pending-text="Sharing...">Add Share</button>
+    </form>
+
+    <h3 class="text-lg font-semibold mt-3">Current Shares</h3>
+    {{if .ShareTargets}}
+    <div class="space-y-2">
+      {{range .ShareTargets}}
+      <form method="post" action="/user/files/{{$.File.ID}}/shares/{{.ID}}/delete" class="flex items-center justify-between gap-2 rounded-box border border-base-300 p-2" data-enhance="submission">
+        <span class="text-sm">{{.TargetLabel}}</span>
+        <button class="btn btn-xs btn-outline" type="submit" data-pending-text="Removing...">Unshare</button>
+      </form>
+      {{end}}
+    </div>
+    {{else}}
+    <p class="text-sm opacity-70">No current shares.</p>
+    {{end}}
+
+    <h3 class="text-lg font-semibold mt-3">Delete File</h3>
+    <form method="post" action="/user/files/{{.File.ID}}/delete" data-enhance="submission">
+      <button class="btn btn-sm btn-error" type="submit" data-pending-text="Deleting...">Delete File</button>
+    </form>
+    {{end}}
     <a class="btn btn-sm btn-ghost" href="{{.BackPath}}">Back to List</a>
   </div>
 </section>

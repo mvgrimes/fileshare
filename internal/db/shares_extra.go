@@ -79,3 +79,31 @@ func (q *Queries) ListClientAccessibleShares(ctx context.Context, arg ListClient
 	}
 	return items, nil
 }
+
+const listSharesByFileID = `
+SELECT id, file_id, shared_by_type, shared_by_id, target_type, target_id, message, created_at
+FROM shares
+WHERE file_id = ?
+ORDER BY created_at DESC
+`
+
+func (q *Queries) ListSharesByFileID(ctx context.Context, fileID string) ([]Share, error) {
+	rows, err := q.db.QueryContext(ctx, listSharesByFileID, fileID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	items := make([]Share, 0)
+	for rows.Next() {
+		var s Share
+		if err := rows.Scan(&s.ID, &s.FileID, &s.SharedByType, &s.SharedByID, &s.TargetType, &s.TargetID, &s.Message, &s.CreatedAt); err != nil {
+			return nil, err
+		}
+		items = append(items, s)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
