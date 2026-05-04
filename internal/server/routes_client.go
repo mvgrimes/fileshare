@@ -68,7 +68,7 @@ func (s *Server) registerClientRoutes(queries *db.Queries) {
 			itemIndex[f.ID] = len(items)
 			items = append(items, fileListItem{ID: f.ID, Name: f.OriginalFilename, ContentType: f.ContentType, SizeBytes: f.SizeBytes, SharedVia: joinedShareTargets(viaSet)})
 		}
-		return c.Render(http.StatusOK, "shared_files", map[string]any{"Title": "Shared Files", "Subtitle": "Files currently accessible to your client account.", "ContentTemplate": "shared_files_content", "Files": items, "EmptyMessage": "No files are currently shared with your account.", "DetailBasePath": "/client/files"})
+		return c.Render(http.StatusOK, "shared_files", map[string]any{"Title": "Shared Files", "Subtitle": "Files currently accessible to your client account.", "ContentTemplate": "shared_files_content", "Files": items, "EmptyMessage": "No files are currently shared with your account.", "DetailBasePath": "/client/files", "DownloadBasePath": "/client/files"})
 	})
 	client.GET("/files/:fileID", func(c echo.Context) error {
 		principal, _ := auth.PrincipalFromContext(c)
@@ -86,7 +86,7 @@ func (s *Server) registerClientRoutes(queries *db.Queries) {
 			}
 			return c.String(http.StatusInternalServerError, "failed to load file")
 		}
-		return c.Render(http.StatusOK, "shared_files", map[string]any{"Title": "Shared File Detail", "Subtitle": "File metadata and available actions.", "ContentTemplate": "file_detail_content", "File": fileListItem{ID: file.ID, Name: file.OriginalFilename, ContentType: file.ContentType, SizeBytes: file.SizeBytes, SharedVia: "shared"}, "BackPath": "/client/files"})
+		return c.Render(http.StatusOK, "shared_files", map[string]any{"Title": "Shared File Detail", "Subtitle": "File metadata and available actions.", "ContentTemplate": "file_detail_content", "File": fileListItem{ID: file.ID, Name: file.OriginalFilename, ContentType: file.ContentType, SizeBytes: file.SizeBytes, SharedVia: "shared"}, "BackPath": "/client/files", "DownloadPath": "/client/files/" + file.ID + "/download"})
 	})
 	client.POST("/uploads", func(c echo.Context) error {
 		principal, _ := auth.PrincipalFromContext(c)

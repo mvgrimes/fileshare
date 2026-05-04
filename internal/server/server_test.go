@@ -467,6 +467,9 @@ func TestClientSharedFilesListAndDetail(t *testing.T) {
 	if !strings.Contains(listRec.Body.String(), "file-list-direct.txt") {
 		t.Fatalf("list body = %q, want direct shared file", listRec.Body.String())
 	}
+	if !strings.Contains(listRec.Body.String(), "href=\"/client/files/file-list-direct/download\"") {
+		t.Fatalf("list body = %q, want download link", listRec.Body.String())
+	}
 	if strings.Count(listRec.Body.String(), "file-list-direct.txt") != 1 {
 		t.Fatalf("list body = %q, want direct shared file listed once", listRec.Body.String())
 	}
@@ -491,6 +494,9 @@ func TestClientSharedFilesListAndDetail(t *testing.T) {
 	s.e.ServeHTTP(detailRec, detailReq)
 	if detailRec.Code != http.StatusOK {
 		t.Fatalf("detail status = %d, want %d", detailRec.Code, http.StatusOK)
+	}
+	if !strings.Contains(detailRec.Body.String(), "href=\"/client/files/file-list-direct/download\"") {
+		t.Fatalf("detail body = %q, want detail download link", detailRec.Body.String())
 	}
 
 	deniedReq := httptest.NewRequest(http.MethodGet, "/client/files/file-list-direct", nil)
