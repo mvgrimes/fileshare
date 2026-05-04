@@ -34,11 +34,13 @@ func (s *downloadAuthzStub) AuthorizeClientDownload(context.Context, auth.Princi
 }
 
 type signerStub struct {
-	url string
-	err error
+	url      string
+	err      error
+	filename string
 }
 
-func (s *signerStub) SignGetURL(context.Context, string, string, time.Duration) (string, error) {
+func (s *signerStub) SignGetURL(_ context.Context, _, _, downloadFilename string, _ time.Duration) (string, error) {
+	s.filename = downloadFilename
 	if s.err != nil {
 		return "", s.err
 	}
@@ -57,7 +59,7 @@ func TestNewDownloadServiceValidation(t *testing.T) {
 }
 
 func TestSignedDownloadURLForClient(t *testing.T) {
-	repo := &downloadRepoStub{file: db.File{ID: "f1", StorageKey: "uploads/client/c1/f1.pdf"}}
+	repo := &downloadRepoStub{file: db.File{ID: "f1", StorageKey: "uploads/client/c1/f1.pdf", OriginalFilename: "report.pdf"}}
 	authz := &downloadAuthzStub{}
 	signer := &signerStub{url: "https://signed.example/f1"}
 	svc, err := NewDownloadService("bucket", 10*time.Minute, repo, authz, signer)
@@ -74,6 +76,9 @@ func TestSignedDownloadURLForClient(t *testing.T) {
 	}
 	if !authz.called {
 		t.Fatal("expected client authorization call")
+	}
+	if signer.filename != "report.pdf" {
+		t.Fatalf("filename = %q, want report.pdf", signer.filename)
 	}
 }
 

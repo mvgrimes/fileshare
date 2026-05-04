@@ -61,6 +61,7 @@ func testConfig() *config.Config {
 	return &config.Config{
 		ServerAddress: "127.0.0.1",
 		ServerPort:    0,
+		ServerUrl:     "https://sharefile.test",
 		Environment:   "test",
 		LogLevel:      "debug",
 		SessionTTL:    6,

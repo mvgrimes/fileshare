@@ -26,6 +26,14 @@ type Config struct {
 	MailgunDomain     string
 	MailgunAPIKey     string
 	MailgunFromEmail  string
+
+	AWSRegion          string
+	AWSAccessKeyID     string
+	AWSSecretAccessKey string
+	AWSSessionToken    string
+	S3Endpoint         string
+	S3Bucket           string
+	S3ForcePathStyle   bool
 }
 
 func Load() (*Config, error) {
@@ -46,6 +54,13 @@ func Load() (*Config, error) {
 		MailgunDomain:     strings.TrimSpace(os.Getenv("MAILGUN_DOMAIN")),
 		MailgunAPIKey:     strings.TrimSpace(os.Getenv("MAILGUN_API_KEY")),
 		MailgunFromEmail:  strings.TrimSpace(os.Getenv("MAILGUN_FROM_EMAIL")),
+		AWSRegion:          envOrDefault("AWS_REGION", "us-east-1"),
+		AWSAccessKeyID:     strings.TrimSpace(os.Getenv("AWS_ACCESS_KEY_ID")),
+		AWSSecretAccessKey: strings.TrimSpace(os.Getenv("AWS_SECRET_ACCESS_KEY")),
+		AWSSessionToken:    strings.TrimSpace(os.Getenv("AWS_SESSION_TOKEN")),
+		S3Endpoint:         strings.TrimSpace(os.Getenv("S3_ENDPOINT")),
+		S3Bucket:           envOrDefault("S3_BUCKET", "sharefile-uploads"),
+		S3ForcePathStyle:   boolEnvOrDefault("S3_FORCE_PATH_STYLE", false),
 	}
 
 	if err := cfg.Validate(); err != nil {
@@ -98,4 +113,19 @@ func intEnvOrDefault(key string, fallback int) int {
 		return fallback
 	}
 	return n
+}
+
+func boolEnvOrDefault(key string, fallback bool) bool {
+	v := strings.TrimSpace(strings.ToLower(os.Getenv(key)))
+	if v == "" {
+		return fallback
+	}
+	switch v {
+	case "1", "true", "yes", "y", "on":
+		return true
+	case "0", "false", "no", "n", "off":
+		return false
+	default:
+		return fallback
+	}
 }

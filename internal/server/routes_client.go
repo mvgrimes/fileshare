@@ -29,7 +29,8 @@ func (s *Server) registerClientRoutes(queries *db.Queries) {
 	client.GET("/files/:fileID/download", func(c echo.Context) error {
 		principal, _ := auth.PrincipalFromContext(c)
 		fileID := c.Param("fileID")
-		if err := s.authz.AuthorizeClientDownload(c.Request().Context(), principal, c.Param("fileID")); err != nil {
+		signedURL, err := s.downSvc.SignedDownloadURL(c.Request().Context(), principal, fileID)
+		if err != nil {
 			auditAuthEvent(c, queries, "authz.client.download", principal.ActorType, principal.ActorID, "file", fileID, map[string]any{"outcome": "denied", "reason": "forbidden"})
 			if err == auth.ErrForbidden {
 				return c.String(http.StatusForbidden, "forbidden")
@@ -37,7 +38,10 @@ func (s *Server) registerClientRoutes(queries *db.Queries) {
 			return c.String(http.StatusInternalServerError, "failed to authorize download")
 		}
 		auditAuthEvent(c, queries, "authz.client.download", principal.ActorType, principal.ActorID, "file", fileID, map[string]any{"outcome": "allowed"})
-		return c.String(http.StatusOK, "download access granted")
+		if isHTMLRequest(c) {
+			return c.Redirect(http.StatusSeeOther, signedURL)
+		}
+		return c.String(http.StatusOK, signedURL)
 	})
 	client.GET("/files", func(c echo.Context) error {
 		principal, _ := auth.PrincipalFromContext(c)

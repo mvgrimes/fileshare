@@ -11,12 +11,16 @@ func TestLoadSuccess(t *testing.T) {
 	t.Setenv("ENVIRONMENT", "test")
 	t.Setenv("LOG_LEVEL", "debug")
 	t.Setenv("SESSION_TTL_HOURS", "10")
+	t.Setenv("SERVER_URL", "https://sharefile.test")
 	t.Setenv("DATABASE_URL", "sharefile.test.db")
 	t.Setenv("SESSION_SECRET", "session-secret")
 	t.Setenv("JWT_SECRET", "jwt-secret")
 	t.Setenv("MAILGUN_DOMAIN", "mg.example")
 	t.Setenv("MAILGUN_API_KEY", "key-123")
 	t.Setenv("MAILGUN_FROM_EMAIL", "noreply@example.com")
+	t.Setenv("AWS_REGION", "us-west-2")
+	t.Setenv("S3_BUCKET", "uploads-test")
+	t.Setenv("S3_FORCE_PATH_STYLE", "true")
 
 	cfg, err := Load()
 	if err != nil {
@@ -44,6 +48,15 @@ func TestLoadSuccess(t *testing.T) {
 	if cfg.MailgunDomain != "mg.example" {
 		t.Fatalf("MailgunDomain = %q, want %q", cfg.MailgunDomain, "mg.example")
 	}
+	if cfg.AWSRegion != "us-west-2" {
+		t.Fatalf("AWSRegion = %q, want %q", cfg.AWSRegion, "us-west-2")
+	}
+	if cfg.S3Bucket != "uploads-test" {
+		t.Fatalf("S3Bucket = %q, want %q", cfg.S3Bucket, "uploads-test")
+	}
+	if !cfg.S3ForcePathStyle {
+		t.Fatal("S3ForcePathStyle = false, want true")
+	}
 }
 
 func TestLoadMissingRequiredEnv(t *testing.T) {
@@ -57,7 +70,7 @@ func TestLoadMissingRequiredEnv(t *testing.T) {
 	}
 
 	msg := err.Error()
-	for _, key := range []string{"DATABASE_URL", "SESSION_SECRET", "JWT_SECRET"} {
+	for _, key := range []string{"DATABASE_URL", "SERVER_URL", "SESSION_SECRET", "JWT_SECRET"} {
 		if !strings.Contains(msg, key) {
 			t.Fatalf("error %q does not contain %q", msg, key)
 		}
@@ -73,6 +86,7 @@ func TestIntEnvOrDefault(t *testing.T) {
 
 func TestLoadRejectsInvalidSessionTTL(t *testing.T) {
 	t.Setenv("DATABASE_URL", "sharefile.test.db")
+	t.Setenv("SERVER_URL", "https://sharefile.test")
 	t.Setenv("SESSION_SECRET", "session-secret")
 	t.Setenv("JWT_SECRET", "jwt-secret")
 	t.Setenv("SESSION_TTL_HOURS", "0")
@@ -83,5 +97,20 @@ func TestLoadRejectsInvalidSessionTTL(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "SESSION_TTL_HOURS") {
 		t.Fatalf("error = %q, want reference to SESSION_TTL_HOURS", err.Error())
+	}
+}
+
+func TestBoolEnvOrDefault(t *testing.T) {
+	t.Setenv("S3_FORCE_PATH_STYLE", "yes")
+	if !boolEnvOrDefault("S3_FORCE_PATH_STYLE", false) {
+		t.Fatal("boolEnvOrDefault should parse yes as true")
+	}
+	t.Setenv("S3_FORCE_PATH_STYLE", "no")
+	if boolEnvOrDefault("S3_FORCE_PATH_STYLE", true) {
+		t.Fatal("boolEnvOrDefault should parse no as false")
+	}
+	t.Setenv("S3_FORCE_PATH_STYLE", "not-a-bool")
+	if !boolEnvOrDefault("S3_FORCE_PATH_STYLE", true) {
+		t.Fatal("boolEnvOrDefault should fall back")
 	}
 }

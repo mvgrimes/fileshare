@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"mime"
 	"net/url"
 	"strings"
 	"time"
@@ -90,8 +91,13 @@ func (s *S3ObjectStore) DeleteObject(ctx context.Context, bucket, key string) er
 	return nil
 }
 
-func (s *S3ObjectStore) SignGetURL(ctx context.Context, bucket, objectKey string, ttl time.Duration) (string, error) {
-	out, err := s.presign.PresignGetObject(ctx, &s3.GetObjectInput{Bucket: &bucket, Key: &objectKey}, func(options *s3.PresignOptions) {
+func (s *S3ObjectStore) SignGetURL(ctx context.Context, bucket, objectKey, downloadFilename string, ttl time.Duration) (string, error) {
+	input := &s3.GetObjectInput{Bucket: &bucket, Key: &objectKey}
+	if strings.TrimSpace(downloadFilename) != "" {
+		disposition := mime.FormatMediaType("attachment", map[string]string{"filename": strings.TrimSpace(downloadFilename)})
+		input.ResponseContentDisposition = &disposition
+	}
+	out, err := s.presign.PresignGetObject(ctx, input, func(options *s3.PresignOptions) {
 		options.Expires = ttl
 	})
 	if err != nil {

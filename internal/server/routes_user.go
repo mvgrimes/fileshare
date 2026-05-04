@@ -2,6 +2,7 @@ package server
 
 import (
 	"database/sql"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -11,6 +12,7 @@ import (
 
 	"sharefile/internal/auth"
 	"sharefile/internal/db"
+	"sharefile/internal/files"
 	"sharefile/internal/mail"
 )
 
@@ -308,8 +310,35 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 				return c.String(http.StatusInternalServerError, "failed to validate target")
 			}
 		}
-		fileID := uuid.NewString()
-		if err := queries.CreateFile(c.Request().Context(), db.CreateFileParams{ID: fileID, UploaderType: "user", UploaderID: principal.ActorID, OriginalFilename: filename, StorageKey: "pending/" + fileID, ContentType: "application/octet-stream", SizeBytes: 0, ExpiresAt: sql.NullString{}}); err != nil {
+		contentType := "application/octet-stream"
+		sizeBytes := int64(0)
+		var bodyReader strings.Reader
+		uploadBody := io.Reader(&bodyReader)
+
+		uploadFile, uploadErr := c.FormFile("upload_file")
+		if uploadErr == nil {
+			opened, openErr := uploadFile.Open()
+			if openErr != nil {
+				if isHTMLRequest(c) {
+					return c.Redirect(http.StatusSeeOther, "/user/uploads?error="+url.QueryEscape("Failed to read uploaded file"))
+				}
+				return c.String(http.StatusBadRequest, "failed to read uploaded file")
+			}
+			defer opened.Close()
+			uploadBody = opened
+			sizeBytes = uploadFile.Size
+			if filename == "" {
+				filename = strings.TrimSpace(uploadFile.Filename)
+			}
+			if ct := strings.TrimSpace(uploadFile.Header.Get(echo.HeaderContentType)); ct != "" {
+				contentType = ct
+			}
+		} else {
+			bodyReader = *strings.NewReader("")
+		}
+
+		fileID, _, err := s.uploadSvc.Upload(c.Request().Context(), files.UploadInput{Uploader: principal, OriginalFilename: filename, ContentType: contentType, SizeBytes: sizeBytes, Body: uploadBody})
+		if err != nil {
 			if isHTMLRequest(c) {
 				return c.Redirect(http.StatusSeeOther, "/user/uploads?error="+url.QueryEscape("Failed to record file"))
 			}

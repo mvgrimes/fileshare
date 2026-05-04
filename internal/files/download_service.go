@@ -21,7 +21,7 @@ type downloadAuthorizer interface {
 }
 
 type URLSigner interface {
-	SignGetURL(ctx context.Context, bucket, objectKey string, ttl time.Duration) (string, error)
+	SignGetURL(ctx context.Context, bucket, objectKey, downloadFilename string, ttl time.Duration) (string, error)
 }
 
 type DownloadService struct {
@@ -71,5 +71,5 @@ func (s *DownloadService) SignedDownloadURL(ctx context.Context, principal auth.
 		return "", auth.ErrForbidden
 	}
 
-	return s.signer.SignGetURL(ctx, s.bucket, file.StorageKey, s.ttl)
+	return s.signer.SignGetURL(ctx, s.bucket, file.StorageKey, file.OriginalFilename, s.ttl)
 }

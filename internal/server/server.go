@@ -20,6 +20,7 @@ import (
 	"sharefile/internal/auth"
 	"sharefile/internal/config"
 	"sharefile/internal/db"
+	"sharefile/internal/files"
 	"sharefile/internal/mail"
 	webassets "sharefile/internal/web/assets"
 	webtemplates "sharefile/internal/web/templates"
@@ -40,6 +41,8 @@ type Server struct {
 	magic     *auth.MagicManager
 	magicSend auth.MagicSender
 	notifier  *mail.Notifier
+	uploadSvc *files.UploadService
+	downSvc   *files.DownloadService
 }
 
 type TemplateRenderer struct {
@@ -76,12 +79,18 @@ func (r *TemplateRenderer) Render(w io.Writer, name string, data any, c echo.Con
 	principal, isAuthenticated := auth.PrincipalFromContext(c)
 	viewData["IsAuthenticated"] = isAuthenticated
 	if isAuthenticated {
-		viewData["DashboardPath"] = dashboardPathForPrincipal(principal)
+		viewData["DashboardPath"] = dashboardPathForPrincipal(principal, c.Request().URL.Path)
 	}
 	return r.templates.ExecuteTemplate(w, name, viewData)
 }
 
-func dashboardPathForPrincipal(principal auth.Principal) string {
+func dashboardPathForPrincipal(principal auth.Principal, requestPath string) string {
+	if strings.HasPrefix(requestPath, "/admin/") {
+		return "/admin/dashboard"
+	}
+	if strings.HasPrefix(requestPath, "/client/") {
+		return "/client/dashboard"
+	}
 	if principal.ActorType == "client" {
 		return "/client/dashboard"
 	}
@@ -150,7 +159,7 @@ func New(cfg *config.Config, log *slog.Logger) *Server {
 	clientPwd := auth.NewClientPasswordAuthenticator(queries)
 	magic := auth.NewMagicManager(queries, 15*time.Minute, 60*time.Second)
 	magicSend := auth.MagicSender(auth.NoopSender{})
-	renderer, renderErr := mail.NewHermesRenderer("ShareFile", cfg.ServerUrl, "")
+	renderer, renderErr := mail.NewHermesRenderer("ShareFile", cfg.ServerUrl, cfg.ServerUrl)
 	if renderErr != nil {
 		panic(renderErr)
 	}
@@ -165,7 +174,42 @@ func New(cfg *config.Config, log *slog.Logger) *Server {
 		notifier = mail.NewNotifier(renderer, sender, eventStore)
 	}
 
-	srv := &Server{e: e, cfg: cfg, log: log, sessions: sessions, authz: authz, userSync: userSync, userPwd: userPwd, clientPwd: clientPwd, magic: magic, magicSend: magicSend, notifier: notifier}
+	bucket := strings.TrimSpace(cfg.S3Bucket)
+	if bucket == "" {
+		bucket = "sharefile-uploads"
+	}
+	var objectStore interface {
+		files.ObjectStore
+		files.ObjectDeleteStore
+		files.URLSigner
+	}
+	if cfg.Environment == "test" {
+		objectStore = files.NewMemoryObjectStore()
+	} else {
+		s3Store, s3Err := files.NewS3ObjectStore(context.Background(), files.S3BackendConfig{
+			Region:          cfg.AWSRegion,
+			Endpoint:        cfg.S3Endpoint,
+			AccessKeyID:     cfg.AWSAccessKeyID,
+			SecretAccessKey: cfg.AWSSecretAccessKey,
+			SessionToken:    cfg.AWSSessionToken,
+			UsePathStyle:    cfg.S3ForcePathStyle,
+		})
+		if s3Err != nil {
+			panic(s3Err)
+		}
+		objectStore = s3Store
+	}
+	metadataSvc := files.NewMetadataService(queries)
+	uploadSvc, uploadErr := files.NewUploadService(bucket, objectStore, metadataSvc)
+	if uploadErr != nil {
+		panic(uploadErr)
+	}
+	downSvc, downErr := files.NewDownloadService(bucket, 5*time.Minute, queries, authz, objectStore)
+	if downErr != nil {
+		panic(downErr)
+	}
+
+	srv := &Server{e: e, cfg: cfg, log: log, sessions: sessions, authz: authz, userSync: userSync, userPwd: userPwd, clientPwd: clientPwd, magic: magic, magicSend: magicSend, notifier: notifier, uploadSvc: uploadSvc, downSvc: downSvc}
 	e.Use(auth.LoadSession(sessions))
 
 	srv.registerSystemRoutes()
