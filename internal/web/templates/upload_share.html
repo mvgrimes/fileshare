@@ -8,8 +8,16 @@
     <form method="post" action="{{.FormAction}}" class="grid gap-3 md:grid-cols-2" data-enhance="submission">
       {{if .ShowShareFields}}
       <label class="form-control w-full md:col-span-2">
+        <span class="label-text">Upload File</span>
+        <input class="file-input file-input-bordered w-full" type="file" name="upload_file" data-upload-file-input>
+      </label>
+      <div class="w-full rounded-box border border-dashed border-base-300 bg-base-200/50 p-6 text-center md:col-span-2" data-upload-dropzone tabindex="0" role="button" aria-label="Drag and drop file upload area">
+        <p class="font-medium">Drag and drop a file here</p>
+        <p class="text-sm opacity-70">or click to choose a file</p>
+      </div>
+      <label class="form-control w-full md:col-span-2">
         <span class="label-text">Filename</span>
-        <input class="input input-bordered w-full" type="text" name="filename" placeholder="quarterly-report.pdf" required>
+        <input class="input input-bordered w-full" type="text" name="filename" placeholder="quarterly-report.pdf" required data-upload-filename>
       </label>
       {{end}}
       <label class="form-control w-full">

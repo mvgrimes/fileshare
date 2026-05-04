@@ -59,6 +59,51 @@
             }
           });
         }
+
+        const fileInputs = document.querySelectorAll("input[data-upload-file-input]");
+        for (const fileInput of fileInputs) {
+          const form = fileInput.closest("form");
+          if (!form) continue;
+
+          const filenameInput = form.querySelector("input[data-upload-filename]");
+          const dropzone = form.querySelector("[data-upload-dropzone]");
+          if (!filenameInput || !dropzone) continue;
+
+          const syncFilename = () => {
+            const file = fileInput.files && fileInput.files[0];
+            if (!file) return;
+            filenameInput.value = file.name;
+            filenameInput.dispatchEvent(new Event("input", { bubbles: true }));
+          };
+
+          fileInput.addEventListener("change", syncFilename);
+
+          dropzone.addEventListener("click", () => fileInput.click());
+          dropzone.addEventListener("keydown", (event) => {
+            if (event.key !== "Enter" && event.key !== " ") return;
+            event.preventDefault();
+            fileInput.click();
+          });
+
+          dropzone.addEventListener("dragover", (event) => {
+            event.preventDefault();
+            dropzone.classList.add("border-primary", "bg-base-100");
+          });
+
+          dropzone.addEventListener("dragleave", () => {
+            dropzone.classList.remove("border-primary", "bg-base-100");
+          });
+
+          dropzone.addEventListener("drop", (event) => {
+            event.preventDefault();
+            dropzone.classList.remove("border-primary", "bg-base-100");
+            if (!event.dataTransfer || !event.dataTransfer.files || event.dataTransfer.files.length === 0) {
+              return;
+            }
+            fileInput.files = event.dataTransfer.files;
+            syncFilename();
+          });
+        }
       })();
     </script>
   </body>
