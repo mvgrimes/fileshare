@@ -6,6 +6,7 @@
     {{if .BrandLogoHero}}<img src="{{.BrandLogoHero}}" alt="{{.BrandingLabel}} hero logo" class="h-16 w-auto object-contain">{{end}}
     {{template "page_header" .}}
     <p>Securely share files with your clients.</p>
+    {{if .ShowLoginButton}}<div><a class="btn btn-primary" href="/login">Login</a></div>{{end}}
     <p class="text-sm opacity-70">Current path: <code>{{.Path}}</code></p>
   </div>
 </section>

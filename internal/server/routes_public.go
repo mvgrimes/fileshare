@@ -20,7 +20,13 @@ func (s *Server) registerPublicRoutes(queries *db.Queries, sessionTTL time.Durat
 	public := s.e.Group("")
 	public.GET("/", func(c echo.Context) error {
 		branding := brandProductName(s.cfg.Branding)
-		return c.Render(http.StatusOK, "home", map[string]any{"Title": branding, "Subtitle": branding, "ContentTemplate": "home_content"})
+		showLoginButton := true
+		if cookie, err := c.Cookie(auth.SessionCookieName); err == nil {
+			if _, sessionErr := s.sessions.LoadSession(c.Request().Context(), cookie.Value); sessionErr == nil {
+				showLoginButton = false
+			}
+		}
+		return c.Render(http.StatusOK, "home", map[string]any{"Title": branding, "Subtitle": branding, "ContentTemplate": "home_content", "ShowLoginButton": showLoginButton})
 	})
 	public.GET("/login", func(c echo.Context) error {
 		return c.Render(http.StatusOK, "auth", map[string]any{"Title": "Login", "Subtitle": "Sign in with SSO, user password, or client password.", "FlashError": c.QueryParam("error"), "FlashSuccess": c.QueryParam("success"), "ContentTemplate": "login_content"})

@@ -154,6 +154,39 @@ func TestHomeBrandingAssetsFromConfig(t *testing.T) {
 	}
 }
 
+func TestHomeShowsLoginButtonWhenAnonymous(t *testing.T) {
+	s := New(testConfig(), slog.Default())
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	rec := httptest.NewRecorder()
+
+	s.e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+	}
+	if !strings.Contains(rec.Body.String(), "href=\"/login\"") || !strings.Contains(rec.Body.String(), ">Login<") {
+		t.Fatalf("body = %q, want login button", rec.Body.String())
+	}
+}
+
+func TestHomeHidesLoginButtonWhenAuthenticated(t *testing.T) {
+	s := New(testConfig(), slog.Default())
+	cookie := login(t, s, "user", "u-home-authed", "")
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req.AddCookie(cookie)
+	rec := httptest.NewRecorder()
+
+	s.e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+	}
+	body := rec.Body.String()
+	if strings.Contains(body, "href=\"/login\"") || strings.Contains(body, ">Login<") {
+		t.Fatalf("body = %q, should not include login button", body)
+	}
+}
+
 func TestAuthPagesContainFormTargets(t *testing.T) {
 	s := New(testConfig(), slog.Default())
 
