@@ -1447,8 +1447,8 @@ func TestTemplateRendererAddsPath(t *testing.T) {
 	if !strings.Contains(string(body), "href=\"/assets/app.css\"") {
 		t.Fatalf("body = %q, want stylesheet link", string(body))
 	}
-	if !strings.Contains(string(body), "href=\"/user/dashboard\"") {
-		t.Fatalf("body = %q, want shared nav links", string(body))
+	if strings.Contains(string(body), "href=\"/user/dashboard\"") || strings.Contains(string(body), "href=\"/client/dashboard\"") || strings.Contains(string(body), "href=\"/admin/dashboard\"") {
+		t.Fatalf("body = %q, should not render actor shortcut links", string(body))
 	}
 }
 

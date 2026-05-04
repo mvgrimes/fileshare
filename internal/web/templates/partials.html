@@ -5,9 +5,6 @@
       <a class="btn btn-ghost text-lg" href="/">ShareFile</a>
     </div>
     <div class="flex gap-2">
-      <a class="btn btn-sm btn-ghost" href="/user/dashboard">User</a>
-      <a class="btn btn-sm btn-ghost" href="/client/dashboard">Client</a>
-      <a class="btn btn-sm btn-ghost" href="/admin/dashboard">Admin</a>
       {{if .IsAuthenticated}}
       <form method="post" action="/auth/logout" data-enhance="submission">
         <button class="btn btn-sm btn-outline" type="submit" data-pending-text="Logging out...">Logout</button>
