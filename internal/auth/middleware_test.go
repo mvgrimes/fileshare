@@ -173,6 +173,18 @@ func setupSessionManager(t *testing.T) *Manager {
 		  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
 		  revoked_at TEXT
 		);
+
+		CREATE TABLE roles (
+		  id INTEGER PRIMARY KEY,
+		  name TEXT NOT NULL UNIQUE
+		);
+
+		CREATE TABLE user_roles (
+		  user_id TEXT NOT NULL,
+		  role_id INTEGER NOT NULL,
+		  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+		  FOREIGN KEY (role_id) REFERENCES roles(id)
+		);
 	`)
 	if err != nil {
 		t.Fatalf("Exec() unexpected error: %v", err)

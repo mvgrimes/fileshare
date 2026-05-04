@@ -41,6 +41,7 @@ type Manager struct {
 type sessionQuerier interface {
 	CreateSession(ctx context.Context, arg db.CreateSessionParams) error
 	GetSessionByTokenHash(ctx context.Context, tokenHash string) (db.Session, error)
+	ListRoleNamesByUserID(ctx context.Context, userID string) ([]string, error)
 	RevokeSessionByID(ctx context.Context, id string) error
 }
 
@@ -123,11 +124,23 @@ func (m *Manager) LoadSession(ctx context.Context, token string) (Session, error
 		ExpiresAt: expiresAt,
 		RevokedAt: revokedAt,
 	}
+
 	m.mu.RLock()
 	if roles, ok := m.roles[row.TokenHash]; ok {
 		s.Principal.Roles = append([]string(nil), roles...)
 	}
 	m.mu.RUnlock()
+	if len(s.Principal.Roles) == 0 && s.Principal.ActorType == "user" {
+		roles, err := m.queries.ListRoleNamesByUserID(ctx, s.Principal.ActorID)
+		if err != nil {
+			return Session{}, err
+		}
+		s.Principal.Roles = append([]string(nil), roles...)
+
+		m.mu.Lock()
+		m.roles[row.TokenHash] = append([]string(nil), roles...)
+		m.mu.Unlock()
+	}
 
 	if s.RevokedAt != nil || !s.ExpiresAt.After(m.now()) {
 		return Session{}, ErrSessionNotFound

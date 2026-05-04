@@ -79,6 +79,29 @@ func TestSessionPersistsAcrossManagerInstances(t *testing.T) {
 	}
 }
 
+func TestSessionRolesLoadFromDBAcrossManagerInstances(t *testing.T) {
+	q := setupSessionQueries(t)
+	ctx := context.Background()
+	if err := q.AddUserRole(ctx, db.AddUserRoleParams{UserID: "u3", RoleID: 1}); err != nil {
+		t.Fatalf("AddUserRole() unexpected error: %v", err)
+	}
+
+	managerA := NewManager(q, time.Hour)
+	token, _, err := managerA.CreateSession(ctx, Principal{ActorType: "user", ActorID: "u3", Roles: []string{"admin"}})
+	if err != nil {
+		t.Fatalf("CreateSession() unexpected error: %v", err)
+	}
+
+	managerB := NewManager(q, time.Hour)
+	loaded, err := managerB.LoadSession(ctx, token)
+	if err != nil {
+		t.Fatalf("LoadSession() unexpected error: %v", err)
+	}
+	if len(loaded.Principal.Roles) != 1 || loaded.Principal.Roles[0] != "admin" {
+		t.Fatalf("loaded roles = %v, want [admin]", loaded.Principal.Roles)
+	}
+}
+
 func TestCreateSessionRejectsInvalidPrincipal(t *testing.T) {
 	q := setupSessionQueries(t)
 	m := NewManager(q, time.Hour)
@@ -118,6 +141,20 @@ func setupSessionQueries(t *testing.T) *db.Queries {
 		  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
 		  revoked_at TEXT
 		);
+
+		CREATE TABLE roles (
+		  id INTEGER PRIMARY KEY,
+		  name TEXT NOT NULL UNIQUE
+		);
+
+		CREATE TABLE user_roles (
+		  user_id TEXT NOT NULL,
+		  role_id INTEGER NOT NULL,
+		  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+		  FOREIGN KEY (role_id) REFERENCES roles(id)
+		);
+
+		INSERT INTO roles (id, name) VALUES (1, 'admin');
 	`)
 	if err != nil {
 		t.Fatalf("Exec() unexpected error: %v", err)
