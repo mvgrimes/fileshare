@@ -52,6 +52,7 @@ func (s *Server) registerClientRoutes(queries *db.Queries) {
 		items := make([]fileListItem, 0, len(shares))
 		itemIndex := make(map[string]int, len(shares))
 		fileVia := make(map[string]map[string]struct{}, len(shares))
+		fileSharedAt := make(map[string]string, len(shares))
 		for _, sh := range shares {
 			f, fileErr := queries.GetFileByID(c.Request().Context(), sh.FileID)
 			if fileErr != nil {
@@ -63,14 +64,18 @@ func (s *Server) registerClientRoutes(queries *db.Queries) {
 				fileVia[f.ID] = viaSet
 			}
 			viaSet[sh.TargetType] = struct{}{}
+			if prev, exists := fileSharedAt[f.ID]; !exists || sh.CreatedAt > prev {
+				fileSharedAt[f.ID] = sh.CreatedAt
+			}
 
 			if idx, exists := itemIndex[f.ID]; exists {
 				items[idx].SharedVia = joinedShareTargets(viaSet)
+				items[idx].SharedAt = fileSharedAt[f.ID]
 				continue
 			}
 
 			itemIndex[f.ID] = len(items)
-			items = append(items, fileListItem{ID: f.ID, Name: f.OriginalFilename, ContentType: f.ContentType, SizeBytes: f.SizeBytes, SharedVia: joinedShareTargets(viaSet)})
+			items = append(items, fileListItem{ID: f.ID, Name: f.OriginalFilename, ContentType: f.ContentType, SizeBytes: f.SizeBytes, SharedVia: joinedShareTargets(viaSet), SharedAt: fileSharedAt[f.ID]})
 		}
 		return c.Render(http.StatusOK, "shared_files", map[string]any{"Title": "Shared Files", "Subtitle": "Files currently accessible to your client account.", "ContentTemplate": "shared_files_content", "Files": items, "EmptyMessage": "No files are currently shared with your account.", "DetailBasePath": "/client/files", "DownloadBasePath": "/client/files"})
 	})
@@ -90,7 +95,17 @@ func (s *Server) registerClientRoutes(queries *db.Queries) {
 			}
 			return c.String(http.StatusInternalServerError, "failed to load file")
 		}
-		return c.Render(http.StatusOK, "shared_files", map[string]any{"Title": "Shared File Detail", "Subtitle": "File metadata and available actions.", "ContentTemplate": "file_detail_content", "File": fileListItem{ID: file.ID, Name: file.OriginalFilename, ContentType: file.ContentType, SizeBytes: file.SizeBytes, SharedVia: "shared"}, "BackPath": "/client/files", "DownloadPath": "/client/files/" + file.ID + "/download"})
+		shares, err := queries.ListClientAccessibleShares(c.Request().Context(), db.ListClientAccessibleSharesParams{ClientID: principal.ActorID, Limit: 50, Offset: 0})
+		if err != nil {
+			return c.String(http.StatusInternalServerError, "failed to load shared file details")
+		}
+		sharedAt := ""
+		for _, sh := range shares {
+			if sh.FileID == file.ID && (sharedAt == "" || sh.CreatedAt > sharedAt) {
+				sharedAt = sh.CreatedAt
+			}
+		}
+		return c.Render(http.StatusOK, "shared_files", map[string]any{"Title": "Shared File Detail", "Subtitle": "File metadata and available actions.", "ContentTemplate": "file_detail_content", "File": fileListItem{ID: file.ID, Name: file.OriginalFilename, ContentType: file.ContentType, SizeBytes: file.SizeBytes, SharedVia: "shared", SharedAt: sharedAt}, "BackPath": "/client/files", "DownloadPath": "/client/files/" + file.ID + "/download"})
 	})
 	client.POST("/uploads", func(c echo.Context) error {
 		principal, _ := auth.PrincipalFromContext(c)

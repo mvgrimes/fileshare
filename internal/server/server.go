@@ -62,6 +62,8 @@ type fileListItem struct {
 	ContentType string
 	SizeBytes   int64
 	SharedVia   string
+	UploadedAt  string
+	SharedAt    string
 }
 
 type fileShareListItem struct {

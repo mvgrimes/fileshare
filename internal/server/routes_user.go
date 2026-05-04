@@ -69,7 +69,7 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 		}
 		items := make([]fileListItem, 0, len(files))
 		for _, f := range files {
-			items = append(items, fileListItem{ID: f.ID, Name: f.OriginalFilename, ContentType: f.ContentType, SizeBytes: f.SizeBytes, SharedVia: "owned"})
+			items = append(items, fileListItem{ID: f.ID, Name: f.OriginalFilename, ContentType: f.ContentType, SizeBytes: f.SizeBytes, SharedVia: "owned", UploadedAt: f.CreatedAt})
 		}
 		return c.Render(http.StatusOK, "shared_files", map[string]any{"Title": "Shared Files", "Subtitle": "Files uploaded by your account.", "ContentTemplate": "shared_files_content", "Files": items, "EmptyMessage": "No files uploaded yet.", "DetailBasePath": "/user/files", "DownloadBasePath": "/user/files"})
 	})
@@ -127,7 +127,7 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 		if err != nil {
 			return c.String(http.StatusInternalServerError, "failed to load user groups")
 		}
-		return c.Render(http.StatusOK, "shared_files", map[string]any{"Title": "File Detail", "Subtitle": "Detailed metadata for your uploaded file.", "ContentTemplate": "file_detail_content", "File": fileListItem{ID: file.ID, Name: file.OriginalFilename, ContentType: file.ContentType, SizeBytes: file.SizeBytes, SharedVia: "owned"}, "BackPath": "/user/files", "DownloadPath": "/user/files/" + file.ID + "/download", "ManageFile": true, "ShareTargets": shareItems, "Clients": clients, "ClientGroups": clientGroups, "Users": users, "UserGroups": userGroups, "FlashError": c.QueryParam("error"), "FlashSuccess": c.QueryParam("success")})
+		return c.Render(http.StatusOK, "shared_files", map[string]any{"Title": "File Detail", "Subtitle": "Detailed metadata for your uploaded file.", "ContentTemplate": "file_detail_content", "File": fileListItem{ID: file.ID, Name: file.OriginalFilename, ContentType: file.ContentType, SizeBytes: file.SizeBytes, SharedVia: "owned", UploadedAt: file.CreatedAt}, "BackPath": "/user/files", "DownloadPath": "/user/files/" + file.ID + "/download", "ManageFile": true, "ShareTargets": shareItems, "Clients": clients, "ClientGroups": clientGroups, "Users": users, "UserGroups": userGroups, "FlashError": c.QueryParam("error"), "FlashSuccess": c.QueryParam("success")})
 	})
 
 	user.POST("/files/:fileID/rename", func(c echo.Context) error {

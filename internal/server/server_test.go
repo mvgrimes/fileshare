@@ -470,6 +470,9 @@ func TestClientSharedFilesListAndDetail(t *testing.T) {
 	if !strings.Contains(listRec.Body.String(), "file-list-direct.txt") {
 		t.Fatalf("list body = %q, want direct shared file", listRec.Body.String())
 	}
+	if !strings.Contains(listRec.Body.String(), "Shared At") {
+		t.Fatalf("list body = %q, want shared timestamp column", listRec.Body.String())
+	}
 	if !strings.Contains(listRec.Body.String(), "href=\"/client/files/file-list-direct/download\"") {
 		t.Fatalf("list body = %q, want download link", listRec.Body.String())
 	}
@@ -497,6 +500,9 @@ func TestClientSharedFilesListAndDetail(t *testing.T) {
 	s.e.ServeHTTP(detailRec, detailReq)
 	if detailRec.Code != http.StatusOK {
 		t.Fatalf("detail status = %d, want %d", detailRec.Code, http.StatusOK)
+	}
+	if !strings.Contains(detailRec.Body.String(), "<strong>Shared At:</strong>") {
+		t.Fatalf("detail body = %q, want shared timestamp", detailRec.Body.String())
 	}
 	if !strings.Contains(detailRec.Body.String(), "href=\"/client/files/file-list-direct/download\"") {
 		t.Fatalf("detail body = %q, want detail download link", detailRec.Body.String())
@@ -530,6 +536,9 @@ func TestUserSharedFilesListAndDetail(t *testing.T) {
 	if !strings.Contains(body, "file-owned.dat") {
 		t.Fatalf("list body = %q, want owned file", body)
 	}
+	if !strings.Contains(body, "Uploaded At") {
+		t.Fatalf("list body = %q, want uploaded timestamp column", body)
+	}
 	if !strings.Contains(body, "href=\"/user/files/file-owned/download\"") {
 		t.Fatalf("list body = %q, want download link", body)
 	}
@@ -543,6 +552,9 @@ func TestUserSharedFilesListAndDetail(t *testing.T) {
 	s.e.ServeHTTP(ownerDetailRec, ownerDetailReq)
 	if ownerDetailRec.Code != http.StatusOK {
 		t.Fatalf("owner detail status = %d, want %d", ownerDetailRec.Code, http.StatusOK)
+	}
+	if !strings.Contains(ownerDetailRec.Body.String(), "<strong>Uploaded At:</strong>") {
+		t.Fatalf("owner detail body = %q, want uploaded timestamp", ownerDetailRec.Body.String())
 	}
 	if !strings.Contains(ownerDetailRec.Body.String(), "href=\"/user/files/file-owned/download\"") {
 		t.Fatalf("owner detail body = %q, want detail download link", ownerDetailRec.Body.String())
