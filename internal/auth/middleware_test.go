@@ -152,6 +152,24 @@ func TestRequireAuthNonHTMLStillUnauthorized(t *testing.T) {
 	}
 }
 
+func TestRequireAuthEmptyAcceptRedirectsToLogin(t *testing.T) {
+	e := echo.New()
+	e.GET("/protected", func(c echo.Context) error {
+		return c.String(http.StatusOK, "ok")
+	}, RequireAuth())
+
+	req := httptest.NewRequest(http.MethodGet, "/protected", nil)
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusSeeOther)
+	}
+	if loc := rec.Header().Get(echo.HeaderLocation); loc != "/login" {
+		t.Fatalf("location = %q, want %q", loc, "/login")
+	}
+}
+
 func setupSessionManager(t *testing.T) *Manager {
 	t.Helper()
 

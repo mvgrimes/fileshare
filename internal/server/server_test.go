@@ -234,12 +234,28 @@ func TestProtectedRoutesRequireAuth(t *testing.T) {
 	for _, path := range []string{"/user/dashboard", "/client/dashboard", "/admin/dashboard"} {
 		t.Run(path, func(t *testing.T) {
 			req := httptest.NewRequest(http.MethodGet, path, nil)
+			req.Header.Set(echo.HeaderAccept, "application/json")
 			rec := httptest.NewRecorder()
 			s.e.ServeHTTP(rec, req)
 			if rec.Code != http.StatusUnauthorized {
 				t.Fatalf("status = %d, want %d", rec.Code, http.StatusUnauthorized)
 			}
 		})
+	}
+}
+
+func TestUserUploadsRedirectsToLoginWithoutSession(t *testing.T) {
+	s := New(testConfig(), slog.Default())
+	req := httptest.NewRequest(http.MethodGet, "/user/uploads", nil)
+	rec := httptest.NewRecorder()
+
+	s.e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusSeeOther)
+	}
+	if loc := rec.Header().Get(echo.HeaderLocation); loc != "/login" {
+		t.Fatalf("location = %q, want %q", loc, "/login")
 	}
 }
 
@@ -822,6 +838,7 @@ func TestLogoutRevokesSession(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodGet, "/user/dashboard", nil)
+	req.Header.Set(echo.HeaderAccept, "application/json")
 	req.AddCookie(cookie)
 	rec := httptest.NewRecorder()
 	s.e.ServeHTTP(rec, req)

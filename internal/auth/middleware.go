@@ -47,6 +47,9 @@ func shouldRedirectToLogin(c echo.Context) bool {
 		return false
 	}
 	accept := strings.ToLower(c.Request().Header.Get(echo.HeaderAccept))
+	if accept == "" {
+		return true
+	}
 	return strings.Contains(accept, "text/html")
 }
 
