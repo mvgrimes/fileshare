@@ -41,12 +41,22 @@
       <h2 class="text-xl font-semibold mt-2">Add Client to Group</h2>
       <form method="post" action="/user/client-groups/memberships" class="grid gap-3" data-enhance="submission">
         <label class="form-control w-full">
-          <span class="label-text">Group ID</span>
-          <input class="input input-bordered w-full" type="text" name="group_id" required>
+          <span class="label-text">Group</span>
+          <select class="select select-bordered w-full" name="group_id" required>
+            <option value="" disabled selected>Select a group</option>
+            {{range .ClientGroups}}
+            <option value="{{.ID}}">{{.Name}} ({{.ID}})</option>
+            {{end}}
+          </select>
         </label>
         <label class="form-control w-full">
-          <span class="label-text">Client ID</span>
-          <input class="input input-bordered w-full" type="text" name="client_id" required>
+          <span class="label-text">Client</span>
+          <select class="select select-bordered w-full" name="client_id" required>
+            <option value="" disabled selected>Select a client</option>
+            {{range .Clients}}
+            <option value="{{.ID}}">{{.DisplayName}} ({{.Email}})</option>
+            {{end}}
+          </select>
         </label>
         <button class="btn btn-primary" type="submit" data-pending-text="Adding...">Add Membership</button>
       </form>

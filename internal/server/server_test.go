@@ -1144,6 +1144,9 @@ func TestClientsManagementPageRendersForManager(t *testing.T) {
 	if !strings.Contains(body, "Create Client") || !strings.Contains(body, "Create Client Group") || !strings.Contains(body, "Add Membership") {
 		t.Fatalf("body = %q, want management forms", body)
 	}
+	if !strings.Contains(body, "name=\"group_id\"") || !strings.Contains(body, "name=\"client_id\"") || !strings.Contains(body, "Select a group") || !strings.Contains(body, "Select a client") {
+		t.Fatalf("body = %q, want group/client select inputs", body)
+	}
 }
 
 func TestClientManagementCreateAndMembershipFlows(t *testing.T) {
