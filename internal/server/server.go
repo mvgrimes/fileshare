@@ -39,6 +39,7 @@ type Server struct {
 	userPwd   *auth.UserPasswordAuthenticator
 	clientPwd *auth.ClientPasswordAuthenticator
 	magic     *auth.MagicManager
+	resetPwd  *auth.PasswordResetManager
 	magicSend auth.MagicSender
 	notifier  *mail.Notifier
 	uploadSvc *files.UploadService
@@ -137,7 +138,7 @@ func New(cfg *config.Config, log *slog.Logger) *Server {
 	e.Use(middleware.Secure())
 	e.Use(middleware.CSRFWithConfig(middleware.CSRFConfig{
 		Skipper: func(c echo.Context) bool {
-			return c.Path() == "/auth/session" || c.Path() == "/auth/logout" || c.Path() == "/auth/sso/login" || c.Path() == "/auth/magic/request" || c.Path() == "/auth/magic/verify" || c.Path() == "/auth/password/login" || c.Path() == "/client/uploads" || c.Path() == "/user/uploads" || c.Path() == "/user/clients" || c.Path() == "/user/client-groups" || c.Path() == "/user/client-groups/memberships" || c.Path() == "/user/files/:fileID/rename" || c.Path() == "/user/files/:fileID/delete" || c.Path() == "/user/files/:fileID/shares" || c.Path() == "/user/files/:fileID/shares/:shareID/delete"
+			return c.Path() == "/auth/session" || c.Path() == "/auth/logout" || c.Path() == "/auth/sso/login" || c.Path() == "/auth/magic/request" || c.Path() == "/auth/magic/verify" || c.Path() == "/auth/password/login" || c.Path() == "/auth/password/reset/request" || c.Path() == "/auth/password/reset/confirm" || c.Path() == "/client/uploads" || c.Path() == "/user/uploads" || c.Path() == "/user/clients" || c.Path() == "/user/client-groups" || c.Path() == "/user/client-groups/memberships" || c.Path() == "/user/files/:fileID/rename" || c.Path() == "/user/files/:fileID/delete" || c.Path() == "/user/files/:fileID/shares" || c.Path() == "/user/files/:fileID/shares/:shareID/delete"
 		},
 	}))
 	e.Use(middleware.RateLimiter(middleware.NewRateLimiterMemoryStore(20)))
@@ -158,6 +159,7 @@ func New(cfg *config.Config, log *slog.Logger) *Server {
 	userPwd := auth.NewUserPasswordAuthenticator(queries)
 	clientPwd := auth.NewClientPasswordAuthenticator(queries)
 	magic := auth.NewMagicManager(queries, 15*time.Minute, 60*time.Second)
+	resetPwd := auth.NewPasswordResetManager(queries, 15*time.Minute, 60*time.Second, 12)
 	magicSend := auth.MagicSender(auth.NoopSender{})
 	renderer, renderErr := mail.NewHermesRenderer("ShareFile", cfg.ServerUrl, cfg.ServerUrl)
 	if renderErr != nil {
@@ -209,7 +211,7 @@ func New(cfg *config.Config, log *slog.Logger) *Server {
 		panic(downErr)
 	}
 
-	srv := &Server{e: e, cfg: cfg, log: log, sessions: sessions, authz: authz, userSync: userSync, userPwd: userPwd, clientPwd: clientPwd, magic: magic, magicSend: magicSend, notifier: notifier, uploadSvc: uploadSvc, downSvc: downSvc}
+	srv := &Server{e: e, cfg: cfg, log: log, sessions: sessions, authz: authz, userSync: userSync, userPwd: userPwd, clientPwd: clientPwd, magic: magic, resetPwd: resetPwd, magicSend: magicSend, notifier: notifier, uploadSvc: uploadSvc, downSvc: downSvc}
 	e.Use(auth.LoadSession(sessions))
 
 	srv.registerSystemRoutes()

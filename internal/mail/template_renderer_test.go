@@ -142,3 +142,26 @@ func TestHermesRendererRenderFileShared(t *testing.T) {
 		t.Fatal("RenderFileShared() expected validation error")
 	}
 }
+
+func TestHermesRendererRenderPasswordReset(t *testing.T) {
+	t.Parallel()
+	renderer, err := NewHermesRenderer("ShareFile", "https://sharefile.example", "")
+	if err != nil {
+		t.Fatalf("NewHermesRenderer() error: %v", err)
+	}
+
+	out, err := renderer.RenderPasswordReset(PasswordResetTemplateData{ToName: "Casey", ResetURL: "/reset-password/confirm?token=abc", ActorType: "user"})
+	if err != nil {
+		t.Fatalf("RenderPasswordReset() error: %v", err)
+	}
+	if out.Subject != "Reset your ShareFile password" {
+		t.Fatalf("subject = %q", out.Subject)
+	}
+	if !strings.Contains(out.Text, "https://sharefile.example/reset-password/confirm?token=abc") {
+		t.Fatalf("text missing reset url: %q", out.Text)
+	}
+
+	if _, err := renderer.RenderPasswordReset(PasswordResetTemplateData{}); err == nil {
+		t.Fatal("RenderPasswordReset() expected validation error")
+	}
+}

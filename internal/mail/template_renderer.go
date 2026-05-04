@@ -11,6 +11,7 @@ type TemplateRenderer interface {
 	RenderMagicLink(data MagicLinkTemplateData) (RenderedTemplate, error)
 	RenderInvitation(data InvitationTemplateData) (RenderedTemplate, error)
 	RenderFileShared(data FileSharedTemplateData) (RenderedTemplate, error)
+	RenderPasswordReset(data PasswordResetTemplateData) (RenderedTemplate, error)
 }
 
 type RenderedTemplate struct {
@@ -42,6 +43,12 @@ type FileSharedTemplateData struct {
 	FileName    string
 	Message     string
 	FileListURL string
+}
+
+type PasswordResetTemplateData struct {
+	ToName    string
+	ResetURL  string
+	ActorType string
 }
 
 func NewHermesRenderer(productName, productLink, productLogo string) (*HermesRenderer, error) {
@@ -218,4 +225,41 @@ func (r *HermesRenderer) RenderFileShared(data FileSharedTemplateData) (Rendered
 	}
 
 	return RenderedTemplate{Subject: "A file was shared with you", HTML: htmlBody, Text: textBody}, nil
+}
+
+func (r *HermesRenderer) RenderPasswordReset(data PasswordResetTemplateData) (RenderedTemplate, error) {
+	if strings.TrimSpace(data.ResetURL) == "" {
+		return RenderedTemplate{}, fmt.Errorf("reset url is required")
+	}
+	resetURL := strings.TrimSpace(data.ResetURL)
+	if strings.HasPrefix(resetURL, "/") {
+		resetURL = strings.TrimRight(r.engine.Product.Link, "/") + resetURL
+	}
+	name := strings.TrimSpace(data.ToName)
+	if name == "" {
+		name = "there"
+	}
+	actorType := strings.TrimSpace(data.ActorType)
+	if actorType == "" {
+		actorType = "account"
+	}
+	body := hermes.Email{Body: hermes.Body{
+		Name:   name,
+		Intros: []string{fmt.Sprintf("A password reset was requested for your %s.", actorType)},
+		Actions: []hermes.Action{{
+			Instructions: "Use the button below to set a new password:",
+			Button: hermes.Button{Color: "#1A7F64", Text: "Reset password", Link: resetURL},
+		}},
+		Outros: []string{"If you did not request this change, you can safely ignore this email."},
+	}}
+
+	htmlBody, err := r.engine.GenerateHTML(body)
+	if err != nil {
+		return RenderedTemplate{}, err
+	}
+	textBody, err := r.engine.GeneratePlainText(body)
+	if err != nil {
+		return RenderedTemplate{}, err
+	}
+	return RenderedTemplate{Subject: "Reset your ShareFile password", HTML: htmlBody, Text: textBody}, nil
 }

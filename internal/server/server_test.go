@@ -3,7 +3,9 @@ package server
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -1702,6 +1704,57 @@ func TestUserClientEmailUniquenessIsCaseInsensitive(t *testing.T) {
 	}
 }
 
+func TestPasswordResetFlowForUserAndClient(t *testing.T) {
+	s := New(testConfig(), slog.Default())
+	createUserWithPassword(t, "user-reset", "user-reset@example.com", "old-password-123", true, 3)
+	createClientWithPassword(t, "client-reset", "client-reset@example.com", "old-password-123", true)
+
+	for _, email := range []string{"user-reset@example.com", "client-reset@example.com", "missing-reset@example.com"} {
+		req := httptest.NewRequest(http.MethodPost, "/auth/password/reset/request", bytes.NewBufferString("email="+email))
+		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
+		rec := httptest.NewRecorder()
+		s.e.ServeHTTP(rec, req)
+		if rec.Code != http.StatusNoContent {
+			t.Fatalf("reset request status for %s = %d, want %d", email, rec.Code, http.StatusNoContent)
+		}
+	}
+
+	insertPasswordResetForTests(t, "reset-user-1", "user", "user-reset", "user-reset@example.com", "tok-user", time.Now().Add(10*time.Minute))
+	insertPasswordResetForTests(t, "reset-client-1", "client", "client-reset", "client-reset@example.com", "tok-client", time.Now().Add(10*time.Minute))
+
+	confirmReq := httptest.NewRequest(http.MethodPost, "/auth/password/reset/confirm", bytes.NewBufferString("token=tok-user&new_password=new-password-123"))
+	confirmReq.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
+	confirmRec := httptest.NewRecorder()
+	s.e.ServeHTTP(confirmRec, confirmReq)
+	if confirmRec.Code != http.StatusNoContent {
+		t.Fatalf("user confirm status = %d, want %d", confirmRec.Code, http.StatusNoContent)
+	}
+
+	confirmClientReq := httptest.NewRequest(http.MethodPost, "/auth/password/reset/confirm", bytes.NewBufferString("token=tok-client&new_password=new-password-123"))
+	confirmClientReq.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
+	confirmClientRec := httptest.NewRecorder()
+	s.e.ServeHTTP(confirmClientRec, confirmClientReq)
+	if confirmClientRec.Code != http.StatusNoContent {
+		t.Fatalf("client confirm status = %d, want %d", confirmClientRec.Code, http.StatusNoContent)
+	}
+
+	userLoginReq := httptest.NewRequest(http.MethodPost, "/auth/password/login", bytes.NewBufferString("actor_type=user&email=user-reset@example.com&password=new-password-123"))
+	userLoginReq.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
+	userLoginRec := httptest.NewRecorder()
+	s.e.ServeHTTP(userLoginRec, userLoginReq)
+	if userLoginRec.Code != http.StatusNoContent {
+		t.Fatalf("user login after reset status = %d, want %d", userLoginRec.Code, http.StatusNoContent)
+	}
+
+	clientLoginReq := httptest.NewRequest(http.MethodPost, "/auth/password/login", bytes.NewBufferString("actor_type=client&email=client-reset@example.com&password=new-password-123"))
+	clientLoginReq.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
+	clientLoginRec := httptest.NewRecorder()
+	s.e.ServeHTTP(clientLoginRec, clientLoginReq)
+	if clientLoginRec.Code != http.StatusNoContent {
+		t.Fatalf("client login after reset status = %d, want %d", clientLoginRec.Code, http.StatusNoContent)
+	}
+}
+
 func TestTemplateRendererAddsPath(t *testing.T) {
 	s := New(testConfig(), slog.Default())
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
@@ -1886,6 +1939,28 @@ func createUserWithPassword(t *testing.T, id, email, password string, active boo
 	if err := queries.AddUserRole(context.Background(), db.AddUserRoleParams{UserID: id, RoleID: roleID}); err != nil {
 		t.Fatalf("AddUserRole() error: %v", err)
 	}
+}
+
+func insertPasswordResetForTests(t *testing.T, id, actorType, actorID, email, token string, expiresAt time.Time) {
+	t.Helper()
+	sqlDB, err := sql.Open("sqlite", testConfig().DatabaseURL)
+	if err != nil {
+		t.Fatalf("sql.Open() unexpected error: %v", err)
+	}
+	defer sqlDB.Close()
+
+	_, err = sqlDB.Exec(`
+INSERT INTO password_resets (id, actor_type, actor_id, email, token_hash, expires_at, consumed_at)
+VALUES (?, ?, ?, ?, ?, ?, NULL)
+`, id, actorType, actorID, email, hashTokenForTests(token), expiresAt.Format(time.RFC3339Nano))
+	if err != nil {
+		t.Fatalf("insert password reset failed: %v", err)
+	}
+}
+
+func hashTokenForTests(token string) string {
+	h := sha256.Sum256([]byte(token))
+	return hex.EncodeToString(h[:])
 }
 
 func createUserWithoutPassword(t *testing.T, id, email string, active bool, roleID int64) {

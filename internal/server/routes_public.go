@@ -13,6 +13,7 @@ import (
 
 	"sharefile/internal/auth"
 	"sharefile/internal/db"
+	"sharefile/internal/mail"
 )
 
 func (s *Server) registerPublicRoutes(queries *db.Queries, sessionTTL time.Duration) {
@@ -28,6 +29,12 @@ func (s *Server) registerPublicRoutes(queries *db.Queries, sessionTTL time.Durat
 	})
 	public.GET("/verify-token", func(c echo.Context) error {
 		return c.Render(http.StatusOK, "auth", map[string]any{"Title": "Verify Token", "Subtitle": "Enter your email address and token to sign in.", "FlashError": c.QueryParam("error"), "FlashSuccess": c.QueryParam("success"), "MagicClientID": c.QueryParam("client_id"), "MagicToken": c.QueryParam("token"), "ContentTemplate": "verify_token_content"})
+	})
+	public.GET("/reset-password/request", func(c echo.Context) error {
+		return c.Render(http.StatusOK, "auth", map[string]any{"Title": "Reset Password", "Subtitle": "Enter your email and we'll send a reset link.", "FlashError": c.QueryParam("error"), "FlashSuccess": c.QueryParam("success"), "Email": c.QueryParam("email"), "ContentTemplate": "password_reset_request_content"})
+	})
+	public.GET("/reset-password/confirm", func(c echo.Context) error {
+		return c.Render(http.StatusOK, "auth", map[string]any{"Title": "Set New Password", "Subtitle": "Choose a new password for your account.", "FlashError": c.QueryParam("error"), "FlashSuccess": c.QueryParam("success"), "Token": c.QueryParam("token"), "ContentTemplate": "password_reset_confirm_content"})
 	})
 	public.POST("/auth/session", func(c echo.Context) error {
 		actorType := c.FormValue("actor_type")
@@ -304,6 +311,85 @@ func (s *Server) registerPublicRoutes(queries *db.Queries, sessionTTL time.Durat
 		setSessionCookie(c, s.cfg.Environment, token, sessionTTL)
 		if isHTMLRequest(c) {
 			return c.Redirect(http.StatusSeeOther, "/client/dashboard")
+		}
+		return c.NoContent(http.StatusNoContent)
+	})
+
+	public.POST("/auth/password/reset/request", func(c echo.Context) error {
+		email := strings.TrimSpace(c.FormValue("email"))
+		if email == "" {
+			if isHTMLRequest(c) {
+				return c.Redirect(http.StatusSeeOther, "/reset-password/request?error="+url.QueryEscape("Email is required"))
+			}
+			return c.String(http.StatusBadRequest, "email is required")
+		}
+		result, err := s.resetPwd.Request(c.Request().Context(), email)
+		if err != nil {
+			switch err {
+			case auth.ErrPasswordResetDuplicateEmail:
+				auditAuthEvent(c, queries, "auth.password.reset.request", "", "", "email", email, map[string]any{"outcome": "failure", "reason": "duplicate_email_across_actor_types"})
+				s.log.Error("password reset duplicate email across actor types", "email", email)
+			case auth.ErrPasswordResetThrottled:
+				auditAuthEvent(c, queries, "auth.password.reset.request", "", "", "email", email, map[string]any{"outcome": "failure", "reason": "throttled"})
+			default:
+				auditAuthEvent(c, queries, "auth.password.reset.request", "", "", "email", email, map[string]any{"outcome": "failure", "reason": "request_failed"})
+			}
+			if isHTMLRequest(c) {
+				return c.Redirect(http.StatusSeeOther, "/reset-password/request?success="+url.QueryEscape("If the account exists, a reset link has been sent"))
+			}
+			return c.NoContent(http.StatusNoContent)
+		}
+
+		if result.Created {
+			notifyErr := s.notifier.NotifyPasswordReset(c.Request().Context(), mail.PasswordResetNotification{RecipientEmail: result.Email, RecipientName: result.Email, ActorType: result.ActorType, Token: result.Token})
+			if notifyErr != nil {
+				s.log.Error("password reset notification failed", "email", result.Email, "error", notifyErr.Error())
+			}
+			auditAuthEvent(c, queries, "auth.password.reset.request", result.ActorType, result.ActorID, "email", result.Email, map[string]any{"outcome": "success"})
+		} else {
+			auditAuthEvent(c, queries, "auth.password.reset.request", "", "", "email", email, map[string]any{"outcome": "ignored", "reason": "account_not_found"})
+		}
+
+		if isHTMLRequest(c) {
+			return c.Redirect(http.StatusSeeOther, "/reset-password/request?success="+url.QueryEscape("If the account exists, a reset link has been sent"))
+		}
+		return c.NoContent(http.StatusNoContent)
+	})
+
+	public.POST("/auth/password/reset/confirm", func(c echo.Context) error {
+		token := strings.TrimSpace(c.FormValue("token"))
+		newPassword := c.FormValue("new_password")
+		actorType, actorID, err := s.resetPwd.Confirm(c.Request().Context(), token, newPassword)
+		if err != nil {
+			reason := "confirm_failed"
+			status := http.StatusUnauthorized
+			switch err {
+			case auth.ErrPasswordResetWeakPassword:
+				reason = "weak_password"
+				status = http.StatusBadRequest
+			case auth.ErrPasswordResetNotFound:
+				reason = "not_found"
+			case auth.ErrPasswordResetExpired:
+				reason = "expired"
+			case auth.ErrPasswordResetConsumed:
+				reason = "consumed"
+			case auth.ErrPasswordResetInvalid:
+				reason = "invalid_input"
+				status = http.StatusBadRequest
+			}
+			auditAuthEvent(c, queries, "auth.password.reset.confirm", actorType, actorID, "password_reset", token, map[string]any{"outcome": "failure", "reason": reason})
+			if isHTMLRequest(c) {
+				if err == auth.ErrPasswordResetWeakPassword {
+					return c.Redirect(http.StatusSeeOther, "/reset-password/confirm?token="+url.QueryEscape(token)+"&error="+url.QueryEscape("Password must be at least 12 characters"))
+				}
+				return c.Redirect(http.StatusSeeOther, "/reset-password/confirm?token="+url.QueryEscape(token)+"&error="+url.QueryEscape("Invalid or expired reset token"))
+			}
+			return c.String(status, "invalid or expired reset token")
+		}
+
+		auditAuthEvent(c, queries, "auth.password.reset.confirm", actorType, actorID, "password_reset", token, map[string]any{"outcome": "success"})
+		if isHTMLRequest(c) {
+			return c.Redirect(http.StatusSeeOther, "/login?success="+url.QueryEscape("Password reset successful"))
 		}
 		return c.NoContent(http.StatusNoContent)
 	})

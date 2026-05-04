@@ -3,6 +3,7 @@ package mail
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"strings"
 )
 
@@ -36,6 +37,13 @@ type ClientUploadNotification struct {
 	ClientLabel    string
 	TargetType     string
 	TargetID       string
+}
+
+type PasswordResetNotification struct {
+	RecipientEmail string
+	RecipientName  string
+	ActorType      string
+	Token          string
 }
 
 func NewNotifier(renderer TemplateRenderer, sender MessageSender, events *EventStore) *Notifier {
@@ -90,6 +98,31 @@ func (n *Notifier) NotifyClientUpload(ctx context.Context, in ClientUploadNotifi
 	eventID := ""
 	if n.events != nil {
 		eventID, _ = n.events.RecordPending(ctx, "client.upload", in.RecipientEmail, "", map[string]any{"target_type": in.TargetType, "target_id": in.TargetID})
+	}
+	err = n.sender.Send(ctx, Message{To: in.RecipientEmail, Subject: rendered.Subject, Text: rendered.Text, HTML: rendered.HTML})
+	if n.events != nil && eventID != "" {
+		if err != nil {
+			_ = n.events.MarkFailed(ctx, eventID, err.Error(), "")
+		} else {
+			_ = n.events.MarkDelivered(ctx, eventID, "")
+		}
+	}
+	return err
+}
+
+func (n *Notifier) NotifyPasswordReset(ctx context.Context, in PasswordResetNotification) error {
+	rendered, err := n.renderer.RenderPasswordReset(PasswordResetTemplateData{
+		ToName:    in.RecipientName,
+		ResetURL:  "/reset-password/confirm?token=" + url.QueryEscape(in.Token),
+		ActorType: in.ActorType,
+	})
+	if err != nil {
+		return err
+	}
+
+	eventID := ""
+	if n.events != nil {
+		eventID, _ = n.events.RecordPending(ctx, "password.reset", in.RecipientEmail, "", map[string]any{"actor_type": in.ActorType})
 	}
 	err = n.sender.Send(ctx, Message{To: in.RecipientEmail, Subject: rendered.Subject, Text: rendered.Text, HTML: rendered.HTML})
 	if n.events != nil && eventID != "" {

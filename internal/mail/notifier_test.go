@@ -32,6 +32,13 @@ func (s stubRenderer) RenderFileShared(FileSharedTemplateData) (RenderedTemplate
 	return s.rendered, nil
 }
 
+func (s stubRenderer) RenderPasswordReset(PasswordResetTemplateData) (RenderedTemplate, error) {
+	if s.err != nil {
+		return RenderedTemplate{}, s.err
+	}
+	return s.rendered, nil
+}
+
 type stubMessageSender struct {
 	err  error
 	last Message
@@ -68,5 +75,19 @@ func TestNotifierNotifyClientUploadError(t *testing.T) {
 	err := n.NotifyClientUpload(t.Context(), ClientUploadNotification{RecipientEmail: "user@example.com", ClientLabel: "client-1", TargetType: "user"})
 	if err == nil {
 		t.Fatal("NotifyClientUpload() error=nil, want error")
+	}
+}
+
+func TestNotifierNotifyPasswordReset(t *testing.T) {
+	t.Parallel()
+
+	sender := &stubMessageSender{}
+	n := NewNotifier(stubRenderer{rendered: RenderedTemplate{Subject: "reset", Text: "text", HTML: "<p>ok</p>"}}, sender, nil)
+	err := n.NotifyPasswordReset(t.Context(), PasswordResetNotification{RecipientEmail: "u@example.com", RecipientName: "U", ActorType: "user", Token: "tok-1"})
+	if err != nil {
+		t.Fatalf("NotifyPasswordReset() error: %v", err)
+	}
+	if sender.last.Subject != "reset" {
+		t.Fatalf("subject = %q", sender.last.Subject)
 	}
 }
