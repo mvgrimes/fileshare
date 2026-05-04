@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -708,6 +709,9 @@ func TestUploadFormsRenderForAuthorizedActors(t *testing.T) {
 	if !strings.Contains(userBody, "name=\"target_id\"") || !strings.Contains(userBody, "c-form-client") || !strings.Contains(userBody, "cg-form-group") {
 		t.Fatalf("user upload form body = %q, want target_id select options from clients and groups", userBody)
 	}
+	if !strings.Contains(userBody, "enctype=\"multipart/form-data\"") {
+		t.Fatalf("user upload form body = %q, want multipart form encoding", userBody)
+	}
 	if !strings.Contains(userBody, "<span class=\"label-text\">Message...</span>") || !strings.Contains(userBody, "textarea textarea-bordered w-full") {
 		t.Fatalf("user upload form body = %q, want full-width message field with standard header", userBody)
 	}
@@ -750,6 +754,63 @@ func TestUserUploadSubmissionValidationAndSuccess(t *testing.T) {
 	}
 	if !strings.Contains(okRec.Body.String(), "file shared") {
 		t.Fatalf("ok submit body = %q, want file shared message", okRec.Body.String())
+	}
+
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	if err := writer.WriteField("filename", "report-uploaded.pdf"); err != nil {
+		t.Fatalf("WriteField(filename) error: %v", err)
+	}
+	if err := writer.WriteField("target_type", "client"); err != nil {
+		t.Fatalf("WriteField(target_type) error: %v", err)
+	}
+	if err := writer.WriteField("target_id", "c-submit-target"); err != nil {
+		t.Fatalf("WriteField(target_id) error: %v", err)
+	}
+	filePart, err := writer.CreateFormFile("upload_file", "report-uploaded.pdf")
+	if err != nil {
+		t.Fatalf("CreateFormFile() error: %v", err)
+	}
+	payload := []byte("hello uploaded file")
+	if _, err := filePart.Write(payload); err != nil {
+		t.Fatalf("filePart.Write() error: %v", err)
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatalf("writer.Close() error: %v", err)
+	}
+
+	multipartReq := httptest.NewRequest(http.MethodPost, "/user/uploads", &body)
+	multipartReq.Header.Set(echo.HeaderContentType, writer.FormDataContentType())
+	multipartReq.AddCookie(cookie)
+	multipartRec := httptest.NewRecorder()
+	s.e.ServeHTTP(multipartRec, multipartReq)
+	if multipartRec.Code != http.StatusCreated {
+		t.Fatalf("multipart submit status = %d, want %d, body=%q", multipartRec.Code, http.StatusCreated, multipartRec.Body.String())
+	}
+
+	sqlDB, err := sql.Open("sqlite", testConfig().DatabaseURL)
+	if err != nil {
+		t.Fatalf("sql.Open() unexpected error: %v", err)
+	}
+	defer sqlDB.Close()
+	filesForUploader, err := db.New(sqlDB).ListFilesByUploader(context.Background(), db.ListFilesByUploaderParams{UploaderType: "user", UploaderID: "u-submit", Limit: 50, Offset: 0})
+	if err != nil {
+		t.Fatalf("ListFilesByUploader() error: %v", err)
+	}
+	var storedFile db.File
+	found := false
+	for _, f := range filesForUploader {
+		if f.OriginalFilename == "report-uploaded.pdf" {
+			storedFile = f
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("uploaded file not found in uploader list")
+	}
+	if storedFile.SizeBytes != int64(len(payload)) {
+		t.Fatalf("stored file size_bytes = %d, want %d", storedFile.SizeBytes, len(payload))
 	}
 }
 
