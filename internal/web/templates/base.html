@@ -31,6 +31,8 @@
         {{template "file_detail_content" .}}
       {{else if eq .ContentTemplate "profile_content"}}
         {{template "profile_content" .}}
+      {{else if eq .ContentTemplate "admin_users_content"}}
+        {{template "admin_users_content" .}}
       {{else}}
         <p>missing content template</p>
       {{end}}

@@ -1526,6 +1526,103 @@ func TestRBACRoleGates(t *testing.T) {
 	}
 }
 
+func TestAdminUsersManagementFlow(t *testing.T) {
+	s := New(testConfig(), slog.Default())
+	adminCookie := login(t, s, "user", "u-admin-manage", "admin")
+
+	getReq := httptest.NewRequest(http.MethodGet, "/admin/users", nil)
+	getReq.AddCookie(adminCookie)
+	getRec := httptest.NewRecorder()
+	s.e.ServeHTTP(getRec, getReq)
+	if getRec.Code != http.StatusOK {
+		t.Fatalf("admin users get status = %d, want %d", getRec.Code, http.StatusOK)
+	}
+	if !strings.Contains(getRec.Body.String(), "Create User") {
+		t.Fatalf("admin users body = %q, want create user form", getRec.Body.String())
+	}
+
+	createReq := httptest.NewRequest(http.MethodPost, "/admin/users", bytes.NewBufferString("email=admin-flow-user@example.com&full_name=Admin+Flow+User&role_id=3&is_active=1&new_password=admin-password-123"))
+	createReq.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
+	createReq.AddCookie(adminCookie)
+	createRec := httptest.NewRecorder()
+	s.e.ServeHTTP(createRec, createReq)
+	if createRec.Code != http.StatusCreated {
+		t.Fatalf("admin users create status = %d, want %d", createRec.Code, http.StatusCreated)
+	}
+
+	sqlDB, err := sql.Open("sqlite", testConfig().DatabaseURL)
+	if err != nil {
+		t.Fatalf("sql.Open() unexpected error: %v", err)
+	}
+	defer sqlDB.Close()
+	queries := db.New(sqlDB)
+	createdUser, err := queries.GetUserByEmail(context.Background(), "admin-flow-user@example.com")
+	if err != nil {
+		t.Fatalf("GetUserByEmail() error: %v", err)
+	}
+	if createdUser.FullName != "Admin Flow User" {
+		t.Fatalf("created full_name = %q, want %q", createdUser.FullName, "Admin Flow User")
+	}
+	createdRoles, err := queries.ListRoleNamesByUserID(context.Background(), createdUser.ID)
+	if err != nil {
+		t.Fatalf("ListRoleNamesByUserID() error: %v", err)
+	}
+	if len(createdRoles) != 1 || createdRoles[0] != "uploader" {
+		t.Fatalf("created roles = %v, want [uploader]", createdRoles)
+	}
+
+	updateReq := httptest.NewRequest(http.MethodPost, "/admin/users/"+createdUser.ID, bytes.NewBufferString("full_name=Updated+Managed+User&role_id=2"))
+	updateReq.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
+	updateReq.AddCookie(adminCookie)
+	updateRec := httptest.NewRecorder()
+	s.e.ServeHTTP(updateRec, updateReq)
+	if updateRec.Code != http.StatusNoContent {
+		t.Fatalf("admin users update status = %d, want %d", updateRec.Code, http.StatusNoContent)
+	}
+
+	updatedUser, err := queries.GetUserByID(context.Background(), createdUser.ID)
+	if err != nil {
+		t.Fatalf("GetUserByID() error: %v", err)
+	}
+	if updatedUser.FullName != "Updated Managed User" {
+		t.Fatalf("updated full_name = %q, want %q", updatedUser.FullName, "Updated Managed User")
+	}
+	if updatedUser.IsActive != 0 {
+		t.Fatalf("updated is_active = %d, want %d", updatedUser.IsActive, 0)
+	}
+	updatedRoles, err := queries.ListRoleNamesByUserID(context.Background(), createdUser.ID)
+	if err != nil {
+		t.Fatalf("ListRoleNamesByUserID() error: %v", err)
+	}
+	if len(updatedRoles) != 1 || updatedRoles[0] != "account_manager" {
+		t.Fatalf("updated roles = %v, want [account_manager]", updatedRoles)
+	}
+
+	resetReq := httptest.NewRequest(http.MethodPost, "/admin/users/"+createdUser.ID+"/reset-password", bytes.NewBufferString("new_password=reset-password-123"))
+	resetReq.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
+	resetReq.AddCookie(adminCookie)
+	resetRec := httptest.NewRecorder()
+	s.e.ServeHTTP(resetRec, resetReq)
+	if resetRec.Code != http.StatusNoContent {
+		t.Fatalf("admin users reset status = %d, want %d", resetRec.Code, http.StatusNoContent)
+	}
+
+	userAfterReset, err := queries.GetUserByID(context.Background(), createdUser.ID)
+	if err != nil {
+		t.Fatalf("GetUserByID() after reset error: %v", err)
+	}
+	if err := queries.UpdateUser(context.Background(), db.UpdateUserParams{ID: userAfterReset.ID, FullName: userAfterReset.FullName, PasswordHash: userAfterReset.PasswordHash, IsActive: 1}); err != nil {
+		t.Fatalf("UpdateUser() error: %v", err)
+	}
+	loginReq := httptest.NewRequest(http.MethodPost, "/auth/password/login", bytes.NewBufferString("actor_type=user&email=admin-flow-user@example.com&password=reset-password-123"))
+	loginReq.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
+	loginRec := httptest.NewRecorder()
+	s.e.ServeHTTP(loginRec, loginReq)
+	if loginRec.Code != http.StatusNoContent {
+		t.Fatalf("password login status = %d, want %d", loginRec.Code, http.StatusNoContent)
+	}
+}
+
 func TestClientDownloadAuthorization(t *testing.T) {
 	s := New(testConfig(), slog.Default())
 
