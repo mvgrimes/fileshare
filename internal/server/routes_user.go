@@ -484,6 +484,91 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 		return c.NoContent(http.StatusCreated)
 	}, auth.RequireCapability(auth.CapabilityManageClients))
 
+	user.GET("/clients/:clientID", func(c echo.Context) error {
+		principal, _ := auth.PrincipalFromContext(c)
+		if err := s.authz.AuthorizeManageClients(principal); err != nil {
+			return c.String(http.StatusForbidden, "forbidden")
+		}
+		clientID := strings.TrimSpace(c.Param("clientID"))
+		client, err := queries.GetClientByID(c.Request().Context(), clientID)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return c.String(http.StatusNotFound, "client not found")
+			}
+			return c.String(http.StatusInternalServerError, "failed to load client")
+		}
+		return c.Render(http.StatusOK, "client_edit", map[string]any{"Title": "Edit Client", "Subtitle": "Update client access and reset password.", "ContentTemplate": "client_edit_content", "Client": client, "FlashError": c.QueryParam("error"), "FlashSuccess": c.QueryParam("success")})
+	}, auth.RequireCapability(auth.CapabilityManageClients))
+
+	user.POST("/clients/:clientID", func(c echo.Context) error {
+		principal, _ := auth.PrincipalFromContext(c)
+		if err := s.authz.AuthorizeManageClients(principal); err != nil {
+			return c.String(http.StatusForbidden, "forbidden")
+		}
+		clientID := strings.TrimSpace(c.Param("clientID"))
+		client, err := queries.GetClientByID(c.Request().Context(), clientID)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return c.String(http.StatusNotFound, "client not found")
+			}
+			return c.String(http.StatusInternalServerError, "failed to load client")
+		}
+		displayName := strings.TrimSpace(c.FormValue("display_name"))
+		if displayName == "" {
+			if isHTMLRequest(c) {
+				return c.Redirect(http.StatusSeeOther, "/user/clients/"+client.ID+"?error="+url.QueryEscape("display_name is required"))
+			}
+			return c.String(http.StatusBadRequest, "display_name is required")
+		}
+		canUpload := int64(0)
+		if c.FormValue("can_upload") == "1" {
+			canUpload = 1
+		}
+		isActive := int64(0)
+		if c.FormValue("is_active") == "1" {
+			isActive = 1
+		}
+		if err := queries.UpdateClient(c.Request().Context(), db.UpdateClientParams{ID: client.ID, DisplayName: displayName, CanUpload: canUpload, IsActive: isActive}); err != nil {
+			if isHTMLRequest(c) {
+				return c.Redirect(http.StatusSeeOther, "/user/clients/"+client.ID+"?error="+url.QueryEscape("failed to update client"))
+			}
+			return c.String(http.StatusInternalServerError, "failed to update client")
+		}
+		if isHTMLRequest(c) {
+			return c.Redirect(http.StatusSeeOther, "/user/clients/"+client.ID+"?success="+url.QueryEscape("Client updated"))
+		}
+		return c.NoContent(http.StatusNoContent)
+	}, auth.RequireCapability(auth.CapabilityManageClients))
+
+	user.POST("/clients/:clientID/reset-password", func(c echo.Context) error {
+		principal, _ := auth.PrincipalFromContext(c)
+		if err := s.authz.AuthorizeManageClients(principal); err != nil {
+			return c.String(http.StatusForbidden, "forbidden")
+		}
+		clientID := strings.TrimSpace(c.Param("clientID"))
+		newPassword := strings.TrimSpace(c.FormValue("new_password"))
+		if len(newPassword) < 12 {
+			if isHTMLRequest(c) {
+				return c.Redirect(http.StatusSeeOther, "/user/clients/"+clientID+"?error="+url.QueryEscape("Password must be at least 12 characters"))
+			}
+			return c.String(http.StatusBadRequest, "password must be at least 12 characters")
+		}
+		hash, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+		if err != nil {
+			return c.String(http.StatusInternalServerError, "failed to hash password")
+		}
+		if err := queries.UpdateClientPasswordHashByID(c.Request().Context(), clientID, sql.NullString{Valid: true, String: string(hash)}); err != nil {
+			if isHTMLRequest(c) {
+				return c.Redirect(http.StatusSeeOther, "/user/clients/"+clientID+"?error="+url.QueryEscape("failed to reset password"))
+			}
+			return c.String(http.StatusInternalServerError, "failed to reset password")
+		}
+		if isHTMLRequest(c) {
+			return c.Redirect(http.StatusSeeOther, "/user/clients/"+clientID+"?success="+url.QueryEscape("Password reset"))
+		}
+		return c.NoContent(http.StatusNoContent)
+	}, auth.RequireCapability(auth.CapabilityManageClients))
+
 	user.POST("/client-groups", func(c echo.Context) error {
 		principal, _ := auth.PrincipalFromContext(c)
 		if err := s.authz.AuthorizeManageClients(principal); err != nil {

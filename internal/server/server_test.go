@@ -1205,6 +1205,86 @@ func TestClientManagementHTMLValidationRedirect(t *testing.T) {
 	}
 }
 
+func TestClientManagementClientEditPageRenders(t *testing.T) {
+	s := New(testConfig(), slog.Default())
+	managerCookie := login(t, s, "user", "u-manager-edit-page", "account_manager")
+	createClientWithoutPassword(t, "c-edit-page", "c-edit-page@example.com", true)
+
+	req := httptest.NewRequest(http.MethodGet, "/user/clients/c-edit-page", nil)
+	req.AddCookie(managerCookie)
+	rec := httptest.NewRecorder()
+	s.e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+	}
+	body := rec.Body.String()
+	if !strings.Contains(body, "Save Changes") || !strings.Contains(body, "Reset Password") {
+		t.Fatalf("body = %q, want client edit and reset forms", body)
+	}
+}
+
+func TestClientManagementCanUpdateClientFromEditPage(t *testing.T) {
+	s := New(testConfig(), slog.Default())
+	managerCookie := login(t, s, "user", "u-manager-edit", "account_manager")
+	createClientWithoutPassword(t, "c-edit-update", "c-edit-update@example.com", true)
+
+	req := httptest.NewRequest(http.MethodPost, "/user/clients/c-edit-update", bytes.NewBufferString("display_name=Updated+Client&can_upload=1"))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
+	req.AddCookie(managerCookie)
+	rec := httptest.NewRecorder()
+	s.e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusNoContent)
+	}
+
+	sqlDB, err := sql.Open("sqlite", testConfig().DatabaseURL)
+	if err != nil {
+		t.Fatalf("sql.Open() unexpected error: %v", err)
+	}
+	defer sqlDB.Close()
+
+	client, err := db.New(sqlDB).GetClientByID(context.Background(), "c-edit-update")
+	if err != nil {
+		t.Fatalf("GetClientByID() error: %v", err)
+	}
+	if client.DisplayName != "Updated Client" {
+		t.Fatalf("display_name = %q, want %q", client.DisplayName, "Updated Client")
+	}
+	if client.CanUpload != 1 {
+		t.Fatalf("can_upload = %d, want 1", client.CanUpload)
+	}
+	if client.IsActive != 0 {
+		t.Fatalf("is_active = %d, want 0 when unchecked", client.IsActive)
+	}
+}
+
+func TestClientManagementCanResetClientPassword(t *testing.T) {
+	s := New(testConfig(), slog.Default())
+	managerCookie := login(t, s, "user", "u-manager-client-pass", "account_manager")
+	createClientWithPassword(t, "c-edit-pass", "c-edit-pass@example.com", "old-password-123", true)
+
+	resetReq := httptest.NewRequest(http.MethodPost, "/user/clients/c-edit-pass/reset-password", bytes.NewBufferString("new_password=new-password-123"))
+	resetReq.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
+	resetReq.AddCookie(managerCookie)
+	resetRec := httptest.NewRecorder()
+	s.e.ServeHTTP(resetRec, resetReq)
+
+	if resetRec.Code != http.StatusNoContent {
+		t.Fatalf("reset status = %d, want %d", resetRec.Code, http.StatusNoContent)
+	}
+
+	loginReq := httptest.NewRequest(http.MethodPost, "/auth/password/login", bytes.NewBufferString("actor_type=client&email=c-edit-pass@example.com&password=new-password-123"))
+	loginReq.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
+	loginRec := httptest.NewRecorder()
+	s.e.ServeHTTP(loginRec, loginReq)
+
+	if loginRec.Code != http.StatusNoContent {
+		t.Fatalf("client login status = %d, want %d", loginRec.Code, http.StatusNoContent)
+	}
+}
+
 func TestClientUploadHTMLRedirectsWithValidationAndOutcome(t *testing.T) {
 	s := New(testConfig(), slog.Default())
 	createClientForUploadTests(t, "client-form-upload", "client-form-upload@example.com", true, true)

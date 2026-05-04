@@ -1,0 +1,44 @@
+{{define "client_edit"}}{{template "base" .}}{{end}}
+
+{{define "client_edit_content"}}
+<section class="grid gap-4 lg:grid-cols-2">
+  <article class="card bg-base-100 shadow-sm">
+    <div class="card-body gap-4">
+      {{template "page_header" .}}
+      <form method="post" action="/user/clients/{{.Client.ID}}" class="grid gap-3" data-enhance="submission">
+        <label class="form-control w-full">
+          <span class="label-text">Client Email</span>
+          <input class="input input-bordered w-full" type="email" value="{{.Client.Email}}" readonly>
+        </label>
+        <label class="form-control w-full">
+          <span class="label-text">Display Name</span>
+          <input class="input input-bordered w-full" type="text" name="display_name" value="{{.Client.DisplayName}}" required>
+        </label>
+        <label class="label cursor-pointer">
+          <span class="label-text">Can Upload</span>
+          <input class="checkbox" type="checkbox" name="can_upload" value="1" {{if eq .Client.CanUpload 1}}checked{{end}}>
+        </label>
+        <label class="label cursor-pointer">
+          <span class="label-text">Is Active</span>
+          <input class="checkbox" type="checkbox" name="is_active" value="1" {{if eq .Client.IsActive 1}}checked{{end}}>
+        </label>
+        <button class="btn btn-primary" type="submit" data-pending-text="Saving...">Save Changes</button>
+      </form>
+    </div>
+  </article>
+
+  <article class="card bg-base-100 shadow-sm">
+    <div class="card-body gap-4">
+      <h2 class="text-xl font-semibold">Reset Password</h2>
+      <form method="post" action="/user/clients/{{.Client.ID}}/reset-password" class="grid gap-3" data-enhance="submission">
+        <label class="form-control w-full">
+          <span class="label-text">New Password</span>
+          <input class="input input-bordered w-full" type="password" name="new_password" minlength="12" required>
+        </label>
+        <button class="btn btn-secondary" type="submit" data-pending-text="Resetting...">Reset Password</button>
+      </form>
+      <a class="btn btn-ghost" href="/user/clients">Back to clients</a>
+    </div>
+  </article>
+</section>
+{{end}}
