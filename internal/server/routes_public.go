@@ -54,6 +54,9 @@ func (s *Server) registerPublicRoutes(queries *db.Queries, sessionTTL time.Durat
 			_ = s.sessions.RevokeSession(c.Request().Context(), cookie.Value)
 		}
 		c.SetCookie(&http.Cookie{Name: auth.SessionCookieName, Value: "", Path: "/", HttpOnly: true, Secure: sCookieSecure(s.cfg.Environment), SameSite: http.SameSiteLaxMode, MaxAge: -1})
+		if isHTMLRequest(c) {
+			return c.Redirect(http.StatusSeeOther, "/login")
+		}
 		return c.NoContent(http.StatusNoContent)
 	})
 

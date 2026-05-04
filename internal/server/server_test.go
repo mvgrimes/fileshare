@@ -994,6 +994,32 @@ func TestLogoutWithoutSessionCookieStillClearsCookie(t *testing.T) {
 	}
 }
 
+func TestLogoutHTMLRedirectsToLogin(t *testing.T) {
+	s := New(testConfig(), slog.Default())
+	cookie := login(t, s, "user", "u-logout-html", "")
+
+	req := httptest.NewRequest(http.MethodPost, "/auth/logout", nil)
+	req.Header.Set(echo.HeaderAccept, "text/html")
+	req.AddCookie(cookie)
+	rec := httptest.NewRecorder()
+	s.e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusSeeOther)
+	}
+	if got := rec.Header().Get(echo.HeaderLocation); got != "/login" {
+		t.Fatalf("location = %q, want %q", got, "/login")
+	}
+
+	cleared := cookieByName(rec.Result().Cookies(), "sharefile_session")
+	if cleared == nil {
+		t.Fatal("expected cleared sharefile_session cookie")
+	}
+	if cleared.MaxAge != -1 {
+		t.Fatalf("logout cookie max-age = %d, want %d", cleared.MaxAge, -1)
+	}
+}
+
 func TestSSOLoginCreatesUserSession(t *testing.T) {
 	s := New(testConfig(), slog.Default())
 	sso := signedSSOToken(t, "secret", "issuer-1", "aud-1", "user-from-sso", "", "user-from-sso@example.com", "User From SSO")
