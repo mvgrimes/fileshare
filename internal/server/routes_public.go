@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"database/sql"
 	"net/http"
 	"net/url"
 	"strings"
@@ -107,7 +108,14 @@ func (s *Server) registerPublicRoutes(queries *db.Queries, sessionTTL time.Durat
 			auditAuthEvent(c, queries, "auth.magic.request", "", "", "client", "", map[string]any{"outcome": "failure", "reason": "missing_client_id"})
 			return c.String(http.StatusBadRequest, "client_id is required")
 		}
-		clientID := resolvedClientID(queries, c.Request().Context(), clientIdentifier)
+		clientID, err := resolvedClientID(queries, c.Request().Context(), clientIdentifier)
+		if err != nil {
+			if isHTMLRequest(c) {
+				return c.Redirect(http.StatusSeeOther, "/request-link?error="+url.QueryEscape("No active client found for that email"))
+			}
+			auditAuthEvent(c, queries, "auth.magic.request", "", "", "client", clientIdentifier, map[string]any{"outcome": "failure", "reason": "client_not_found"})
+			return c.String(http.StatusUnauthorized, "invalid client")
+		}
 		token, _, err := s.magic.Create(c.Request().Context(), clientID)
 		if err != nil {
 			if err == auth.ErrMagicLinkThrottled {
@@ -148,8 +156,15 @@ func (s *Server) registerPublicRoutes(queries *db.Queries, sessionTTL time.Durat
 			auditAuthEvent(c, queries, "auth.magic.verify", "", "", "client", clientIdentifier, map[string]any{"outcome": "failure", "reason": "missing_input"})
 			return c.String(http.StatusBadRequest, "client_id and token are required")
 		}
-		clientID := resolvedClientID(queries, c.Request().Context(), clientIdentifier)
-		_, err := s.magic.Consume(c.Request().Context(), clientID, token)
+		clientID, err := resolvedClientID(queries, c.Request().Context(), clientIdentifier)
+		if err != nil {
+			if isHTMLRequest(c) {
+				return c.Redirect(http.StatusSeeOther, "/verify-token?error="+url.QueryEscape("Invalid or expired magic link"))
+			}
+			auditAuthEvent(c, queries, "auth.magic.verify", "", "", "client", clientIdentifier, map[string]any{"outcome": "failure", "reason": "client_not_found"})
+			return c.String(http.StatusUnauthorized, "invalid or expired magic link")
+		}
+		_, err = s.magic.Consume(c.Request().Context(), clientID, token)
 		if err != nil {
 			switch err {
 			case auth.ErrMagicLinkExpired, auth.ErrMagicLinkConsumed, auth.ErrMagicLinkNotFound:
@@ -268,10 +283,20 @@ func (s *Server) registerPublicRoutes(queries *db.Queries, sessionTTL time.Durat
 	})
 }
 
-func resolvedClientID(queries *db.Queries, ctx context.Context, identifier string) string {
+func resolvedClientID(queries *db.Queries, ctx context.Context, identifier string) (string, error) {
 	client, err := queries.GetClientByEmail(ctx, identifier)
-	if err != nil {
-		return identifier
+	if err == nil {
+		return client.ID, nil
 	}
-	return client.ID
+	if err != sql.ErrNoRows {
+		return "", err
+	}
+	client, err = queries.GetClientByID(ctx, identifier)
+	if err == nil {
+		return client.ID, nil
+	}
+	if err == sql.ErrNoRows {
+		return "", auth.ErrForbidden
+	}
+	return "", err
 }

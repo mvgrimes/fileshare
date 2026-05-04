@@ -1098,6 +1098,7 @@ func TestSSOLoginRejectsMissingEmailClaim(t *testing.T) {
 
 func TestMagicLinkRequestThrottled(t *testing.T) {
 	s := New(testConfig(), slog.Default())
+	createClientWithoutPassword(t, "client-1", "client-1@example.com", true)
 	body := bytes.NewBufferString("client_id=client-1")
 	req1 := httptest.NewRequest(http.MethodPost, "/auth/magic/request", body)
 	req1.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
@@ -1325,6 +1326,7 @@ func TestClientUploadAuthorizationConstraints(t *testing.T) {
 
 func TestMagicLinkVerifySingleUse(t *testing.T) {
 	s := New(testConfig(), slog.Default())
+	createClientWithoutPassword(t, "client-once", "client-once@example.com", true)
 	token, _, err := s.magic.Create(context.Background(), "client-once")
 	if err != nil {
 		t.Fatalf("Create() unexpected error: %v", err)
@@ -1353,6 +1355,7 @@ func TestMagicLinkVerifySingleUse(t *testing.T) {
 func TestMagicLinkRequestDeliveryFailure(t *testing.T) {
 	s := New(testConfig(), slog.Default())
 	s.magicSend = failingSender{}
+	createClientWithoutPassword(t, "client-fail", "client-fail@example.com", true)
 
 	body := bytes.NewBufferString("client_id=client-fail")
 	req := httptest.NewRequest(http.MethodPost, "/auth/magic/request", body)
