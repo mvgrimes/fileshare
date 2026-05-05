@@ -36,7 +36,43 @@ func (s *Server) registerClientRoutes(queries *db.Queries) {
 	client.GET("/dashboard", func(c echo.Context) error {
 		principal, _ := auth.PrincipalFromContext(c)
 		actions := []dashboardAction{{Label: "Profile", Description: "Manage your display name and password.", Path: "/client/profile"}, {Label: "Upload Files", Description: "Submit upload targets; permissions are validated per client.", Path: "/client/uploads"}, {Label: "Received Files", Description: "Browse files sent directly or through your client groups.", Path: "/client/received"}, {Label: "Sent Files", Description: "Review files sent from your client account.", Path: "/client/sent"}}
-		return c.Render(http.StatusOK, "dashboard", map[string]any{"Title": "Client Dashboard", "Role": principal.ActorType, "Subtitle": "Use secure links to access files and upload where permitted.", "ActorID": principal.ActorID, "DashboardActions": actions, "HasActions": true, "ContentTemplate": "dashboard_content"})
+		shares, err := queries.ListClientAccessibleShares(c.Request().Context(), db.ListClientAccessibleSharesParams{ClientID: principal.ActorID, Limit: 200, Offset: 0})
+		if err != nil {
+			return c.String(http.StatusInternalServerError, "failed to load dashboard files")
+		}
+		items := make([]fileListItem, 0, len(shares))
+		itemIndex := make(map[string]int, len(shares))
+		fileVia := make(map[string]map[string]struct{}, len(shares))
+		fileSharedAt := make(map[string]string, len(shares))
+		for _, sh := range shares {
+			f, fileErr := queries.GetFileByID(c.Request().Context(), sh.FileID)
+			if fileErr != nil {
+				continue
+			}
+			viaSet, ok := fileVia[f.ID]
+			if !ok {
+				viaSet = map[string]struct{}{}
+				fileVia[f.ID] = viaSet
+			}
+			viaSet[sh.TargetType] = struct{}{}
+			if prev, exists := fileSharedAt[f.ID]; !exists || sh.CreatedAt > prev {
+				fileSharedAt[f.ID] = sh.CreatedAt
+			}
+			if idx, exists := itemIndex[f.ID]; exists {
+				items[idx].SharedVia = joinedShareTargets(viaSet)
+				items[idx].SharedAt = fileSharedAt[f.ID]
+				continue
+			}
+			itemIndex[f.ID] = len(items)
+			items = append(items, fileListItem{ID: f.ID, Name: f.OriginalFilename, ContentType: f.ContentType, SizeBytes: f.SizeBytes, SharedVia: joinedShareTargets(viaSet), SharedAt: fileSharedAt[f.ID]})
+		}
+		sort.SliceStable(items, func(i, j int) bool {
+			return items[i].SharedAt > items[j].SharedAt
+		})
+		if len(items) > 10 {
+			items = items[:10]
+		}
+		return c.Render(http.StatusOK, "dashboard", map[string]any{"Title": "Client Dashboard", "Role": principal.ActorType, "Subtitle": "Use secure links to access files and upload where permitted.", "ActorID": principal.ActorID, "DashboardActions": actions, "HasActions": true, "DashboardMainTemplate": "client_dashboard_main", "DashboardReceivedFiles": items, "ContentTemplate": "dashboard_content"})
 	})
 	client.GET("/profile", func(c echo.Context) error {
 		principal, _ := auth.PrincipalFromContext(c)
@@ -126,6 +162,18 @@ func (s *Server) registerClientRoutes(queries *db.Queries) {
 				return c.String(http.StatusForbidden, "forbidden")
 			}
 			return c.String(http.StatusInternalServerError, "failed to authorize download")
+		}
+		shares, sharesErr := queries.ListClientAccessibleShares(c.Request().Context(), db.ListClientAccessibleSharesParams{ClientID: principal.ActorID, Limit: 200, Offset: 0})
+		if sharesErr != nil {
+			return c.String(http.StatusInternalServerError, "failed to track download")
+		}
+		for _, sh := range shares {
+			if sh.FileID != fileID {
+				continue
+			}
+			if err := queries.RecordShareDownload(c.Request().Context(), db.RecordShareDownloadParams{ID: uuid.NewString(), ShareID: sh.ID, ClientID: principal.ActorID}); err != nil {
+				return c.String(http.StatusInternalServerError, "failed to track download")
+			}
 		}
 		auditAuthEvent(c, queries, "authz.client.download", principal.ActorType, principal.ActorID, "file", fileID, map[string]any{"outcome": "allowed"})
 		if isHTMLRequest(c) {

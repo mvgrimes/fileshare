@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"sort"
 	"strings"
 
 	"github.com/google/uuid"
@@ -30,14 +31,100 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 	user.GET("/dashboard", func(c echo.Context) error {
 		principal, _ := auth.PrincipalFromContext(c)
 		actions := dashboardActions(principal)
+
+		sentUploads, err := queries.ListFilesByUploader(c.Request().Context(), db.ListFilesByUploaderParams{UploaderType: "user", UploaderID: principal.ActorID, Limit: 200, Offset: 0})
+		if err != nil {
+			return c.String(http.StatusInternalServerError, "failed to load dashboard files")
+		}
+		sentItems := make([]fileListItem, 0, len(sentUploads))
+		userSentViewed := 0
+		for _, f := range sentUploads {
+			viewed, viewErr := queries.FileHasAnyClientDownload(c.Request().Context(), f.ID)
+			if viewErr != nil {
+				return c.String(http.StatusInternalServerError, "failed to load dashboard file status")
+			}
+			status := "unviewed"
+			if viewed {
+				status = "viewed"
+				userSentViewed++
+			}
+			sentItems = append(sentItems, fileListItem{ID: f.ID, Name: f.OriginalFilename, UploadedAt: f.CreatedAt, ViewStatus: status})
+		}
+		sort.SliceStable(sentItems, func(i, j int) bool {
+			if sentItems[i].ViewStatus != sentItems[j].ViewStatus {
+				return sentItems[i].ViewStatus == "unviewed"
+			}
+			return sentItems[i].UploadedAt > sentItems[j].UploadedAt
+		})
+		if len(sentItems) > 10 {
+			sentItems = sentItems[:10]
+		}
+
+		shares, err := queries.ListUserAccessibleShares(c.Request().Context(), db.ListUserAccessibleSharesParams{UserID: principal.ActorID, Limit: 200, Offset: 0})
+		if err != nil {
+			return c.String(http.StatusInternalServerError, "failed to load dashboard shares")
+		}
+		receivedItems := make([]fileListItem, 0, len(shares))
+		itemIndex := make(map[string]int, len(shares))
+		fileVia := make(map[string]map[string]struct{}, len(shares))
+		fileSharedAt := make(map[string]string, len(shares))
+		for _, sh := range shares {
+			f, fileErr := queries.GetFileByID(c.Request().Context(), sh.FileID)
+			if fileErr != nil {
+				continue
+			}
+			viaSet, ok := fileVia[f.ID]
+			if !ok {
+				viaSet = map[string]struct{}{}
+				fileVia[f.ID] = viaSet
+			}
+			viaSet[sh.TargetType] = struct{}{}
+			if prev, exists := fileSharedAt[f.ID]; !exists || sh.CreatedAt > prev {
+				fileSharedAt[f.ID] = sh.CreatedAt
+			}
+			if idx, exists := itemIndex[f.ID]; exists {
+				receivedItems[idx].SharedVia = joinedShareTargets(viaSet)
+				receivedItems[idx].SharedAt = fileSharedAt[f.ID]
+				continue
+			}
+			itemIndex[f.ID] = len(receivedItems)
+			receivedItems = append(receivedItems, fileListItem{ID: f.ID, Name: f.OriginalFilename, SharedVia: joinedShareTargets(viaSet), SharedAt: fileSharedAt[f.ID], ViewStatus: "unviewed"})
+		}
+		sort.SliceStable(receivedItems, func(i, j int) bool {
+			if receivedItems[i].ViewStatus != receivedItems[j].ViewStatus {
+				return receivedItems[i].ViewStatus == "unviewed"
+			}
+			return receivedItems[i].SharedAt > receivedItems[j].SharedAt
+		})
+		if len(receivedItems) > 10 {
+			receivedItems = receivedItems[:10]
+		}
+
+		clients, err := queries.ListClients(c.Request().Context(), db.ListClientsParams{Limit: 500, Offset: 0})
+		if err != nil {
+			return c.String(http.StatusInternalServerError, "failed to load dashboard stats")
+		}
+
 		return c.Render(http.StatusOK, "dashboard", map[string]any{
-			"Title":            "User Dashboard",
-			"Role":             principal.ActorType,
-			"Subtitle":         "Your available actions are based on assigned roles.",
-			"ActorID":          principal.ActorID,
-			"DashboardActions": actions,
-			"HasActions":       len(actions) > 0,
-			"ContentTemplate":  "dashboard_content",
+			"Title":                  "User Dashboard",
+			"Role":                   principal.ActorType,
+			"Subtitle":               "Overview of sent and received files.",
+			"ActorID":                principal.ActorID,
+			"DashboardActions":       actions,
+			"HasActions":             len(actions) > 0,
+			"DashboardMainTemplate":  "user_dashboard_main",
+			"DashboardSentFiles":     sentItems,
+			"DashboardReceivedFiles": receivedItems,
+			"Stats": map[string]int{
+				"ClientCount":        len(clients),
+				"UserSentTotal":      len(sentUploads),
+				"UserSentViewed":     userSentViewed,
+				"UserSentUnviewed":   len(sentUploads) - userSentViewed,
+				"ClientSentTotal":    len(receivedItems),
+				"ClientSentViewed":   0,
+				"ClientSentUnviewed": len(receivedItems),
+			},
+			"ContentTemplate": "dashboard_content",
 		})
 	})
 
@@ -129,7 +216,15 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 		}
 		items := make([]fileListItem, 0, len(files))
 		for _, f := range files {
-			items = append(items, fileListItem{ID: f.ID, Name: f.OriginalFilename, ContentType: f.ContentType, SizeBytes: f.SizeBytes, SharedVia: "owned", UploadedAt: f.CreatedAt})
+			viewed, viewErr := queries.FileHasAnyClientDownload(c.Request().Context(), f.ID)
+			if viewErr != nil {
+				return c.String(http.StatusInternalServerError, "failed to load download status")
+			}
+			status := "unviewed"
+			if viewed {
+				status = "viewed"
+			}
+			items = append(items, fileListItem{ID: f.ID, Name: f.OriginalFilename, ContentType: f.ContentType, SizeBytes: f.SizeBytes, SharedVia: "owned", UploadedAt: f.CreatedAt, ViewStatus: status})
 		}
 		return c.Render(http.StatusOK, "shared_files", map[string]any{"Title": "Sent Files", "Subtitle": "Files sent from your account.", "ContentTemplate": "shared_files_content", "Files": items, "EmptyMessage": "No files sent yet.", "DetailBasePath": "/user/sent", "DownloadBasePath": "/user/sent"})
 	})

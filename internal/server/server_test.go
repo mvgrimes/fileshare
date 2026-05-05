@@ -510,6 +510,71 @@ func TestClientDashboardShowsMagicLinkAction(t *testing.T) {
 	}
 }
 
+func TestUserDashboardShowsStatsAndPrioritizesUnviewedSentFiles(t *testing.T) {
+	s := New(testConfig(), slog.Default())
+	createUserWithoutPassword(t, "u-dashboard", "u-dashboard@example.com", true, 1)
+	createClientWithoutPassword(t, "c-dashboard", "c-dashboard@example.com", true)
+	createFileWithUploader(t, "file-dashboard-unviewed", "u-dashboard")
+	createFileWithUploader(t, "file-dashboard-viewed", "u-dashboard")
+	createShareForTests(t, "share-dashboard-unviewed", "file-dashboard-unviewed", "client", "c-dashboard")
+	createShareForTests(t, "share-dashboard-viewed", "file-dashboard-viewed", "client", "c-dashboard")
+
+	sqlDB, err := sql.Open("sqlite", testConfig().DatabaseURL)
+	if err != nil {
+		t.Fatalf("sql.Open() unexpected error: %v", err)
+	}
+	defer sqlDB.Close()
+	queries := db.New(sqlDB)
+	if err := queries.RecordShareDownload(context.Background(), db.RecordShareDownloadParams{ID: "sd-dashboard", ShareID: "share-dashboard-viewed", ClientID: "c-dashboard"}); err != nil {
+		t.Fatalf("RecordShareDownload() error: %v", err)
+	}
+
+	cookie := login(t, s, "user", "u-dashboard", "uploader")
+	req := httptest.NewRequest(http.MethodGet, "/user/dashboard", nil)
+	req.AddCookie(cookie)
+	rec := httptest.NewRecorder()
+	s.e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+	}
+	body := rec.Body.String()
+	if !strings.Contains(body, "Your Sent Files") || !strings.Contains(body, "Client Sent Files") {
+		t.Fatalf("body = %q, want dashboard stats labels", body)
+	}
+	if !strings.Contains(body, "file-dashboard-unviewed.dat") || !strings.Contains(body, "file-dashboard-viewed.dat") {
+		t.Fatalf("body = %q, want sent files table", body)
+	}
+	if strings.Index(body, "file-dashboard-unviewed.dat") > strings.Index(body, "file-dashboard-viewed.dat") {
+		t.Fatalf("body = %q, want unviewed file listed before viewed file", body)
+	}
+}
+
+func TestClientDashboardShowsReceivedFilesAndUploadButton(t *testing.T) {
+	s := New(testConfig(), slog.Default())
+	createClientWithoutPassword(t, "c-dashboard-files", "c-dashboard-files@example.com", true)
+	createUserWithoutPassword(t, "u-dashboard-sender", "u-dashboard-sender@example.com", true, 1)
+	createFileWithUploader(t, "file-client-dashboard", "u-dashboard-sender")
+	createShareForTests(t, "share-client-dashboard", "file-client-dashboard", "client", "c-dashboard-files")
+
+	cookie := login(t, s, "client", "c-dashboard-files", "")
+	req := httptest.NewRequest(http.MethodGet, "/client/dashboard", nil)
+	req.AddCookie(cookie)
+	rec := httptest.NewRecorder()
+	s.e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+	}
+	body := rec.Body.String()
+	if !strings.Contains(body, "Upload a file") || !strings.Contains(body, "href=\"/client/uploads\"") {
+		t.Fatalf("body = %q, want upload button", body)
+	}
+	if !strings.Contains(body, "file-client-dashboard.dat") {
+		t.Fatalf("body = %q, want received file listed", body)
+	}
+}
+
 func TestUserProfileUpdateNameAndPassword(t *testing.T) {
 	s := New(testConfig(), slog.Default())
 	createUserWithPassword(t, "u-profile", "u-profile@example.com", "old-password-123", true, 3)

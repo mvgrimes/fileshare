@@ -1,28 +1,100 @@
 {{define "dashboard"}}{{template "base" .}}{{end}}
 
 {{define "dashboard_content"}}
+<div class="drawer lg:drawer-open">
+  <input id="dashboard-sidebar" type="checkbox" class="drawer-toggle">
+  <div class="drawer-content space-y-3">
+    <div class="flex items-center justify-between">
+      <div>{{template "page_header" .}}</div>
+      <label for="dashboard-sidebar" class="btn btn-sm btn-outline drawer-button lg:hidden">Menu</label>
+    </div>
+    {{if eq .DashboardMainTemplate "user_dashboard_main"}}
+      {{template "user_dashboard_main" .}}
+    {{else if eq .DashboardMainTemplate "client_dashboard_main"}}
+      {{template "client_dashboard_main" .}}
+    {{else}}
+    <section class="card bg-base-100 shadow-sm">
+      <div class="card-body gap-4">
+        <p>Signed in as: <strong>{{.Role}}</strong></p>
+        <p>Actor ID: <code>{{.ActorID}}</code></p>
+      </div>
+    </section>
+    {{end}}
+  </div>
+  <div class="drawer-side">
+    <label for="dashboard-sidebar" aria-label="close sidebar" class="drawer-overlay"></label>
+    <aside class="min-h-full w-72 border-r border-base-300 bg-base-100 p-4">
+      <p class="mb-3 text-sm opacity-70">Signed in as <strong>{{.Role}}</strong></p>
+      {{if .HasActions}}
+      <ul class="menu gap-2 rounded-box bg-base-200 p-2">
+        {{range .DashboardActions}}
+        <li>
+          <a href="{{.Path}}">
+            <span class="font-medium">{{.Label}}</span>
+            <span class="text-xs opacity-70">{{.Description}}</span>
+          </a>
+        </li>
+        {{end}}
+      </ul>
+      {{else}}
+      <div class="alert" role="status"><span>No dashboard actions are currently available for your account.</span></div>
+      {{end}}
+      <p class="mt-4 text-xs opacity-60">Actor ID: <code>{{.ActorID}}</code></p>
+    </aside>
+  </div>
+</div>
+{{end}}
+
+{{define "user_dashboard_main"}}
+<section class="grid gap-4 lg:grid-cols-3">
+  <article class="stats stats-vertical bg-base-100 shadow-sm lg:col-span-3 lg:stats-horizontal">
+    <div class="stat"><div class="stat-title">Clients</div><div class="stat-value text-2xl">{{.Stats.ClientCount}}</div></div>
+    <div class="stat"><div class="stat-title">Your Sent Files</div><div class="stat-value text-2xl">{{.Stats.UserSentTotal}}</div><div class="stat-desc">{{.Stats.UserSentViewed}} viewed / {{.Stats.UserSentUnviewed}} unviewed</div></div>
+    <div class="stat"><div class="stat-title">Client Sent Files</div><div class="stat-value text-2xl">{{.Stats.ClientSentTotal}}</div><div class="stat-desc">{{.Stats.ClientSentViewed}} viewed / {{.Stats.ClientSentUnviewed}} unviewed</div></div>
+  </article>
+  <article class="card bg-base-100 shadow-sm lg:col-span-2">
+    <div class="card-body">
+      <div class="flex items-center justify-between"><h2 class="card-title">Files Received</h2><a class="btn btn-xs btn-ghost" href="/user/received">View all</a></div>
+      {{if .DashboardReceivedFiles}}
+      <div class="overflow-x-auto"><table class="table table-zebra table-sm"><thead><tr><th>Name</th><th>Status</th><th>Shared At</th></tr></thead><tbody>{{range .DashboardReceivedFiles}}<tr><td>{{.Name}}</td><td>{{.ViewStatus}}</td><td>{{.SharedAt}}</td></tr>{{end}}</tbody></table></div>
+      {{else}}<p class="text-sm opacity-70">No files received yet.</p>{{end}}
+    </div>
+  </article>
+  <article class="card bg-base-100 shadow-sm">
+    <div class="card-body">
+      <div class="flex items-center justify-between"><h2 class="card-title">Files Sent</h2><a class="btn btn-xs btn-ghost" href="/user/sent">View all</a></div>
+      {{if .DashboardSentFiles}}
+      <div class="overflow-x-auto"><table class="table table-zebra table-sm"><thead><tr><th>Name</th><th>Status</th><th>Uploaded</th></tr></thead><tbody>{{range .DashboardSentFiles}}<tr><td>{{.Name}}</td><td>{{.ViewStatus}}</td><td>{{.UploadedAt}}</td></tr>{{end}}</tbody></table></div>
+      {{else}}<p class="text-sm opacity-70">No files sent yet.</p>{{end}}
+    </div>
+  </article>
+</section>
+{{end}}
+
+{{define "client_dashboard_main"}}
 <section class="card bg-base-100 shadow-sm">
   <div class="card-body gap-4">
-    {{template "page_header" .}}
-    <p>Signed in as: <strong>{{.Role}}</strong></p>
-    <p>Actor ID: <code>{{.ActorID}}</code></p>
-    <div class="divider my-1"></div>
-    {{if .HasActions}}
-    <div class="grid gap-3 md:grid-cols-2">
-      {{range .DashboardActions}}
-      <article class="rounded-lg border border-base-300 p-4">
-        <h2 class="text-lg font-semibold">{{.Label}}</h2>
-        <p class="text-sm opacity-80">{{.Description}}</p>
-        <a class="btn btn-sm btn-primary mt-3" href="{{.Path}}">Open</a>
-      </article>
-      {{end}}
+    <div class="flex flex-wrap items-center justify-between gap-2">
+      <h2 class="card-title">Files Received</h2>
+      <a class="btn btn-primary" href="/client/uploads">Upload a file</a>
+    </div>
+    {{if .DashboardReceivedFiles}}
+    <div class="overflow-x-auto">
+      <table class="table table-zebra">
+        <thead><tr><th>Name</th><th>Type</th><th>Size</th><th>Shared Via</th><th>Shared At</th><th></th></tr></thead>
+        <tbody>
+          {{range .DashboardReceivedFiles}}
+          <tr>
+            <td>{{.Name}}</td><td>{{.ContentType}}</td><td>{{.SizeBytes}}</td><td>{{.SharedVia}}</td><td>{{.SharedAt}}</td>
+            <td class="space-x-1"><a class="btn btn-xs btn-primary" href="/client/received/{{.ID}}">Details</a><a class="btn btn-xs btn-outline" href="/client/received/{{.ID}}/download">Download</a></td>
+          </tr>
+          {{end}}
+        </tbody>
+      </table>
     </div>
     {{else}}
-    <div class="alert" role="status">
-      <span>No dashboard actions are currently available for your account.</span>
-    </div>
+    <div class="alert" role="status"><span>No files have been received yet.</span></div>
     {{end}}
-    <p class="text-sm opacity-70">Current path: <code>{{.Path}}</code></p>
   </div>
 </section>
 {{end}}
