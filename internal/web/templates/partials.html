@@ -55,8 +55,13 @@
 {{end}}
 
 {{define "page_header"}}
-<div class="mb-4">
+<div class="mb-4 flex flex-wrap items-start justify-between gap-2">
   <h1 class="text-2xl font-semibold">{{.Title}}</h1>
+  {{if .BackPath}}
+  <a class="btn btn-ghost btn-sm" href="{{.BackPath}}">{{if .BackLabel}}{{.BackLabel}}{{else}}Back{{end}}</a>
+  {{end}}
+</div>
+<div>
   {{if .Subtitle}}
   <p class="text-sm opacity-70">{{.Subtitle}}</p>
   {{end}}

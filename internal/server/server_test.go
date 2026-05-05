@@ -767,7 +767,7 @@ func TestClientUploadedFilesListAndDetail(t *testing.T) {
 		t.Fatalf("list body = %q, should not show shared at column", listRec.Body.String())
 	}
 
-	detailReq := httptest.NewRequest(http.MethodGet, "/client/sent/file-client-own", nil)
+	detailReq := httptest.NewRequest(http.MethodGet, "/client/file/file-client-own", nil)
 	detailReq.AddCookie(ownerCookie)
 	detailRec := httptest.NewRecorder()
 	s.e.ServeHTTP(detailRec, detailReq)
@@ -778,7 +778,7 @@ func TestClientUploadedFilesListAndDetail(t *testing.T) {
 		t.Fatalf("detail body = %q, want uploaded timestamp", detailRec.Body.String())
 	}
 
-	forbiddenReq := httptest.NewRequest(http.MethodGet, "/client/sent/file-client-own", nil)
+	forbiddenReq := httptest.NewRequest(http.MethodGet, "/client/file/file-client-own", nil)
 	forbiddenReq.AddCookie(otherCookie)
 	forbiddenRec := httptest.NewRecorder()
 	s.e.ServeHTTP(forbiddenRec, forbiddenReq)
@@ -820,11 +820,11 @@ func TestClientSharedFilesListAndDetail(t *testing.T) {
 	if !strings.Contains(listRec.Body.String(), "Shared At") {
 		t.Fatalf("list body = %q, want shared timestamp column", listRec.Body.String())
 	}
-	if !strings.Contains(listRec.Body.String(), "href=\"/client/received/file-list-direct/download\"") {
+	if !strings.Contains(listRec.Body.String(), "href=\"/client/file/file-list-direct/download\"") {
 		t.Fatalf("list body = %q, want download link", listRec.Body.String())
 	}
-	if strings.Count(listRec.Body.String(), "file-list-direct.txt") != 1 {
-		t.Fatalf("list body = %q, want direct shared file listed once", listRec.Body.String())
+	if strings.Count(listRec.Body.String(), "file-list-direct.txt") != 2 {
+		t.Fatalf("list body = %q, want direct shared file listed for both shares", listRec.Body.String())
 	}
 	if strings.Contains(listRec.Body.String(), "<th>Shared Via</th>") {
 		t.Fatalf("list body = %q, should not show shared via column", listRec.Body.String())
@@ -847,7 +847,7 @@ func TestClientSharedFilesListAndDetail(t *testing.T) {
 		t.Fatalf("group list body = %q, want group shared file", groupListRec.Body.String())
 	}
 
-	detailReq := httptest.NewRequest(http.MethodGet, "/client/received/file-list-direct", nil)
+	detailReq := httptest.NewRequest(http.MethodGet, "/client/received/share-list-direct", nil)
 	detailReq.AddCookie(directCookie)
 	detailRec := httptest.NewRecorder()
 	s.e.ServeHTTP(detailRec, detailReq)
@@ -857,11 +857,14 @@ func TestClientSharedFilesListAndDetail(t *testing.T) {
 	if !strings.Contains(detailRec.Body.String(), "<strong>Shared At:</strong>") {
 		t.Fatalf("detail body = %q, want shared timestamp", detailRec.Body.String())
 	}
-	if !strings.Contains(detailRec.Body.String(), "href=\"/client/received/file-list-direct/download\"") {
+	if !strings.Contains(detailRec.Body.String(), "href=\"/client/file/file-list-direct/download\"") {
 		t.Fatalf("detail body = %q, want detail download link", detailRec.Body.String())
 	}
+	if !strings.Contains(detailRec.Body.String(), "Back to Received Files") {
+		t.Fatalf("detail body = %q, want back link near title", detailRec.Body.String())
+	}
 
-	deniedReq := httptest.NewRequest(http.MethodGet, "/client/received/file-list-direct", nil)
+	deniedReq := httptest.NewRequest(http.MethodGet, "/client/received/share-list-direct", nil)
 	deniedReq.AddCookie(deniedCookie)
 	deniedRec := httptest.NewRecorder()
 	s.e.ServeHTTP(deniedRec, deniedReq)
@@ -907,7 +910,7 @@ func TestUserSharedFilesListAndDetail(t *testing.T) {
 	if !strings.Contains(body, "Uploaded At") {
 		t.Fatalf("list body = %q, want uploaded timestamp column", body)
 	}
-	if !strings.Contains(body, "href=\"/user/sent/file-owned/download\"") {
+	if !strings.Contains(body, "href=\"/user/file/file-owned/download\"") {
 		t.Fatalf("list body = %q, want download link", body)
 	}
 	if !strings.Contains(body, "Client: c-shared-target@example.com") || !strings.Contains(body, "Client Group: Download Group cg-shared-target") {
@@ -926,7 +929,7 @@ func TestUserSharedFilesListAndDetail(t *testing.T) {
 		t.Fatalf("list body = %q, should not include other user's file", body)
 	}
 
-	ownerDetailReq := httptest.NewRequest(http.MethodGet, "/user/sent/file-owned", nil)
+	ownerDetailReq := httptest.NewRequest(http.MethodGet, "/user/sent/share-owned-client", nil)
 	ownerDetailReq.AddCookie(ownerCookie)
 	ownerDetailRec := httptest.NewRecorder()
 	s.e.ServeHTTP(ownerDetailRec, ownerDetailReq)
@@ -936,29 +939,17 @@ func TestUserSharedFilesListAndDetail(t *testing.T) {
 	if !strings.Contains(ownerDetailRec.Body.String(), "<strong>Uploaded At:</strong>") {
 		t.Fatalf("owner detail body = %q, want uploaded timestamp", ownerDetailRec.Body.String())
 	}
-	if !strings.Contains(ownerDetailRec.Body.String(), "href=\"/user/sent/file-owned/download\"") {
+	if !strings.Contains(ownerDetailRec.Body.String(), "href=\"/user/file/file-owned/download\"") {
 		t.Fatalf("owner detail body = %q, want detail download link", ownerDetailRec.Body.String())
 	}
-	if !strings.Contains(ownerDetailRec.Body.String(), "Client: c-shared-target@example.com") {
-		t.Fatalf("owner detail body = %q, want current shares to show client name", ownerDetailRec.Body.String())
+	if !strings.Contains(ownerDetailRec.Body.String(), "Open File Detail") || !strings.Contains(ownerDetailRec.Body.String(), "Unshare") {
+		t.Fatalf("owner detail body = %q, want share detail actions", ownerDetailRec.Body.String())
 	}
-	if !strings.Contains(ownerDetailRec.Body.String(), "Viewing History") || !strings.Contains(ownerDetailRec.Body.String(), "c-viewer-owned@example.com") || !strings.Contains(ownerDetailRec.Body.String(), "<th>Viewed At</th>") {
-		t.Fatalf("owner detail body = %q, want viewing history table with viewer and viewed timestamp", ownerDetailRec.Body.String())
-	}
-	if strings.Count(ownerDetailRec.Body.String(), "Current Shares") != 1 {
-		t.Fatalf("owner detail body = %q, want current shares in its own card", ownerDetailRec.Body.String())
-	}
-	if !strings.Contains(ownerDetailRec.Body.String(), "badge badge-success badge-outline\">Viewed</span>") || !strings.Contains(ownerDetailRec.Body.String(), "badge badge-warning badge-outline\">Unviewed</span>") {
-		t.Fatalf("owner detail body = %q, want viewed/unviewed badges for each share", ownerDetailRec.Body.String())
-	}
-	if strings.Count(ownerDetailRec.Body.String(), "Back to List") != 1 || strings.Index(ownerDetailRec.Body.String(), "Back to List") > strings.Index(ownerDetailRec.Body.String(), "Delete File") {
-		t.Fatalf("owner detail body = %q, want back-to-list in details card before delete card", ownerDetailRec.Body.String())
-	}
-	if strings.Count(ownerDetailRec.Body.String(), "class=\"card bg-base-100 shadow-sm") < 4 {
-		t.Fatalf("owner detail body = %q, want separate cards for file management sections", ownerDetailRec.Body.String())
+	if !strings.Contains(ownerDetailRec.Body.String(), "Back to Sent Files") {
+		t.Fatalf("owner detail body = %q, want back link near title", ownerDetailRec.Body.String())
 	}
 
-	forbiddenReq := httptest.NewRequest(http.MethodGet, "/user/sent/file-owned", nil)
+	forbiddenReq := httptest.NewRequest(http.MethodGet, "/user/sent/share-owned-client", nil)
 	forbiddenReq.AddCookie(otherCookie)
 	forbiddenRec := httptest.NewRecorder()
 	s.e.ServeHTTP(forbiddenRec, forbiddenReq)
@@ -966,7 +957,7 @@ func TestUserSharedFilesListAndDetail(t *testing.T) {
 		t.Fatalf("forbidden detail status = %d, want %d", forbiddenRec.Code, http.StatusForbidden)
 	}
 
-	downloaderReq := httptest.NewRequest(http.MethodGet, "/user/sent/file-owned/download", nil)
+	downloaderReq := httptest.NewRequest(http.MethodGet, "/user/file/file-owned/download", nil)
 	downloaderReq.Header.Set(echo.HeaderAccept, echo.MIMETextHTML)
 	downloaderReq.AddCookie(ownerCookie)
 	downloaderRec := httptest.NewRecorder()
@@ -978,7 +969,7 @@ func TestUserSharedFilesListAndDetail(t *testing.T) {
 		t.Fatalf("owner download redirect missing location")
 	}
 
-	forbiddenDownloadReq := httptest.NewRequest(http.MethodGet, "/user/sent/file-owned/download", nil)
+	forbiddenDownloadReq := httptest.NewRequest(http.MethodGet, "/user/file/file-owned/download", nil)
 	forbiddenDownloadReq.AddCookie(otherCookie)
 	forbiddenDownloadRec := httptest.NewRecorder()
 	s.e.ServeHTTP(forbiddenDownloadRec, forbiddenDownloadReq)
@@ -1024,22 +1015,25 @@ func TestUserReceivedFilesListAndDetail(t *testing.T) {
 	if !strings.Contains(body, "file-received-direct.dat") || !strings.Contains(body, "file-received-group.dat") {
 		t.Fatalf("list body = %q, missing received files", body)
 	}
-	if !strings.Contains(body, "c-received-sender@example.com") {
+	if !strings.Contains(body, "u-seed") {
 		t.Fatalf("list body = %q, want sender name", body)
 	}
 	if strings.Contains(body, "file-received-hidden.dat") {
 		t.Fatalf("list body = %q, should not include unrelated files", body)
 	}
 
-	detailReq := httptest.NewRequest(http.MethodGet, "/user/received/file-received-direct", nil)
+	detailReq := httptest.NewRequest(http.MethodGet, "/user/received/share-user-direct", nil)
 	detailReq.AddCookie(cookie)
 	detailRec := httptest.NewRecorder()
 	s.e.ServeHTTP(detailRec, detailReq)
 	if detailRec.Code != http.StatusOK {
 		t.Fatalf("detail status = %d, want %d", detailRec.Code, http.StatusOK)
 	}
+	if !strings.Contains(detailRec.Body.String(), "Back to Received Files") {
+		t.Fatalf("detail body = %q, want back link near title", detailRec.Body.String())
+	}
 
-	forbiddenReq := httptest.NewRequest(http.MethodGet, "/user/received/file-received-hidden", nil)
+	forbiddenReq := httptest.NewRequest(http.MethodGet, "/user/received/share-hidden", nil)
 	forbiddenReq.AddCookie(cookie)
 	forbiddenRec := httptest.NewRecorder()
 	s.e.ServeHTTP(forbiddenRec, forbiddenReq)
@@ -1047,7 +1041,7 @@ func TestUserReceivedFilesListAndDetail(t *testing.T) {
 		t.Fatalf("forbidden detail status = %d, want %d", forbiddenRec.Code, http.StatusForbidden)
 	}
 
-	downloadReq := httptest.NewRequest(http.MethodGet, "/user/received/file-received-direct/download", nil)
+	downloadReq := httptest.NewRequest(http.MethodGet, "/user/received/share-user-direct/download", nil)
 	downloadReq.Header.Set(echo.HeaderAccept, echo.MIMETextHTML)
 	downloadReq.AddCookie(cookie)
 	downloadRec := httptest.NewRecorder()
@@ -1078,7 +1072,7 @@ func TestUserFileDetailManageShareRenameDeleteFlow(t *testing.T) {
 		t.Fatalf("CreateUserGroup() error: %v", err)
 	}
 
-	detailReq := httptest.NewRequest(http.MethodGet, "/user/sent/file-manage", nil)
+	detailReq := httptest.NewRequest(http.MethodGet, "/user/file/file-manage", nil)
 	detailReq.AddCookie(ownerCookie)
 	detailRec := httptest.NewRecorder()
 	s.e.ServeHTTP(detailRec, detailReq)
@@ -1090,7 +1084,7 @@ func TestUserFileDetailManageShareRenameDeleteFlow(t *testing.T) {
 		t.Fatalf("detail body = %q, want file management controls", body)
 	}
 
-	renameReq := httptest.NewRequest(http.MethodPost, "/user/sent/file-manage/rename", bytes.NewBufferString("filename=renamed-file.pdf"))
+	renameReq := httptest.NewRequest(http.MethodPost, "/user/file/file-manage/rename", bytes.NewBufferString("filename=renamed-file.pdf"))
 	renameReq.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
 	renameReq.AddCookie(ownerCookie)
 	renameRec := httptest.NewRecorder()
@@ -1106,7 +1100,7 @@ func TestUserFileDetailManageShareRenameDeleteFlow(t *testing.T) {
 		t.Fatalf("filename = %q, want %q", fileAfterRename.OriginalFilename, "renamed-file.pdf")
 	}
 
-	shareReq := httptest.NewRequest(http.MethodPost, "/user/sent/file-manage/shares", bytes.NewBufferString("target_type=client&target_id=c-manage-target"))
+	shareReq := httptest.NewRequest(http.MethodPost, "/user/file/file-manage/shares", bytes.NewBufferString("target_type=client&target_id=c-manage-target"))
 	shareReq.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
 	shareReq.AddCookie(ownerCookie)
 	shareRec := httptest.NewRecorder()
@@ -1115,7 +1109,7 @@ func TestUserFileDetailManageShareRenameDeleteFlow(t *testing.T) {
 		t.Fatalf("share status = %d, want %d", shareRec.Code, http.StatusCreated)
 	}
 
-	shareReq2 := httptest.NewRequest(http.MethodPost, "/user/sent/file-manage/shares", bytes.NewBufferString("target_type=user_group&target_id=ug-manage"))
+	shareReq2 := httptest.NewRequest(http.MethodPost, "/user/file/file-manage/shares", bytes.NewBufferString("target_type=user_group&target_id=ug-manage"))
 	shareReq2.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
 	shareReq2.AddCookie(ownerCookie)
 	shareRec2 := httptest.NewRecorder()
@@ -1132,7 +1126,7 @@ func TestUserFileDetailManageShareRenameDeleteFlow(t *testing.T) {
 		t.Fatalf("share count = %d, want %d", len(shares), 2)
 	}
 
-	unshareReq := httptest.NewRequest(http.MethodPost, "/user/sent/file-manage/shares/"+shares[0].ID+"/delete", nil)
+	unshareReq := httptest.NewRequest(http.MethodPost, "/user/file/file-manage/shares/"+shares[0].ID+"/delete", nil)
 	unshareReq.AddCookie(ownerCookie)
 	unshareRec := httptest.NewRecorder()
 	s.e.ServeHTTP(unshareRec, unshareReq)
@@ -1148,7 +1142,7 @@ func TestUserFileDetailManageShareRenameDeleteFlow(t *testing.T) {
 		t.Fatalf("share count after unshare = %d, want %d", len(sharesAfterUnshare), 1)
 	}
 
-	deleteReq := httptest.NewRequest(http.MethodPost, "/user/sent/file-manage/delete", nil)
+	deleteReq := httptest.NewRequest(http.MethodPost, "/user/file/file-manage/delete", nil)
 	deleteReq.AddCookie(ownerCookie)
 	deleteRec := httptest.NewRecorder()
 	s.e.ServeHTTP(deleteRec, deleteReq)
@@ -1598,6 +1592,9 @@ func TestClientGroupDetailRouteSupportsUpdateAndMembershipManagement(t *testing.
 	if !strings.Contains(detailRec.Body.String(), "Remove from Group") || !strings.Contains(detailRec.Body.String(), "client-detail-a@example.com") {
 		t.Fatalf("detail body = %q, want member list and remove action", detailRec.Body.String())
 	}
+	if !strings.Contains(detailRec.Body.String(), "Back to Client Groups") {
+		t.Fatalf("detail body = %q, want back link near title", detailRec.Body.String())
+	}
 
 	updateReq := httptest.NewRequest(http.MethodPost, "/user/client-groups/update", bytes.NewBufferString("group_id=cg-detail&name=Renamed+Detail+Group"))
 	updateReq.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
@@ -1744,6 +1741,9 @@ func TestClientManagementClientEditPageRenders(t *testing.T) {
 	body := rec.Body.String()
 	if !strings.Contains(body, "Save Changes") || !strings.Contains(body, "Reset Password") {
 		t.Fatalf("body = %q, want client edit and reset forms", body)
+	}
+	if !strings.Contains(body, "Back to Clients") {
+		t.Fatalf("body = %q, want back link near title", body)
 	}
 }
 
@@ -2367,7 +2367,7 @@ func TestClientDownloadAuthorization(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			req := httptest.NewRequest(http.MethodGet, "/client/received/"+tc.fileID+"/download", nil)
+			req := httptest.NewRequest(http.MethodGet, "/client/file/"+tc.fileID+"/download", nil)
 			req.AddCookie(tc.cookie)
 			rec := httptest.NewRecorder()
 			s.e.ServeHTTP(rec, req)

@@ -38,8 +38,10 @@
             {{template "shared_files_content" .}}
           {{else if eq .ContentTemplate "file_detail_content"}}
             {{template "file_detail_content" .}}
-          {{else if eq .ContentTemplate "user_sent_file_detail_content"}}
-            {{template "user_sent_file_detail_content" .}}
+          {{else if eq .ContentTemplate "user_file_detail_content"}}
+            {{template "user_file_detail_content" .}}
+          {{else if eq .ContentTemplate "share_detail_content"}}
+            {{template "share_detail_content" .}}
           {{else if eq .ContentTemplate "profile_content"}}
             {{template "profile_content" .}}
           {{else if eq .ContentTemplate "admin_users_content"}}
@@ -91,8 +93,10 @@
           {{template "shared_files_content" .}}
         {{else if eq .ContentTemplate "file_detail_content"}}
           {{template "file_detail_content" .}}
-        {{else if eq .ContentTemplate "user_sent_file_detail_content"}}
-          {{template "user_sent_file_detail_content" .}}
+        {{else if eq .ContentTemplate "user_file_detail_content"}}
+          {{template "user_file_detail_content" .}}
+        {{else if eq .ContentTemplate "share_detail_content"}}
+          {{template "share_detail_content" .}}
         {{else if eq .ContentTemplate "profile_content"}}
           {{template "profile_content" .}}
         {{else if eq .ContentTemplate "admin_users_content"}}

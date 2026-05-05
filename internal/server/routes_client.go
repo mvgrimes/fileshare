@@ -41,30 +41,12 @@ func (s *Server) registerClientRoutes(queries *db.Queries) {
 			return c.String(http.StatusInternalServerError, "failed to load dashboard files")
 		}
 		items := make([]fileListItem, 0, len(shares))
-		itemIndex := make(map[string]int, len(shares))
-		fileVia := make(map[string]map[string]struct{}, len(shares))
-		fileSharedAt := make(map[string]string, len(shares))
 		for _, sh := range shares {
 			f, fileErr := queries.GetFileByID(c.Request().Context(), sh.FileID)
 			if fileErr != nil {
 				continue
 			}
-			viaSet, ok := fileVia[f.ID]
-			if !ok {
-				viaSet = map[string]struct{}{}
-				fileVia[f.ID] = viaSet
-			}
-			viaSet[sh.TargetType] = struct{}{}
-			if prev, exists := fileSharedAt[f.ID]; !exists || sh.CreatedAt > prev {
-				fileSharedAt[f.ID] = sh.CreatedAt
-			}
-			if idx, exists := itemIndex[f.ID]; exists {
-				items[idx].SharedVia = joinedShareTargets(viaSet)
-				items[idx].SharedAt = fileSharedAt[f.ID]
-				continue
-			}
-			itemIndex[f.ID] = len(items)
-			items = append(items, fileListItem{ID: f.ID, Name: f.OriginalFilename, ContentType: f.ContentType, SizeBytes: f.SizeBytes, SharedVia: joinedShareTargets(viaSet), SharedAt: fileSharedAt[f.ID]})
+			items = append(items, fileListItem{ID: sh.ID, FileID: f.ID, Name: f.OriginalFilename, ContentType: f.ContentType, SizeBytes: f.SizeBytes, SharedVia: sh.TargetType, SharedAt: sh.CreatedAt})
 		}
 		sort.SliceStable(items, func(i, j int) bool {
 			return items[i].SharedAt > items[j].SharedAt
@@ -142,9 +124,9 @@ func (s *Server) registerClientRoutes(queries *db.Queries) {
 		for _, f := range uploads {
 			items = append(items, fileListItem{ID: f.ID, Name: f.OriginalFilename, ContentType: f.ContentType, SizeBytes: f.SizeBytes, SharedVia: "uploaded", UploadedAt: f.CreatedAt})
 		}
-		return c.Render(http.StatusOK, "shared_files", map[string]any{"Title": "Sent Files", "Subtitle": "Files sent from your client account.", "ContentTemplate": "shared_files_content", "Files": items, "EmptyMessage": "No sent files are available yet.", "DetailBasePath": "/client/sent", "HideStatusColumn": true, "HideSharedAtColumn": true})
+		return c.Render(http.StatusOK, "shared_files", map[string]any{"Title": "Sent Files", "Subtitle": "Files sent from your client account.", "ContentTemplate": "shared_files_content", "Files": items, "EmptyMessage": "No sent files are available yet.", "DetailBasePath": "/client/file", "DownloadBasePath": "/client/file", "HideStatusColumn": true, "HideSharedAtColumn": true})
 	})
-	client.GET("/sent/:fileID", func(c echo.Context) error {
+	client.GET("/file/:fileID", func(c echo.Context) error {
 		principal, _ := auth.PrincipalFromContext(c)
 		fileID := c.Param("fileID")
 		file, err := queries.GetFileByID(c.Request().Context(), fileID)
@@ -157,9 +139,9 @@ func (s *Server) registerClientRoutes(queries *db.Queries) {
 		if file.UploaderType != "client" || file.UploaderID != principal.ActorID {
 			return c.String(http.StatusForbidden, "forbidden")
 		}
-		return c.Render(http.StatusOK, "shared_files", map[string]any{"Title": "Sent File Detail", "Subtitle": "File metadata and details.", "ContentTemplate": "file_detail_content", "File": fileListItem{ID: file.ID, Name: file.OriginalFilename, ContentType: file.ContentType, SizeBytes: file.SizeBytes, SharedVia: "sent", UploadedAt: file.CreatedAt}, "BackPath": "/client/sent"})
+		return c.Render(http.StatusOK, "shared_files", map[string]any{"Title": "File Detail", "Subtitle": "File metadata and details.", "ContentTemplate": "file_detail_content", "File": fileListItem{ID: file.ID, Name: file.OriginalFilename, ContentType: file.ContentType, SizeBytes: file.SizeBytes, SharedVia: "sent", UploadedAt: file.CreatedAt}, "BackPath": "/client/sent", "BackLabel": "Back to Sent Files", "DownloadPath": "/client/file/" + file.ID + "/download"})
 	})
-	client.GET("/received/:fileID/download", func(c echo.Context) error {
+	client.GET("/file/:fileID/download", func(c echo.Context) error {
 		principal, _ := auth.PrincipalFromContext(c)
 		fileID := c.Param("fileID")
 		signedURL, err := s.downSvc.SignedDownloadURL(c.Request().Context(), principal, fileID)
@@ -195,62 +177,50 @@ func (s *Server) registerClientRoutes(queries *db.Queries) {
 			return c.String(http.StatusInternalServerError, "failed to load shared files")
 		}
 		items := make([]fileListItem, 0, len(shares))
-		itemIndex := make(map[string]int, len(shares))
-		fileVia := make(map[string]map[string]struct{}, len(shares))
-		fileSharedAt := make(map[string]string, len(shares))
 		for _, sh := range shares {
 			f, fileErr := queries.GetFileByID(c.Request().Context(), sh.FileID)
 			if fileErr != nil {
 				continue
 			}
-			viaSet, ok := fileVia[f.ID]
-			if !ok {
-				viaSet = map[string]struct{}{}
-				fileVia[f.ID] = viaSet
+			message := ""
+			if sh.Message.Valid {
+				message = strings.TrimSpace(sh.Message.String)
 			}
-			viaSet[sh.TargetType] = struct{}{}
-			if prev, exists := fileSharedAt[f.ID]; !exists || sh.CreatedAt > prev {
-				fileSharedAt[f.ID] = sh.CreatedAt
-			}
-
-			if idx, exists := itemIndex[f.ID]; exists {
-				items[idx].SharedVia = joinedShareTargets(viaSet)
-				items[idx].SharedAt = fileSharedAt[f.ID]
-				continue
-			}
-
-			itemIndex[f.ID] = len(items)
-			items = append(items, fileListItem{ID: f.ID, Name: f.OriginalFilename, ContentType: f.ContentType, SizeBytes: f.SizeBytes, SharedVia: joinedShareTargets(viaSet), SharedAt: fileSharedAt[f.ID]})
+			items = append(items, fileListItem{ID: sh.ID, FileID: f.ID, Name: f.OriginalFilename, ContentType: f.ContentType, SizeBytes: f.SizeBytes, SharedVia: sh.TargetType, SharedAt: sh.CreatedAt, Message: message})
 		}
-		return c.Render(http.StatusOK, "shared_files", map[string]any{"Title": "Received Files", "Subtitle": "Files sent to your client account.", "ContentTemplate": "shared_files_content", "Files": items, "EmptyMessage": "No files have been received yet.", "DetailBasePath": "/client/received", "DownloadBasePath": "/client/received", "HideStatusColumn": true, "HideUploadedAtColumn": true})
+		return c.Render(http.StatusOK, "shared_files", map[string]any{"Title": "Received Files", "Subtitle": "Shares sent to your client account.", "ContentTemplate": "shared_files_content", "Files": items, "EmptyMessage": "No files have been received yet.", "DetailBasePath": "/client/received", "DownloadBasePath": "/client/file", "DownloadUsesFileID": true, "HideStatusColumn": true, "HideUploadedAtColumn": true})
 	})
-	client.GET("/received/:fileID", func(c echo.Context) error {
+	client.GET("/received/:shareID", func(c echo.Context) error {
 		principal, _ := auth.PrincipalFromContext(c)
-		fileID := c.Param("fileID")
-		if err := s.authz.AuthorizeClientDownload(c.Request().Context(), principal, fileID); err != nil {
-			if err == auth.ErrForbidden {
-				return c.String(http.StatusForbidden, "forbidden")
-			}
-			return c.String(http.StatusInternalServerError, "failed to authorize file")
+		shareID := c.Param("shareID")
+		shares, err := queries.ListClientAccessibleShares(c.Request().Context(), db.ListClientAccessibleSharesParams{ClientID: principal.ActorID, Limit: 200, Offset: 0})
+		if err != nil {
+			return c.String(http.StatusInternalServerError, "failed to load shared file details")
 		}
-		file, err := queries.GetFileByID(c.Request().Context(), fileID)
+		allowed := false
+		var selected db.Share
+		for _, sh := range shares {
+			if sh.ID == shareID {
+				allowed = true
+				selected = sh
+				break
+			}
+		}
+		if !allowed {
+			return c.String(http.StatusForbidden, "forbidden")
+		}
+		file, err := queries.GetFileByID(c.Request().Context(), selected.FileID)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				return c.String(http.StatusNotFound, "file not found")
 			}
 			return c.String(http.StatusInternalServerError, "failed to load file")
 		}
-		shares, err := queries.ListClientAccessibleShares(c.Request().Context(), db.ListClientAccessibleSharesParams{ClientID: principal.ActorID, Limit: 50, Offset: 0})
-		if err != nil {
-			return c.String(http.StatusInternalServerError, "failed to load shared file details")
+		message := ""
+		if selected.Message.Valid {
+			message = strings.TrimSpace(selected.Message.String)
 		}
-		sharedAt := ""
-		for _, sh := range shares {
-			if sh.FileID == file.ID && (sharedAt == "" || sh.CreatedAt > sharedAt) {
-				sharedAt = sh.CreatedAt
-			}
-		}
-		return c.Render(http.StatusOK, "shared_files", map[string]any{"Title": "Received File Detail", "Subtitle": "File metadata and available actions.", "ContentTemplate": "file_detail_content", "File": fileListItem{ID: file.ID, Name: file.OriginalFilename, ContentType: file.ContentType, SizeBytes: file.SizeBytes, SharedVia: "received", SharedAt: sharedAt}, "BackPath": "/client/received", "DownloadPath": "/client/received/" + file.ID + "/download"})
+		return c.Render(http.StatusOK, "shared_files", map[string]any{"Title": "Received Share Detail", "Subtitle": "File metadata and share details.", "ContentTemplate": "share_detail_content", "File": fileListItem{ID: selected.ID, FileID: file.ID, Name: file.OriginalFilename, ContentType: file.ContentType, SizeBytes: file.SizeBytes, SharedVia: selected.TargetType + ":" + selected.TargetID, SharedBy: selected.SharedByType + ":" + selected.SharedByID, SharedAt: selected.CreatedAt, UploadedAt: file.CreatedAt, Message: message}, "BackPath": "/client/received", "BackLabel": "Back to Received Files", "DownloadPath": "/client/file/" + file.ID + "/download", "FileDetailPath": "/client/file/" + file.ID})
 	})
 	client.POST("/uploads", func(c echo.Context) error {
 		principal, _ := auth.PrincipalFromContext(c)
