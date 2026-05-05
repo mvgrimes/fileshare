@@ -1374,8 +1374,11 @@ func TestClientsManagementPageRendersForManager(t *testing.T) {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
 	}
 	body := rec.Body.String()
-	if !strings.Contains(body, "Create Client") || !strings.Contains(body, "Open Client Groups") {
-		t.Fatalf("body = %q, want client management sections", body)
+	if !strings.Contains(body, "Create Client") {
+		t.Fatalf("body = %q, want client creation form", body)
+	}
+	if strings.Contains(body, "Open Client Groups") {
+		t.Fatalf("body = %q, should not include client groups article link", body)
 	}
 	if !strings.Contains(body, "name=\"group_ids\"") {
 		t.Fatalf("body = %q, want optional group select on client form", body)

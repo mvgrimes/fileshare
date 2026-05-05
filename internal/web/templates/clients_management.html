@@ -1,7 +1,7 @@
 {{define "clients_management"}}{{template "base" .}}{{end}}
 
 {{define "clients_management_content"}}
-<section class="grid gap-4 lg:grid-cols-2">
+<section class="grid gap-4">
   <article class="card bg-base-100 shadow-sm">
     <div class="card-body gap-4">
       {{template "page_header" .}}
@@ -33,14 +33,6 @@
         </label>
         <button class="btn btn-primary" type="submit" data-pending-text="Creating...">Create Client</button>
       </form>
-    </div>
-  </article>
-
-  <article class="card bg-base-100 shadow-sm">
-    <div class="card-body gap-4">
-      <h2 class="text-xl font-semibold">Client Groups</h2>
-      <p class="text-sm opacity-70">Manage group creation and memberships on a dedicated page.</p>
-      <a class="btn btn-outline" href="/user/client-groups">Open Client Groups</a>
     </div>
   </article>
 </section>
