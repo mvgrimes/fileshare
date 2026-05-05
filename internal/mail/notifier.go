@@ -35,6 +35,8 @@ type ClientUploadNotification struct {
 	RecipientEmail string
 	RecipientName  string
 	ClientLabel    string
+	FileName       string
+	Message        string
 	TargetType     string
 	TargetID       string
 }
@@ -81,17 +83,19 @@ func (n *Notifier) NotifyFileShared(ctx context.Context, in FileSharedNotificati
 }
 
 func (n *Notifier) NotifyClientUpload(ctx context.Context, in ClientUploadNotification) error {
-	rendered, err := n.renderer.RenderMagicLink(MagicLinkTemplateData{
-		ToName:       in.RecipientName,
-		Token:        "A client upload was submitted for your attention.",
-		SupportEmail: "",
+	rendered, err := n.renderer.RenderFileShared(FileSharedTemplateData{
+		ToName:      in.RecipientName,
+		ActorLabel:  in.ClientLabel,
+		FileName:    in.FileName,
+		Message:     in.Message,
+		FileListURL: "/user/uploads",
 	})
 	if err != nil {
 		return err
 	}
 	rendered.Subject = "Client upload notification"
 	rendered.Text = strings.Join([]string{
-		fmt.Sprintf("%s submitted an upload to %s.", in.ClientLabel, in.TargetType),
+		fmt.Sprintf("%s submitted a file for %s.", in.ClientLabel, in.TargetType),
 		rendered.Text,
 	}, "\n")
 

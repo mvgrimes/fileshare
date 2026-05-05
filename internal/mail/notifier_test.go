@@ -3,6 +3,7 @@ package mail
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 )
 
@@ -75,6 +76,26 @@ func TestNotifierNotifyClientUploadError(t *testing.T) {
 	err := n.NotifyClientUpload(t.Context(), ClientUploadNotification{RecipientEmail: "user@example.com", ClientLabel: "client-1", TargetType: "user"})
 	if err == nil {
 		t.Fatal("NotifyClientUpload() error=nil, want error")
+	}
+}
+
+func TestNotifierNotifyClientUploadUsesClientUploadContent(t *testing.T) {
+	t.Parallel()
+
+	sender := &stubMessageSender{}
+	n := NewNotifier(stubRenderer{rendered: RenderedTemplate{Subject: "base", Text: "template text", HTML: "<p>ok</p>"}}, sender, nil)
+	err := n.NotifyClientUpload(t.Context(), ClientUploadNotification{RecipientEmail: "user@example.com", ClientLabel: "Acme Corp", FileName: "report.pdf", Message: "please review", TargetType: "user"})
+	if err != nil {
+		t.Fatalf("NotifyClientUpload() error: %v", err)
+	}
+	if sender.last.Subject != "Client upload notification" {
+		t.Fatalf("subject = %q, want %q", sender.last.Subject, "Client upload notification")
+	}
+	if !strings.Contains(sender.last.Text, "Acme Corp submitted a file for user.") {
+		t.Fatalf("text = %q, want upload context", sender.last.Text)
+	}
+	if !strings.Contains(sender.last.Text, "template text") {
+		t.Fatalf("text = %q, want rendered body", sender.last.Text)
 	}
 }
 

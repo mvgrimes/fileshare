@@ -279,9 +279,17 @@ func (s *Server) registerClientRoutes(queries *db.Queries) {
 		auditAuthEvent(c, queries, "file.share", "client", principal.ActorID, targetType, targetID, map[string]any{"file_id": fileID, "share_id": shareID})
 
 		recipients, recErr := resolveClientUploadRecipients(c.Request().Context(), queries, targetType, targetID)
+		clientLabel := principal.ActorID
+		if client, clientErr := queries.GetClientByID(c.Request().Context(), principal.ActorID); clientErr == nil {
+			if name := strings.TrimSpace(client.DisplayName); name != "" {
+				clientLabel = name
+			} else if email := strings.TrimSpace(client.Email); email != "" {
+				clientLabel = email
+			}
+		}
 		if recErr == nil {
 			for _, recipient := range recipients {
-				notifyErr := s.notifier.NotifyClientUpload(c.Request().Context(), mail.ClientUploadNotification{RecipientEmail: recipient, RecipientName: recipient, ClientLabel: principal.ActorID, TargetType: targetType, TargetID: targetID})
+				notifyErr := s.notifier.NotifyClientUpload(c.Request().Context(), mail.ClientUploadNotification{RecipientEmail: recipient, RecipientName: recipient, ClientLabel: clientLabel, FileName: filename, Message: message, TargetType: targetType, TargetID: targetID})
 				if notifyErr != nil {
 					s.log.Error("client upload notification failed", "recipient", recipient, "error", notifyErr.Error())
 				}
