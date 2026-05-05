@@ -26,7 +26,7 @@
           <span class="label-text">Add to Client Groups (optional)</span>
           <select class="select select-bordered w-full" name="group_ids" multiple size="6">
             {{range .ClientGroups}}
-            <option value="{{.ID}}">{{.Name}} ({{.ID}})</option>
+            <option value="{{.ID}}">{{.Name}}</option>
             {{end}}
           </select>
           <span class="label-text-alt">Leave unselected to create the client without a group.</span>

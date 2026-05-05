@@ -1364,6 +1364,7 @@ func TestUserShareFilesAppearsInUploaderList(t *testing.T) {
 func TestClientsManagementPageRendersForManager(t *testing.T) {
 	s := New(testConfig(), slog.Default())
 	managerCookie := login(t, s, "user", "u-manager-page", "account_manager")
+	createClientGroupForTests(t, "cg-manager-page")
 
 	req := httptest.NewRequest(http.MethodGet, "/user/clients", nil)
 	req.AddCookie(managerCookie)
@@ -1382,6 +1383,9 @@ func TestClientsManagementPageRendersForManager(t *testing.T) {
 	}
 	if !strings.Contains(body, "name=\"group_ids\"") {
 		t.Fatalf("body = %q, want optional group select on client form", body)
+	}
+	if strings.Contains(body, "(cg-manager-page)") {
+		t.Fatalf("body = %q, should not show group id in select option label", body)
 	}
 }
 
