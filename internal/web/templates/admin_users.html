@@ -38,7 +38,7 @@
                   {{range $.Roles}}<option value="{{.ID}}">{{.Name}}</option>{{end}}
                 </select>
                 <label class="label cursor-pointer justify-start gap-2"><input class="checkbox checkbox-sm" type="checkbox" name="is_active" value="1" {{if .IsActive}}checked{{end}}><span class="label-text">active</span></label>
-                <button class="btn btn-sm btn-outline" type="submit" data-pending-text="Saving...">Save</button>
+                <button class="btn btn-sm btn-primary" type="submit" data-pending-text="Saving...">Save</button>
               </form>
               <form method="post" action="/admin/users/{{.ID}}/reset-password" class="mt-2 flex gap-2" data-enhance="submission">
                 <input class="input input-bordered input-sm" type="password" name="new_password" minlength="12" placeholder="Reset password" required>

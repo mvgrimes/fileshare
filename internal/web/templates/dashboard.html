@@ -54,7 +54,7 @@
           {{range .DashboardReceivedFiles}}
           <tr>
             <td>{{.Name}}</td><td><span data-format-bytes="{{.SizeBytes}}">{{.SizeBytes}}</span></td><td>{{if .SharedAt}}<span data-format-datetime="{{.SharedAt}}">{{.SharedAt}}</span>{{end}}</td>
-            <td class="space-x-1"><a class="btn btn-xs btn-primary" href="/client/received/{{.ID}}">Details</a><a class="btn btn-xs btn-outline" href="/client/received/{{.ID}}/download">Download</a></td>
+            <td class="space-x-1"><a class="btn btn-xs btn-primary" href="/client/received/{{.ID}}">Details</a><a class="btn btn-xs btn-secondary" href="/client/received/{{.ID}}/download">Download</a></td>
           </tr>
           {{end}}
         </tbody>

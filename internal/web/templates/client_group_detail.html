@@ -47,7 +47,7 @@
         <input type="hidden" name="group_id" value="{{$.ClientGroup.ID}}">
         <input type="hidden" name="client_id" value="{{.ID}}">
         <span class="text-sm">{{.DisplayName}} ({{.Email}})</span>
-        <button class="btn btn-xs btn-outline" type="submit" data-pending-text="Removing...">Remove from Group</button>
+        <button class="btn btn-xs btn-warning" type="submit" data-pending-text="Removing...">Remove from Group</button>
       </form>
       {{end}}
     </div>
