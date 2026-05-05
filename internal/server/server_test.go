@@ -573,6 +573,18 @@ func TestClientDashboardShowsReceivedFilesAndUploadButton(t *testing.T) {
 	if !strings.Contains(body, "file-client-dashboard.dat") {
 		t.Fatalf("body = %q, want received file listed", body)
 	}
+	if strings.Contains(body, "<th>Type</th>") {
+		t.Fatalf("body = %q, should not show type column", body)
+	}
+	if strings.Contains(body, "<th>Shared Via</th>") {
+		t.Fatalf("body = %q, should not show shared via column", body)
+	}
+	if !strings.Contains(body, "data-format-bytes=") {
+		t.Fatalf("body = %q, want size formatting attribute", body)
+	}
+	if !strings.Contains(body, "data-format-datetime=") {
+		t.Fatalf("body = %q, want shared at formatting attribute", body)
+	}
 }
 
 func TestUserProfileUpdateNameAndPassword(t *testing.T) {

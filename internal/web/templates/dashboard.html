@@ -49,11 +49,11 @@
     {{if .DashboardReceivedFiles}}
     <div class="overflow-x-auto">
       <table class="table table-zebra">
-        <thead><tr><th>Name</th><th>Type</th><th>Size</th><th>Shared Via</th><th>Shared At</th><th></th></tr></thead>
+        <thead><tr><th>Name</th><th>Size</th><th>Shared At</th><th></th></tr></thead>
         <tbody>
           {{range .DashboardReceivedFiles}}
           <tr>
-            <td>{{.Name}}</td><td>{{.ContentType}}</td><td>{{.SizeBytes}}</td><td>{{.SharedVia}}</td><td>{{.SharedAt}}</td>
+            <td>{{.Name}}</td><td><span data-format-bytes="{{.SizeBytes}}">{{.SizeBytes}}</span></td><td>{{if .SharedAt}}<span data-format-datetime="{{.SharedAt}}">{{.SharedAt}}</span>{{end}}</td>
             <td class="space-x-1"><a class="btn btn-xs btn-primary" href="/client/received/{{.ID}}">Details</a><a class="btn btn-xs btn-outline" href="/client/received/{{.ID}}/download">Download</a></td>
           </tr>
           {{end}}
