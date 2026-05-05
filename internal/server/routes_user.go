@@ -769,11 +769,41 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 				sharedBy = strings.TrimSpace(cl.DisplayName)
 			}
 		}
+		sharedVia := selected.TargetType + ": " + selected.TargetID
+		switch selected.TargetType {
+		case "user":
+			users, usersErr := queries.ListUsers(c.Request().Context(), db.ListUsersParams{Limit: 200, Offset: 0})
+			if usersErr != nil {
+				return c.String(http.StatusInternalServerError, "failed to load users")
+			}
+			for _, u := range users {
+				if u.ID != selected.TargetID {
+					continue
+				}
+				if name := strings.TrimSpace(u.FullName); name != "" {
+					sharedVia = "User: " + name
+				} else {
+					sharedVia = "User: " + strings.TrimSpace(u.Email)
+				}
+				break
+			}
+		case "user_group":
+			groups, groupsErr := queries.ListUserGroups(c.Request().Context(), db.ListUserGroupsParams{Limit: 200, Offset: 0})
+			if groupsErr != nil {
+				return c.String(http.StatusInternalServerError, "failed to load user groups")
+			}
+			for _, g := range groups {
+				if g.ID == selected.TargetID {
+					sharedVia = "User Group: " + strings.TrimSpace(g.Name)
+					break
+				}
+			}
+		}
 		message := ""
 		if selected.Message.Valid {
 			message = strings.TrimSpace(selected.Message.String)
 		}
-		return c.Render(http.StatusOK, "shared_files", map[string]any{"Title": "Received Share Detail", "Subtitle": "File metadata and share details.", "ContentTemplate": "share_detail_content", "File": fileListItem{ID: selected.ID, FileID: file.ID, Name: file.OriginalFilename, ContentType: file.ContentType, SizeBytes: file.SizeBytes, SharedVia: selected.TargetType + ":" + selected.TargetID, SharedBy: sharedBy, SharedAt: selected.CreatedAt, UploadedAt: file.CreatedAt, Message: message}, "BackPath": "/user/received", "BackLabel": "Back to Received Files", "DownloadPath": "/user/file/" + file.ID + "/download"})
+		return c.Render(http.StatusOK, "shared_files", map[string]any{"Title": "Received Share Detail", "Subtitle": "File metadata and share details.", "ContentTemplate": "share_detail_content", "File": fileListItem{ID: selected.ID, FileID: file.ID, Name: file.OriginalFilename, ContentType: file.ContentType, SizeBytes: file.SizeBytes, SharedVia: sharedVia, SharedBy: sharedBy, SharedAt: selected.CreatedAt, UploadedAt: file.CreatedAt, Message: message}, "BackPath": "/user/received", "BackLabel": "Back to Received Files", "DownloadPath": "/user/file/" + file.ID + "/download"})
 	})
 
 	user.GET("/received/:shareID/download", func(c echo.Context) error {

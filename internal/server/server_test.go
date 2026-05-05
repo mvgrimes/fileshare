@@ -868,6 +868,12 @@ func TestClientSharedFilesListAndDetail(t *testing.T) {
 	if !strings.Contains(detailRec.Body.String(), "href=\"/client/file/file-list-direct/download\"") {
 		t.Fatalf("detail body = %q, want detail download link", detailRec.Body.String())
 	}
+	if !strings.Contains(detailRec.Body.String(), "Client: client-files-direct@example.com") {
+		t.Fatalf("detail body = %q, want shared via display name", detailRec.Body.String())
+	}
+	if !strings.Contains(detailRec.Body.String(), "User: u-seed") {
+		t.Fatalf("detail body = %q, want shared by display name", detailRec.Body.String())
+	}
 	if !strings.Contains(detailRec.Body.String(), "Back to Received Files") {
 		t.Fatalf("detail body = %q, want back link near title", detailRec.Body.String())
 	}
@@ -1042,6 +1048,9 @@ func TestUserReceivedFilesListAndDetail(t *testing.T) {
 	}
 	if !strings.Contains(detailRec.Body.String(), "Back to Received Files") {
 		t.Fatalf("detail body = %q, want back link near title", detailRec.Body.String())
+	}
+	if !strings.Contains(detailRec.Body.String(), "User: u-received") {
+		t.Fatalf("detail body = %q, want shared via display name", detailRec.Body.String())
 	}
 
 	forbiddenReq := httptest.NewRequest(http.MethodGet, "/user/received/share-hidden", nil)

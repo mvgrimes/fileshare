@@ -220,7 +220,39 @@ func (s *Server) registerClientRoutes(queries *db.Queries) {
 		if selected.Message.Valid {
 			message = strings.TrimSpace(selected.Message.String)
 		}
-		return c.Render(http.StatusOK, "shared_files", map[string]any{"Title": "Received Share Detail", "Subtitle": "File metadata and share details.", "ContentTemplate": "share_detail_content", "File": fileListItem{ID: selected.ID, FileID: file.ID, Name: file.OriginalFilename, ContentType: file.ContentType, SizeBytes: file.SizeBytes, SharedVia: selected.TargetType + ":" + selected.TargetID, SharedBy: selected.SharedByType + ":" + selected.SharedByID, SharedAt: selected.CreatedAt, UploadedAt: file.CreatedAt, Message: message}, "BackPath": "/client/received", "BackLabel": "Back to Received Files", "DownloadPath": "/client/file/" + file.ID + "/download", "FileDetailPath": "/client/file/" + file.ID})
+		sharedVia := selected.TargetType + ": " + selected.TargetID
+		switch selected.TargetType {
+		case "client":
+			client, clientErr := queries.GetClientByID(c.Request().Context(), selected.TargetID)
+			if clientErr == nil {
+				sharedVia = "Client: " + strings.TrimSpace(client.DisplayName)
+			}
+		case "client_group":
+			group, groupErr := queries.GetClientGroupByID(c.Request().Context(), selected.TargetID)
+			if groupErr == nil {
+				sharedVia = "Client Group: " + strings.TrimSpace(group.Name)
+			}
+		}
+		sharedBy := selected.SharedByType + ": " + selected.SharedByID
+		switch selected.SharedByType {
+		case "user":
+			sharedBy = "User: " + selected.SharedByID
+			user, userErr := queries.GetUserByID(c.Request().Context(), selected.SharedByID)
+			if userErr == nil {
+				if name := strings.TrimSpace(user.FullName); name != "" {
+					sharedBy = "User: " + name
+				} else {
+					sharedBy = "User: " + strings.TrimSpace(user.Email)
+				}
+			}
+		case "client":
+			sharedBy = "Client: " + selected.SharedByID
+			client, clientErr := queries.GetClientByID(c.Request().Context(), selected.SharedByID)
+			if clientErr == nil {
+				sharedBy = "Client: " + strings.TrimSpace(client.DisplayName)
+			}
+		}
+		return c.Render(http.StatusOK, "shared_files", map[string]any{"Title": "Received Share Detail", "Subtitle": "File metadata and share details.", "ContentTemplate": "share_detail_content", "File": fileListItem{ID: selected.ID, FileID: file.ID, Name: file.OriginalFilename, ContentType: file.ContentType, SizeBytes: file.SizeBytes, SharedVia: sharedVia, SharedBy: sharedBy, SharedAt: selected.CreatedAt, UploadedAt: file.CreatedAt, Message: message}, "BackPath": "/client/received", "BackLabel": "Back to Received Files", "DownloadPath": "/client/file/" + file.ID + "/download", "FileDetailPath": "/client/file/" + file.ID})
 	})
 	client.POST("/uploads", func(c echo.Context) error {
 		principal, _ := auth.PrincipalFromContext(c)
