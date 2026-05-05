@@ -68,6 +68,7 @@ type fileListItem struct {
 	SharedVia   string
 	UploadedAt  string
 	SharedAt    string
+	ViewStatus  string
 }
 
 type fileShareListItem struct {

@@ -33,6 +33,7 @@ type Querier interface {
 	DeleteShare(ctx context.Context, id string) error
 	DeleteUser(ctx context.Context, id string) error
 	DeleteUserGroup(ctx context.Context, id string) error
+	FileHasAnyClientDownload(ctx context.Context, fileID string) (bool, error)
 	GetClientByEmail(ctx context.Context, lower string) (Client, error)
 	GetClientByID(ctx context.Context, id string) (Client, error)
 	GetClientGroupByID(ctx context.Context, id string) (ClientGroup, error)
@@ -60,6 +61,7 @@ type Querier interface {
 	ListUserGroups(ctx context.Context, arg ListUserGroupsParams) ([]UserGroup, error)
 	ListUserRoles(ctx context.Context, userID string) ([]UserRole, error)
 	ListUsers(ctx context.Context, arg ListUsersParams) ([]User, error)
+	RecordShareDownload(ctx context.Context, arg RecordShareDownloadParams) error
 	RemoveClientFromGroup(ctx context.Context, arg RemoveClientFromGroupParams) error
 	RemoveUserFromGroup(ctx context.Context, arg RemoveUserFromGroupParams) error
 	RemoveUserRole(ctx context.Context, arg RemoveUserRoleParams) error

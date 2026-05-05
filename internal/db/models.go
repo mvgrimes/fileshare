@@ -112,6 +112,17 @@ type Share struct {
 	CreatedAt    string         `json:"created_at"`
 }
 
+type ShareDownload struct {
+	ID                string `json:"id"`
+	ShareID           string `json:"share_id"`
+	ClientID          string `json:"client_id"`
+	FirstDownloadedAt string `json:"first_downloaded_at"`
+	LastDownloadedAt  string `json:"last_downloaded_at"`
+	DownloadCount     int64  `json:"download_count"`
+	CreatedAt         string `json:"created_at"`
+	UpdatedAt         string `json:"updated_at"`
+}
+
 type User struct {
 	ID           string         `json:"id"`
 	Email        string         `json:"email"`

@@ -79,6 +79,48 @@ func TestSessionAndMagicLinkPersistenceFlows(t *testing.T) {
 	}
 }
 
+func TestShareDownloadTrackingQueries(t *testing.T) {
+	sqlDB := setupIntegrationDB(t)
+	queries := db.New(sqlDB)
+	ctx := context.Background()
+
+	if err := queries.CreateUser(ctx, db.CreateUserParams{ID: "u1", Email: "u1@example.com", FullName: "User One", PasswordHash: sql.NullString{}, IsActive: 1}); err != nil {
+		t.Fatalf("CreateUser() unexpected error: %v", err)
+	}
+	if err := queries.CreateClient(ctx, db.CreateClientParams{ID: "c1", Email: "c1@example.com", DisplayName: "Client One", CanUpload: 1, IsActive: 1}); err != nil {
+		t.Fatalf("CreateClient() unexpected error: %v", err)
+	}
+	if err := queries.CreateFile(ctx, db.CreateFileParams{ID: "f1", UploaderType: "user", UploaderID: "u1", OriginalFilename: "spec.pdf", StorageKey: "files/f1", ContentType: "application/pdf", SizeBytes: 42}); err != nil {
+		t.Fatalf("CreateFile() unexpected error: %v", err)
+	}
+	if err := queries.CreateShare(ctx, db.CreateShareParams{ID: "s1", FileID: "f1", SharedByType: "user", SharedByID: "u1", TargetType: "client", TargetID: "c1"}); err != nil {
+		t.Fatalf("CreateShare() unexpected error: %v", err)
+	}
+
+	viewed, err := queries.FileHasAnyClientDownload(ctx, "f1")
+	if err != nil {
+		t.Fatalf("FileHasAnyClientDownload() unexpected error: %v", err)
+	}
+	if viewed {
+		t.Fatalf("viewed before download = true, want false")
+	}
+
+	if err := queries.RecordShareDownload(ctx, db.RecordShareDownloadParams{ID: "d1", ShareID: "s1", ClientID: "c1"}); err != nil {
+		t.Fatalf("RecordShareDownload() first call unexpected error: %v", err)
+	}
+	if err := queries.RecordShareDownload(ctx, db.RecordShareDownloadParams{ID: "d2", ShareID: "s1", ClientID: "c1"}); err != nil {
+		t.Fatalf("RecordShareDownload() second call unexpected error: %v", err)
+	}
+
+	viewed, err = queries.FileHasAnyClientDownload(ctx, "f1")
+	if err != nil {
+		t.Fatalf("FileHasAnyClientDownload() unexpected error: %v", err)
+	}
+	if !viewed {
+		t.Fatalf("viewed after download = false, want true")
+	}
+}
+
 func setupIntegrationDB(t *testing.T) *sql.DB {
 	t.Helper()
 
