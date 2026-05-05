@@ -455,6 +455,9 @@ func TestUserDashboardShowsOnlyAuthorizedActions(t *testing.T) {
 	if !strings.Contains(body, "Upload Files") {
 		t.Fatalf("body = %q, want uploader action", body)
 	}
+	if strings.Index(body, "Received Files") > strings.Index(body, "Upload Files") {
+		t.Fatalf("body = %q, want upload action after received files", body)
+	}
 	if strings.Contains(body, "Manage Clients") {
 		t.Fatalf("body = %q, should not include manage clients action", body)
 	}

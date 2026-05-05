@@ -409,6 +409,12 @@ func dashboardActions(principal auth.Principal) []dashboardAction {
 			Path:        "/user/received",
 			Icon:        "inbox",
 		})
+		actions = append(actions, dashboardAction{
+			Label:       "Upload Files",
+			Description: "Submit files for sharing with approved recipients.",
+			Path:        "/user/uploads",
+			Icon:        "arrow-up-tray",
+		})
 	}
 	if auth.HasCapability(principal, auth.CapabilityManageClients) {
 		actions = append(actions, dashboardAction{
@@ -430,14 +436,6 @@ func dashboardActions(principal auth.Principal) []dashboardAction {
 			Description: "Administer user access and user roles.",
 			Path:        "/admin/users",
 			Icon:        "shield-check",
-		})
-	}
-	if auth.HasCapability(principal, auth.CapabilityUploadFiles) {
-		actions = append(actions, dashboardAction{
-			Label:       "Upload Files",
-			Description: "Submit files for sharing with approved recipients.",
-			Path:        "/user/uploads",
-			Icon:        "arrow-up-tray",
 		})
 	}
 	actions = append(actions, dashboardAction{

@@ -126,7 +126,7 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 			},
 			"ContentTemplate": "dashboard_content",
 		})
-	}, auth.RequireCapability(auth.CapabilityManageClients))
+	})
 
 	user.GET("/profile", func(c echo.Context) error {
 		principal, _ := auth.PrincipalFromContext(c)
