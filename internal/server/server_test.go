@@ -803,6 +803,12 @@ func TestClientSharedFilesListAndDetail(t *testing.T) {
 	if strings.Contains(listRec.Body.String(), "<th>Shared Via</th>") {
 		t.Fatalf("list body = %q, should not show shared via column", listRec.Body.String())
 	}
+	if strings.Contains(listRec.Body.String(), "<th>Status</th>") {
+		t.Fatalf("list body = %q, should not show status column", listRec.Body.String())
+	}
+	if strings.Contains(listRec.Body.String(), "<th>Uploaded At</th>") {
+		t.Fatalf("list body = %q, should not show uploaded at column", listRec.Body.String())
+	}
 
 	groupListReq := httptest.NewRequest(http.MethodGet, "/client/received", nil)
 	groupListReq.AddCookie(groupCookie)

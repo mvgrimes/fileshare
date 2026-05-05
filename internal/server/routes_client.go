@@ -222,7 +222,7 @@ func (s *Server) registerClientRoutes(queries *db.Queries) {
 			itemIndex[f.ID] = len(items)
 			items = append(items, fileListItem{ID: f.ID, Name: f.OriginalFilename, ContentType: f.ContentType, SizeBytes: f.SizeBytes, SharedVia: joinedShareTargets(viaSet), SharedAt: fileSharedAt[f.ID]})
 		}
-		return c.Render(http.StatusOK, "shared_files", map[string]any{"Title": "Received Files", "Subtitle": "Files sent to your client account.", "ContentTemplate": "shared_files_content", "Files": items, "EmptyMessage": "No files have been received yet.", "DetailBasePath": "/client/received", "DownloadBasePath": "/client/received"})
+		return c.Render(http.StatusOK, "shared_files", map[string]any{"Title": "Received Files", "Subtitle": "Files sent to your client account.", "ContentTemplate": "shared_files_content", "Files": items, "EmptyMessage": "No files have been received yet.", "DetailBasePath": "/client/received", "DownloadBasePath": "/client/received", "HideStatusColumn": true, "HideUploadedAtColumn": true})
 	})
 	client.GET("/received/:fileID", func(c echo.Context) error {
 		principal, _ := auth.PrincipalFromContext(c)
