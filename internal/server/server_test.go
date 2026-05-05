@@ -927,8 +927,14 @@ func TestUserSharedFilesListAndDetail(t *testing.T) {
 	if !strings.Contains(ownerDetailRec.Body.String(), "href=\"/user/sent/file-owned/download\"") {
 		t.Fatalf("owner detail body = %q, want detail download link", ownerDetailRec.Body.String())
 	}
+	if !strings.Contains(ownerDetailRec.Body.String(), "Client: c-shared-target@example.com") {
+		t.Fatalf("owner detail body = %q, want current shares to show client name", ownerDetailRec.Body.String())
+	}
 	if !strings.Contains(ownerDetailRec.Body.String(), "Viewing History") || !strings.Contains(ownerDetailRec.Body.String(), "c-viewer-owned@example.com") || !strings.Contains(ownerDetailRec.Body.String(), "Viewed At:") {
 		t.Fatalf("owner detail body = %q, want viewing history card with viewer and viewed timestamp", ownerDetailRec.Body.String())
+	}
+	if strings.Count(ownerDetailRec.Body.String(), "Back to List") != 1 || strings.Index(ownerDetailRec.Body.String(), "Back to List") > strings.Index(ownerDetailRec.Body.String(), "Delete File") {
+		t.Fatalf("owner detail body = %q, want back-to-list in details card before delete card", ownerDetailRec.Body.String())
 	}
 	if strings.Count(ownerDetailRec.Body.String(), "class=\"card bg-base-100 shadow-sm") < 4 {
 		t.Fatalf("owner detail body = %q, want separate cards for file management sections", ownerDetailRec.Body.String())

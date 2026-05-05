@@ -359,25 +359,64 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 		if err != nil {
 			return c.String(http.StatusInternalServerError, "failed to load shares")
 		}
-		shareItems := make([]fileShareListItem, 0, len(shares))
-		for _, sh := range shares {
-			shareItems = append(shareItems, fileShareListItem{ID: sh.ID, TargetType: sh.TargetType, TargetID: sh.TargetID, TargetLabel: sh.TargetType + ":" + sh.TargetID})
-		}
 		clients, err := queries.ListClients(c.Request().Context(), db.ListClientsParams{Limit: 200, Offset: 0})
 		if err != nil {
 			return c.String(http.StatusInternalServerError, "failed to load clients")
+		}
+		clientByID := make(map[string]db.Client, len(clients))
+		for _, cl := range clients {
+			clientByID[cl.ID] = cl
 		}
 		clientGroups, err := queries.ListClientGroups(c.Request().Context(), db.ListClientGroupsParams{Limit: 200, Offset: 0})
 		if err != nil {
 			return c.String(http.StatusInternalServerError, "failed to load client groups")
 		}
+		clientGroupByID := make(map[string]db.ClientGroup, len(clientGroups))
+		for _, cg := range clientGroups {
+			clientGroupByID[cg.ID] = cg
+		}
 		users, err := queries.ListUsers(c.Request().Context(), db.ListUsersParams{Limit: 200, Offset: 0})
 		if err != nil {
 			return c.String(http.StatusInternalServerError, "failed to load users")
 		}
+		userByID := make(map[string]db.User, len(users))
+		for _, u := range users {
+			userByID[u.ID] = u
+		}
 		userGroups, err := queries.ListUserGroups(c.Request().Context(), db.ListUserGroupsParams{Limit: 200, Offset: 0})
 		if err != nil {
 			return c.String(http.StatusInternalServerError, "failed to load user groups")
+		}
+		userGroupByID := make(map[string]db.UserGroup, len(userGroups))
+		for _, ug := range userGroups {
+			userGroupByID[ug.ID] = ug
+		}
+		shareItems := make([]fileShareListItem, 0, len(shares))
+		for _, sh := range shares {
+			targetLabel := sh.TargetType + ":" + sh.TargetID
+			switch sh.TargetType {
+			case "client":
+				if cl, ok := clientByID[sh.TargetID]; ok {
+					targetLabel = "Client: " + strings.TrimSpace(cl.DisplayName)
+				}
+			case "client_group":
+				if cg, ok := clientGroupByID[sh.TargetID]; ok {
+					targetLabel = "Client Group: " + strings.TrimSpace(cg.Name)
+				}
+			case "user":
+				if u, ok := userByID[sh.TargetID]; ok {
+					if name := strings.TrimSpace(u.FullName); name != "" {
+						targetLabel = "User: " + name
+					} else {
+						targetLabel = "User: " + strings.TrimSpace(u.Email)
+					}
+				}
+			case "user_group":
+				if ug, ok := userGroupByID[sh.TargetID]; ok {
+					targetLabel = "User Group: " + strings.TrimSpace(ug.Name)
+				}
+			}
+			shareItems = append(shareItems, fileShareListItem{ID: sh.ID, TargetType: sh.TargetType, TargetID: sh.TargetID, TargetLabel: targetLabel})
 		}
 		viewHistory, err := queries.ListFileViewHistory(c.Request().Context(), fileID)
 		if err != nil {
