@@ -873,6 +873,17 @@ func TestUserSharedFilesListAndDetail(t *testing.T) {
 
 	createFileWithUploader(t, "file-owned", "u-owner-files")
 	createFileWithUploader(t, "file-other", "u-other-files")
+	createClientWithoutPassword(t, "c-viewer-owned", "c-viewer-owned@example.com", true)
+	createShareForTests(t, "share-owned-view", "file-owned", "client", "c-viewer-owned")
+
+	sqlDB, err := sql.Open("sqlite", testConfig().DatabaseURL)
+	if err != nil {
+		t.Fatalf("sql.Open() unexpected error: %v", err)
+	}
+	defer sqlDB.Close()
+	if err := db.New(sqlDB).RecordShareDownload(context.Background(), db.RecordShareDownloadParams{ID: "download-owned-view", ShareID: "share-owned-view", ClientID: "c-viewer-owned"}); err != nil {
+		t.Fatalf("RecordShareDownload() error: %v", err)
+	}
 	createShareForTests(t, "share-owned-client", "file-owned", "client", "c-shared-target")
 	createShareForTests(t, "share-owned-group", "file-owned", "client_group", "cg-shared-target")
 
@@ -896,7 +907,7 @@ func TestUserSharedFilesListAndDetail(t *testing.T) {
 	if !strings.Contains(body, "Client: c-shared-target@example.com") || !strings.Contains(body, "Client Group: Download Group cg-shared-target") {
 		t.Fatalf("list body = %q, want share target labels", body)
 	}
-	if strings.Count(body, "file-owned.dat") != 2 {
+	if strings.Count(body, "file-owned.dat") != 3 {
 		t.Fatalf("list body = %q, want one row per share target", body)
 	}
 	if strings.Contains(body, "file-other.dat") {
@@ -915,6 +926,12 @@ func TestUserSharedFilesListAndDetail(t *testing.T) {
 	}
 	if !strings.Contains(ownerDetailRec.Body.String(), "href=\"/user/sent/file-owned/download\"") {
 		t.Fatalf("owner detail body = %q, want detail download link", ownerDetailRec.Body.String())
+	}
+	if !strings.Contains(ownerDetailRec.Body.String(), "Viewing History") || !strings.Contains(ownerDetailRec.Body.String(), "c-viewer-owned@example.com") || !strings.Contains(ownerDetailRec.Body.String(), "Viewed At:") {
+		t.Fatalf("owner detail body = %q, want viewing history card with viewer and viewed timestamp", ownerDetailRec.Body.String())
+	}
+	if strings.Count(ownerDetailRec.Body.String(), "class=\"card bg-base-100 shadow-sm") < 4 {
+		t.Fatalf("owner detail body = %q, want separate cards for file management sections", ownerDetailRec.Body.String())
 	}
 
 	forbiddenReq := httptest.NewRequest(http.MethodGet, "/user/sent/file-owned", nil)

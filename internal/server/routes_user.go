@@ -379,7 +379,11 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 		if err != nil {
 			return c.String(http.StatusInternalServerError, "failed to load user groups")
 		}
-		return c.Render(http.StatusOK, "shared_files", map[string]any{"Title": "Sent File Detail", "Subtitle": "Detailed metadata for your sent file.", "ContentTemplate": "file_detail_content", "File": fileListItem{ID: file.ID, Name: file.OriginalFilename, ContentType: file.ContentType, SizeBytes: file.SizeBytes, SharedVia: "sent", UploadedAt: file.CreatedAt}, "BackPath": "/user/sent", "DownloadPath": "/user/sent/" + file.ID + "/download", "ManageFile": true, "ManageBasePath": "/user/sent", "ShareTargets": shareItems, "Clients": clients, "ClientGroups": clientGroups, "Users": users, "UserGroups": userGroups, "FlashError": c.QueryParam("error"), "FlashSuccess": c.QueryParam("success")})
+		viewHistory, err := queries.ListFileViewHistory(c.Request().Context(), fileID)
+		if err != nil {
+			return c.String(http.StatusInternalServerError, "failed to load view history")
+		}
+		return c.Render(http.StatusOK, "shared_files", map[string]any{"Title": "Sent File Detail", "Subtitle": "Detailed metadata for your sent file.", "ContentTemplate": "user_sent_file_detail_content", "File": fileListItem{ID: file.ID, Name: file.OriginalFilename, ContentType: file.ContentType, SizeBytes: file.SizeBytes, SharedVia: "sent", UploadedAt: file.CreatedAt}, "BackPath": "/user/sent", "DownloadPath": "/user/sent/" + file.ID + "/download", "ManageFile": true, "ManageBasePath": "/user/sent", "ShareTargets": shareItems, "Clients": clients, "ClientGroups": clientGroups, "Users": users, "UserGroups": userGroups, "ViewHistory": viewHistory, "FlashError": c.QueryParam("error"), "FlashSuccess": c.QueryParam("success")})
 	})
 
 	user.POST("/sent/:fileID/rename", func(c echo.Context) error {

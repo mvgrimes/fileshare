@@ -25,6 +25,47 @@ func (q *Queries) FileHasAnyClientDownload(ctx context.Context, fileID string) (
 	return exists, err
 }
 
+const listFileViewHistory = `-- name: ListFileViewHistory :many
+SELECT
+  c.display_name AS viewer_name,
+  sd.last_downloaded_at AS viewed_at,
+  sd.download_count
+FROM share_downloads sd
+JOIN shares s ON s.id = sd.share_id
+JOIN clients c ON c.id = sd.client_id
+WHERE s.file_id = ?
+ORDER BY sd.last_downloaded_at DESC
+`
+
+type ListFileViewHistoryRow struct {
+	ViewerName    string `json:"viewer_name"`
+	ViewedAt      string `json:"viewed_at"`
+	DownloadCount int64  `json:"download_count"`
+}
+
+func (q *Queries) ListFileViewHistory(ctx context.Context, fileID string) ([]ListFileViewHistoryRow, error) {
+	rows, err := q.db.QueryContext(ctx, listFileViewHistory, fileID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListFileViewHistoryRow
+	for rows.Next() {
+		var i ListFileViewHistoryRow
+		if err := rows.Scan(&i.ViewerName, &i.ViewedAt, &i.DownloadCount); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const recordShareDownload = `-- name: RecordShareDownload :exec
 INSERT INTO share_downloads (id, share_id, client_id)
 VALUES (?, ?, ?)

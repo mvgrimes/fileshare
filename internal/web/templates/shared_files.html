@@ -32,6 +32,106 @@
 </section>
 {{end}}
 
+{{define "user_sent_file_detail_content"}}
+<section class="grid gap-4 lg:grid-cols-2">
+  <article class="card bg-base-100 shadow-sm lg:col-span-2">
+    <div class="card-body gap-3">
+      {{template "page_header" .}}
+      <p><strong>Name:</strong> {{.File.Name}}</p>
+      <p><strong>ID:</strong> <code>{{.File.ID}}</code></p>
+      <p><strong>Content Type:</strong> {{.File.ContentType}}</p>
+      <p><strong>Size:</strong> <span data-format-bytes="{{.File.SizeBytes}}">{{.File.SizeBytes}}</span></p>
+      <p><strong>Uploaded At:</strong> {{if .File.UploadedAt}}<span data-format-datetime="{{.File.UploadedAt}}">{{.File.UploadedAt}}</span>{{end}}</p>
+      {{if .DownloadPath}}<a class="btn btn-sm btn-outline" href="{{.DownloadPath}}">Download</a>{{end}}
+    </div>
+  </article>
+
+  <article class="card bg-base-100 shadow-sm">
+    <div class="card-body gap-3">
+      <h3 class="text-lg font-semibold">Rename File</h3>
+      <form method="post" action="{{.ManageBasePath}}/{{.File.ID}}/rename" class="space-y-2" data-enhance="submission">
+        <input class="input input-bordered w-full" type="text" name="filename" required value="{{.File.Name}}">
+        <button class="btn btn-sm btn-primary" type="submit" data-pending-text="Renaming...">Rename</button>
+      </form>
+    </div>
+  </article>
+
+  <article class="card bg-base-100 shadow-sm">
+    <div class="card-body gap-3">
+      <h3 class="text-lg font-semibold">Viewing History</h3>
+      {{if .ViewHistory}}
+      <div class="space-y-2">
+        {{range .ViewHistory}}
+        <div class="rounded-box border border-base-300 p-2 text-sm">
+          <p><strong>Viewer:</strong> {{.ViewerName}}</p>
+          <p><strong>Viewed At:</strong> <span data-format-datetime="{{.ViewedAt}}">{{.ViewedAt}}</span></p>
+          <p><strong>Total Views:</strong> {{.DownloadCount}}</p>
+        </div>
+        {{end}}
+      </div>
+      {{else}}
+      <p class="text-sm opacity-70">No views yet.</p>
+      {{end}}
+    </div>
+  </article>
+
+  <article class="card bg-base-100 shadow-sm lg:col-span-2">
+    <div class="card-body gap-3">
+      <h3 class="text-lg font-semibold">Share With Additional Targets</h3>
+      <form method="post" action="{{.ManageBasePath}}/{{.File.ID}}/shares" class="grid gap-2 md:grid-cols-2" data-enhance="submission">
+        <label class="form-control w-full">
+          <span class="label-text">Target Type</span>
+          <select class="select select-bordered w-full" name="target_type" required>
+            <option value="client">Client</option>
+            <option value="client_group">Client Group</option>
+            <option value="user">User</option>
+            <option value="user_group">User Group</option>
+          </select>
+        </label>
+        <label class="form-control w-full">
+          <span class="label-text">Target ID</span>
+          <select class="select select-bordered w-full" name="target_id" required>
+            {{range .Clients}}<option value="{{.ID}}">Client: {{.DisplayName}} ({{.ID}})</option>{{end}}
+            {{range .ClientGroups}}<option value="{{.ID}}">Client Group: {{.Name}} ({{.ID}})</option>{{end}}
+            {{range .Users}}<option value="{{.ID}}">User: {{.FullName}} ({{.ID}})</option>{{end}}
+            {{range .UserGroups}}<option value="{{.ID}}">User Group: {{.Name}} ({{.ID}})</option>{{end}}
+          </select>
+        </label>
+        <label class="form-control w-full md:col-span-2">
+          <span class="label-text">Message (optional)</span>
+          <textarea class="textarea textarea-bordered w-full" name="message" rows="3"></textarea>
+        </label>
+        <button class="btn btn-sm btn-primary md:col-span-2" type="submit" data-pending-text="Sharing...">Add Share</button>
+      </form>
+
+      <h3 class="text-lg font-semibold mt-3">Current Shares</h3>
+      {{if .ShareTargets}}
+      <div class="space-y-2">
+        {{range .ShareTargets}}
+        <form method="post" action="{{$.ManageBasePath}}/{{$.File.ID}}/shares/{{.ID}}/delete" class="flex items-center justify-between gap-2 rounded-box border border-base-300 p-2" data-enhance="submission">
+          <span class="text-sm">{{.TargetLabel}}</span>
+          <button class="btn btn-xs btn-outline" type="submit" data-pending-text="Removing...">Unshare</button>
+        </form>
+        {{end}}
+      </div>
+      {{else}}
+      <p class="text-sm opacity-70">No current shares.</p>
+      {{end}}
+    </div>
+  </article>
+
+  <article class="card bg-base-100 shadow-sm lg:col-span-2">
+    <div class="card-body gap-3">
+      <h3 class="text-lg font-semibold">Delete File</h3>
+      <form method="post" action="{{.ManageBasePath}}/{{.File.ID}}/delete" data-enhance="submission">
+        <button class="btn btn-sm btn-error" type="submit" data-pending-text="Deleting...">Delete File</button>
+      </form>
+      <a class="btn btn-sm btn-ghost" href="{{.BackPath}}">Back to List</a>
+    </div>
+  </article>
+</section>
+{{end}}
+
 {{define "file_detail_content"}}
 <section class="card bg-base-100 shadow-sm">
   <div class="card-body gap-3">

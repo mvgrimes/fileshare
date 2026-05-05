@@ -50,6 +50,7 @@ type Querier interface {
 	ListClientUploadPermissionsByOwner(ctx context.Context, arg ListClientUploadPermissionsByOwnerParams) ([]ClientUploadPermission, error)
 	ListClients(ctx context.Context, arg ListClientsParams) ([]Client, error)
 	ListEmailEventsByStatus(ctx context.Context, arg ListEmailEventsByStatusParams) ([]EmailEvent, error)
+	ListFileViewHistory(ctx context.Context, fileID string) ([]ListFileViewHistoryRow, error)
 	ListFilesByUploader(ctx context.Context, arg ListFilesByUploaderParams) ([]File, error)
 	ListGroupClients(ctx context.Context, clientGroupID string) ([]Client, error)
 	ListGroupUsers(ctx context.Context, userGroupID string) ([]ListGroupUsersRow, error)

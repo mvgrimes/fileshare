@@ -13,3 +13,14 @@ SELECT EXISTS (
   JOIN share_downloads sd ON sd.share_id = s.id
   WHERE s.file_id = ?
 );
+
+-- name: ListFileViewHistory :many
+SELECT
+  c.display_name AS viewer_name,
+  sd.last_downloaded_at AS viewed_at,
+  sd.download_count
+FROM share_downloads sd
+JOIN shares s ON s.id = sd.share_id
+JOIN clients c ON c.id = sd.client_id
+WHERE s.file_id = ?
+ORDER BY sd.last_downloaded_at DESC;
