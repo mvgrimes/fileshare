@@ -24,7 +24,7 @@
           <select class="select select-bordered w-full" name="group_id" required>
             <option value="" disabled selected>Select a group</option>
             {{range .ClientGroups}}
-            <option value="{{.ID}}">{{.Name}} ({{.ID}})</option>
+            <option value="{{.ID}}">{{.Name}}</option>
             {{end}}
           </select>
         </label>
@@ -49,7 +49,7 @@
     {{if .ClientGroupItems}}
     <ul class="menu bg-base-100 w-full">
       {{range .ClientGroupItems}}
-      <li><span>{{.Name}} ({{.MemberCount}} members)</span></li>
+      <li><a href="/user/client-groups/{{.ID}}">{{.Name}} ({{.MemberCount}} members)</a></li>
       {{end}}
     </ul>
     {{else}}

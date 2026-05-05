@@ -1,0 +1,59 @@
+{{define "client_group_detail"}}{{template "base" .}}{{end}}
+
+{{define "client_group_detail_content"}}
+<section class="grid gap-4 lg:grid-cols-2">
+  <article class="card bg-base-100 shadow-sm">
+    <div class="card-body gap-4">
+      {{template "page_header" .}}
+      <form method="post" action="/user/client-groups/update" class="grid gap-3" data-enhance="submission">
+        <input type="hidden" name="group_id" value="{{.ClientGroup.ID}}">
+        <label class="form-control w-full">
+          <span class="label-text">Group Name</span>
+          <input class="input input-bordered w-full" type="text" name="name" required value="{{.ClientGroup.Name}}">
+        </label>
+        <button class="btn btn-primary" type="submit" data-pending-text="Saving...">Save Name</button>
+      </form>
+      <a class="btn btn-ghost btn-sm" href="/user/client-groups">Back to Client Groups</a>
+    </div>
+  </article>
+
+  <article class="card bg-base-100 shadow-sm">
+    <div class="card-body gap-4">
+      <h2 class="text-xl font-semibold">Add Client to Group</h2>
+      <form method="post" action="/user/client-groups/memberships/add" class="grid gap-3" data-enhance="submission">
+        <input type="hidden" name="group_id" value="{{.ClientGroup.ID}}">
+        <label class="form-control w-full">
+          <span class="label-text">Client</span>
+          <select class="select select-bordered w-full" name="client_id" required>
+            <option value="" disabled selected>Select a client</option>
+            {{range .Clients}}
+            <option value="{{.ID}}">{{.DisplayName}} ({{.Email}})</option>
+            {{end}}
+          </select>
+        </label>
+        <button class="btn btn-primary" type="submit" data-pending-text="Adding...">Add Membership</button>
+      </form>
+    </div>
+  </article>
+</section>
+
+<section class="card bg-base-100 shadow-sm mt-4">
+  <div class="card-body">
+    <h2 class="text-xl font-semibold">Group Members</h2>
+    {{if .GroupMembers}}
+    <div class="space-y-2">
+      {{range .GroupMembers}}
+      <form method="post" action="/user/client-groups/memberships/remove" class="flex items-center justify-between gap-2 rounded-box border border-base-300 p-2" data-enhance="submission">
+        <input type="hidden" name="group_id" value="{{$.ClientGroup.ID}}">
+        <input type="hidden" name="client_id" value="{{.ID}}">
+        <span class="text-sm">{{.DisplayName}} ({{.Email}})</span>
+        <button class="btn btn-xs btn-outline" type="submit" data-pending-text="Removing...">Remove from Group</button>
+      </form>
+      {{end}}
+    </div>
+    {{else}}
+    <p class="opacity-70">No clients in this group yet.</p>
+    {{end}}
+  </div>
+</section>
+{{end}}

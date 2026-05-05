@@ -126,7 +126,7 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 			},
 			"ContentTemplate": "dashboard_content",
 		})
-	})
+	}, auth.RequireCapability(auth.CapabilityManageClients))
 
 	user.GET("/profile", func(c echo.Context) error {
 		principal, _ := auth.PrincipalFromContext(c)
@@ -138,7 +138,7 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 			return c.String(http.StatusInternalServerError, "failed to load profile")
 		}
 		return c.Render(http.StatusOK, "profile", map[string]any{"Title": "Profile", "Subtitle": "Update your name and password.", "ContentTemplate": "profile_content", "ProfileType": "user", "ActorID": principal.ActorID, "Email": account.Email, "DisplayName": account.FullName, "FormAction": "/user/profile", "FlashError": c.QueryParam("error"), "FlashSuccess": c.QueryParam("success")})
-	})
+	}, auth.RequireCapability(auth.CapabilityManageClients))
 
 	user.POST("/profile", func(c echo.Context) error {
 		principal, _ := auth.PrincipalFromContext(c)
@@ -657,7 +657,7 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 			return c.String(http.StatusInternalServerError, "failed to load client groups")
 		}
 		return c.Render(http.StatusOK, "clients_management", map[string]any{"Title": "Client Management", "Subtitle": "Create clients and manage client accounts.", "ContentTemplate": "clients_management_content", "FlashError": c.QueryParam("error"), "FlashSuccess": c.QueryParam("success"), "Clients": clients, "ClientGroups": groups})
-	}, auth.RequireCapability(auth.CapabilityManageClients))
+	})
 
 	user.GET("/client-groups", func(c echo.Context) error {
 		principal, _ := auth.PrincipalFromContext(c)
@@ -681,7 +681,31 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 			groupItems = append(groupItems, clientGroupListItem{ID: g.ID, Name: g.Name, MemberCount: len(members)})
 		}
 		return c.Render(http.StatusOK, "client_groups_management", map[string]any{"Title": "Client Groups", "Subtitle": "Create groups and add client memberships.", "ContentTemplate": "client_groups_management_content", "FlashError": c.QueryParam("error"), "FlashSuccess": c.QueryParam("success"), "Clients": clients, "ClientGroups": groups, "ClientGroupItems": groupItems})
-	}, auth.RequireCapability(auth.CapabilityManageClients))
+	})
+
+	user.GET("/client-groups/:groupID", func(c echo.Context) error {
+		principal, _ := auth.PrincipalFromContext(c)
+		if err := s.authz.AuthorizeManageClients(principal); err != nil {
+			return c.String(http.StatusForbidden, "forbidden")
+		}
+		groupID := strings.TrimSpace(c.Param("groupID"))
+		group, err := queries.GetClientGroupByID(c.Request().Context(), groupID)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return c.String(http.StatusNotFound, "client group not found")
+			}
+			return c.String(http.StatusInternalServerError, "failed to load client group")
+		}
+		members, err := queries.ListGroupClients(c.Request().Context(), groupID)
+		if err != nil {
+			return c.String(http.StatusInternalServerError, "failed to load client group members")
+		}
+		clients, err := queries.ListClients(c.Request().Context(), db.ListClientsParams{Limit: 200, Offset: 0})
+		if err != nil {
+			return c.String(http.StatusInternalServerError, "failed to load clients")
+		}
+		return c.Render(http.StatusOK, "client_group_detail", map[string]any{"Title": "Client Group Detail", "Subtitle": "Update group settings and memberships.", "ContentTemplate": "client_group_detail_content", "FlashError": c.QueryParam("error"), "FlashSuccess": c.QueryParam("success"), "ClientGroup": group, "GroupMembers": members, "Clients": clients})
+	})
 
 	user.POST("/clients", func(c echo.Context) error {
 		principal, _ := auth.PrincipalFromContext(c)
@@ -873,4 +897,74 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 		}
 		return c.NoContent(http.StatusCreated)
 	}, auth.RequireCapability(auth.CapabilityManageClients))
+
+	user.POST("/client-groups/update", func(c echo.Context) error {
+		principal, _ := auth.PrincipalFromContext(c)
+		if err := s.authz.AuthorizeManageClients(principal); err != nil {
+			return c.String(http.StatusForbidden, "forbidden")
+		}
+		groupID := strings.TrimSpace(c.FormValue("group_id"))
+		name := strings.TrimSpace(c.FormValue("name"))
+		if name == "" {
+			if isHTMLRequest(c) {
+				return c.Redirect(http.StatusSeeOther, "/user/client-groups/"+groupID+"?error="+url.QueryEscape("name is required"))
+			}
+			return c.String(http.StatusBadRequest, "name is required")
+		}
+		if err := queries.UpdateClientGroup(c.Request().Context(), db.UpdateClientGroupParams{ID: groupID, Name: name}); err != nil {
+			s.log.Error("update client group failed", "group_id", groupID, "name", name, "error", err.Error())
+			if isHTMLRequest(c) {
+				return c.Redirect(http.StatusSeeOther, "/user/client-groups/"+groupID+"?error="+url.QueryEscape("failed to update client group"))
+			}
+			return c.String(http.StatusInternalServerError, "failed to update client group")
+		}
+		if isHTMLRequest(c) {
+			return c.Redirect(http.StatusSeeOther, "/user/client-groups/"+groupID+"?success="+url.QueryEscape("Client group updated"))
+		}
+		return c.NoContent(http.StatusNoContent)
+	})
+
+	user.POST("/client-groups/memberships/add", func(c echo.Context) error {
+		principal, _ := auth.PrincipalFromContext(c)
+		if err := s.authz.AuthorizeManageClients(principal); err != nil {
+			return c.String(http.StatusForbidden, "forbidden")
+		}
+		groupID := strings.TrimSpace(c.FormValue("group_id"))
+		clientID := strings.TrimSpace(c.FormValue("client_id"))
+		if clientID == "" {
+			if isHTMLRequest(c) {
+				return c.Redirect(http.StatusSeeOther, "/user/client-groups/"+groupID+"?error="+url.QueryEscape("client_id is required"))
+			}
+			return c.String(http.StatusBadRequest, "client_id is required")
+		}
+		if err := queries.AddClientToGroup(c.Request().Context(), db.AddClientToGroupParams{ClientGroupID: groupID, ClientID: clientID}); err != nil {
+			if isHTMLRequest(c) {
+				return c.Redirect(http.StatusSeeOther, "/user/client-groups/"+groupID+"?error="+url.QueryEscape("failed to add membership"))
+			}
+			return c.String(http.StatusInternalServerError, "failed to add membership")
+		}
+		if isHTMLRequest(c) {
+			return c.Redirect(http.StatusSeeOther, "/user/client-groups/"+groupID+"?success="+url.QueryEscape("Membership added"))
+		}
+		return c.NoContent(http.StatusCreated)
+	})
+
+	user.POST("/client-groups/memberships/remove", func(c echo.Context) error {
+		principal, _ := auth.PrincipalFromContext(c)
+		if err := s.authz.AuthorizeManageClients(principal); err != nil {
+			return c.String(http.StatusForbidden, "forbidden")
+		}
+		groupID := strings.TrimSpace(c.FormValue("group_id"))
+		clientID := strings.TrimSpace(c.FormValue("client_id"))
+		if err := queries.RemoveClientFromGroup(c.Request().Context(), db.RemoveClientFromGroupParams{ClientGroupID: groupID, ClientID: clientID}); err != nil {
+			if isHTMLRequest(c) {
+				return c.Redirect(http.StatusSeeOther, "/user/client-groups/"+groupID+"?error="+url.QueryEscape("failed to remove membership"))
+			}
+			return c.String(http.StatusInternalServerError, "failed to remove membership")
+		}
+		if isHTMLRequest(c) {
+			return c.Redirect(http.StatusSeeOther, "/user/client-groups/"+groupID+"?success="+url.QueryEscape("Membership removed"))
+		}
+		return c.NoContent(http.StatusNoContent)
+	})
 }

@@ -1507,6 +1507,82 @@ func TestClientManagementGroupListShowsMemberCount(t *testing.T) {
 	}
 }
 
+func TestClientGroupDetailRouteSupportsUpdateAndMembershipManagement(t *testing.T) {
+	s := New(testConfig(), slog.Default())
+	managerCookie := login(t, s, "user", "u-manager-group-detail", "account_manager")
+	createClientWithoutPassword(t, "client-detail-a", "client-detail-a@example.com", true)
+	createClientWithoutPassword(t, "client-detail-b", "client-detail-b@example.com", true)
+	createClientGroupForTests(t, "cg-detail")
+	addClientToGroupForTests(t, "cg-detail", "client-detail-a")
+
+	listReq := httptest.NewRequest(http.MethodGet, "/user/client-groups", nil)
+	listReq.AddCookie(managerCookie)
+	listRec := httptest.NewRecorder()
+	s.e.ServeHTTP(listRec, listReq)
+	if listRec.Code != http.StatusOK {
+		t.Fatalf("list status = %d, want %d", listRec.Code, http.StatusOK)
+	}
+	if !strings.Contains(listRec.Body.String(), "href=\"/user/client-groups/cg-detail\"") {
+		t.Fatalf("list body = %q, want detail page link", listRec.Body.String())
+	}
+
+	detailReq := httptest.NewRequest(http.MethodGet, "/user/client-groups/cg-detail", nil)
+	detailReq.AddCookie(managerCookie)
+	detailRec := httptest.NewRecorder()
+	s.e.ServeHTTP(detailRec, detailReq)
+	if detailRec.Code != http.StatusOK {
+		t.Fatalf("detail status = %d, want %d", detailRec.Code, http.StatusOK)
+	}
+	if !strings.Contains(detailRec.Body.String(), "Remove from Group") || !strings.Contains(detailRec.Body.String(), "client-detail-a@example.com") {
+		t.Fatalf("detail body = %q, want member list and remove action", detailRec.Body.String())
+	}
+
+	updateReq := httptest.NewRequest(http.MethodPost, "/user/client-groups/update", bytes.NewBufferString("group_id=cg-detail&name=Renamed+Detail+Group"))
+	updateReq.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
+	updateReq.AddCookie(managerCookie)
+	updateRec := httptest.NewRecorder()
+	s.e.ServeHTTP(updateRec, updateReq)
+	if updateRec.Code != http.StatusNoContent {
+		t.Fatalf("update status = %d, want %d, body=%q", updateRec.Code, http.StatusNoContent, updateRec.Body.String())
+	}
+
+	addReq := httptest.NewRequest(http.MethodPost, "/user/client-groups/memberships/add", bytes.NewBufferString("group_id=cg-detail&client_id=client-detail-b"))
+	addReq.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
+	addReq.AddCookie(managerCookie)
+	addRec := httptest.NewRecorder()
+	s.e.ServeHTTP(addRec, addReq)
+	if addRec.Code != http.StatusCreated {
+		t.Fatalf("add membership status = %d, want %d", addRec.Code, http.StatusCreated)
+	}
+
+	removeReq := httptest.NewRequest(http.MethodPost, "/user/client-groups/memberships/remove", bytes.NewBufferString("group_id=cg-detail&client_id=client-detail-a"))
+	removeReq.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
+	removeReq.AddCookie(managerCookie)
+	removeRec := httptest.NewRecorder()
+	s.e.ServeHTTP(removeRec, removeReq)
+	if removeRec.Code != http.StatusNoContent {
+		t.Fatalf("remove membership status = %d, want %d", removeRec.Code, http.StatusNoContent)
+	}
+
+	updatedDetailReq := httptest.NewRequest(http.MethodGet, "/user/client-groups/cg-detail", nil)
+	updatedDetailReq.AddCookie(managerCookie)
+	updatedDetailRec := httptest.NewRecorder()
+	s.e.ServeHTTP(updatedDetailRec, updatedDetailReq)
+	if updatedDetailRec.Code != http.StatusOK {
+		t.Fatalf("updated detail status = %d, want %d", updatedDetailRec.Code, http.StatusOK)
+	}
+	updatedBody := updatedDetailRec.Body.String()
+	if !strings.Contains(updatedBody, "value=\"Renamed Detail Group\"") {
+		t.Fatalf("updated detail body = %q, want updated group name", updatedBody)
+	}
+	if strings.Contains(updatedBody, "name=\"client_id\" value=\"client-detail-a\"") {
+		t.Fatalf("updated detail body = %q, should not include removed member in membership list", updatedBody)
+	}
+	if !strings.Contains(updatedBody, "client-detail-b@example.com") {
+		t.Fatalf("updated detail body = %q, want added member", updatedBody)
+	}
+}
+
 func TestClientManagementHTMLValidationRedirect(t *testing.T) {
 	s := New(testConfig(), slog.Default())
 	managerCookie := login(t, s, "user", "u-manager-html", "account_manager")
