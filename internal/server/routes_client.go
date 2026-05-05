@@ -2,16 +2,19 @@ package server
 
 import (
 	"database/sql"
+	"io"
 	"net/http"
 	"net/url"
 	"sort"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	"golang.org/x/crypto/bcrypt"
 
 	"sharefile/internal/auth"
 	"sharefile/internal/db"
+	"sharefile/internal/files"
 	"sharefile/internal/mail"
 )
 
@@ -28,7 +31,7 @@ func (s *Server) registerClientRoutes(queries *db.Queries) {
 		if groupErr != nil {
 			return c.String(http.StatusInternalServerError, "failed to load user groups")
 		}
-		return c.Render(http.StatusOK, "upload_share", map[string]any{"Title": "Client Upload", "Subtitle": "Submit upload targets permitted for your account.", "ActorID": principal.ActorID, "ContentTemplate": "upload_share_content", "FormAction": "/client/uploads", "FlashError": c.QueryParam("error"), "FlashSuccess": c.QueryParam("success"), "ClientUploadMode": true, "Users": users, "UserGroups": userGroups})
+		return c.Render(http.StatusOK, "upload_share", map[string]any{"Title": "Client Upload", "Subtitle": "Submit upload targets permitted for your account.", "ActorID": principal.ActorID, "ContentTemplate": "upload_share_content", "FormAction": "/client/uploads", "FlashError": c.QueryParam("error"), "FlashSuccess": c.QueryParam("success"), "ShowShareFields": true, "ClientUploadMode": true, "Users": users, "UserGroups": userGroups})
 	})
 	client.GET("/dashboard", func(c echo.Context) error {
 		principal, _ := auth.PrincipalFromContext(c)
@@ -196,13 +199,15 @@ func (s *Server) registerClientRoutes(queries *db.Queries) {
 	})
 	client.POST("/uploads", func(c echo.Context) error {
 		principal, _ := auth.PrincipalFromContext(c)
+		filename := strings.TrimSpace(c.FormValue("filename"))
 		targetType := strings.TrimSpace(c.FormValue("target_type"))
 		targetID := strings.TrimSpace(c.FormValue("target_id"))
-		if targetType == "" || targetID == "" {
+		message := strings.TrimSpace(c.FormValue("message"))
+		if filename == "" || targetType == "" || targetID == "" {
 			if isHTMLRequest(c) {
-				return c.Redirect(http.StatusSeeOther, "/client/uploads?error="+url.QueryEscape("target_type and target_id are required"))
+				return c.Redirect(http.StatusSeeOther, "/client/uploads?error="+url.QueryEscape("filename, target_type, and target_id are required"))
 			}
-			return c.String(http.StatusBadRequest, "target_type and target_id are required")
+			return c.String(http.StatusBadRequest, "filename, target_type, and target_id are required")
 		}
 		if targetType != "user" && targetType != "user_group" {
 			auditAuthEvent(c, queries, "authz.client.upload", principal.ActorType, principal.ActorID, targetType, targetID, map[string]any{"outcome": "denied", "reason": "invalid_target_type"})
@@ -225,6 +230,54 @@ func (s *Server) registerClientRoutes(queries *db.Queries) {
 			return c.String(http.StatusInternalServerError, "failed to authorize upload")
 		}
 		auditAuthEvent(c, queries, "authz.client.upload", principal.ActorType, principal.ActorID, targetType, targetID, map[string]any{"outcome": "allowed"})
+
+		contentType := "application/octet-stream"
+		sizeBytes := int64(0)
+		var bodyReader strings.Reader
+		uploadBody := io.Reader(&bodyReader)
+
+		uploadFile, uploadErr := c.FormFile("upload_file")
+		if uploadErr == nil {
+			opened, openErr := uploadFile.Open()
+			if openErr != nil {
+				if isHTMLRequest(c) {
+					return c.Redirect(http.StatusSeeOther, "/client/uploads?error="+url.QueryEscape("Failed to read uploaded file"))
+				}
+				return c.String(http.StatusBadRequest, "failed to read uploaded file")
+			}
+			defer opened.Close()
+			uploadBody = opened
+			sizeBytes = uploadFile.Size
+			if filename == "" {
+				filename = strings.TrimSpace(uploadFile.Filename)
+			}
+			if ct := strings.TrimSpace(uploadFile.Header.Get(echo.HeaderContentType)); ct != "" {
+				contentType = ct
+			}
+		} else {
+			bodyReader = *strings.NewReader("")
+		}
+
+		fileID, _, err := s.uploadSvc.Upload(c.Request().Context(), files.UploadInput{Uploader: principal, OriginalFilename: filename, ContentType: contentType, SizeBytes: sizeBytes, Body: uploadBody})
+		if err != nil {
+			if isHTMLRequest(c) {
+				return c.Redirect(http.StatusSeeOther, "/client/uploads?error="+url.QueryEscape("Failed to record file"))
+			}
+			return c.String(http.StatusInternalServerError, "failed to record file")
+		}
+		shareID := uuid.NewString()
+		msgNull := sql.NullString{}
+		if message != "" {
+			msgNull = sql.NullString{Valid: true, String: message}
+		}
+		if err := queries.CreateShare(c.Request().Context(), db.CreateShareParams{ID: shareID, FileID: fileID, SharedByType: "client", SharedByID: principal.ActorID, TargetType: targetType, TargetID: targetID, Message: msgNull}); err != nil {
+			if isHTMLRequest(c) {
+				return c.Redirect(http.StatusSeeOther, "/client/uploads?error="+url.QueryEscape("Failed to create share"))
+			}
+			return c.String(http.StatusInternalServerError, "failed to create share")
+		}
+		auditAuthEvent(c, queries, "file.share", "client", principal.ActorID, targetType, targetID, map[string]any{"file_id": fileID, "share_id": shareID})
+
 		recipients, recErr := resolveClientUploadRecipients(c.Request().Context(), queries, targetType, targetID)
 		if recErr == nil {
 			for _, recipient := range recipients {
@@ -237,7 +290,7 @@ func (s *Server) registerClientRoutes(queries *db.Queries) {
 		if isHTMLRequest(c) {
 			return c.Redirect(http.StatusSeeOther, "/client/uploads?success="+url.QueryEscape("Upload submission accepted"))
 		}
-		return c.String(http.StatusOK, "upload access granted")
+		return c.String(http.StatusCreated, "file shared: "+fileID)
 	})
 }
 

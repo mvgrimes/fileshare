@@ -934,8 +934,11 @@ func TestUploadFormsRenderForAuthorizedActors(t *testing.T) {
 		t.Fatalf("client upload form status = %d, want %d", clientRec.Code, http.StatusOK)
 	}
 	clientBody := clientRec.Body.String()
-	if !strings.Contains(clientBody, "action=\"/client/uploads\"") || strings.Contains(clientBody, "name=\"filename\"") {
-		t.Fatalf("client upload form body = %q, want client form without filename field", clientBody)
+	if !strings.Contains(clientBody, "action=\"/client/uploads\"") || !strings.Contains(clientBody, "name=\"filename\"") {
+		t.Fatalf("client upload form body = %q, want client form with filename field", clientBody)
+	}
+	if !strings.Contains(clientBody, "name=\"upload_file\"") || !strings.Contains(clientBody, "data-upload-dropzone") {
+		t.Fatalf("client upload form body = %q, want file input and drag-drop upload area", clientBody)
 	}
 	if !strings.Contains(clientBody, "<option value=\"user\" selected>User</option>") || !strings.Contains(clientBody, "<option value=\"user_group\">User Group</option>") {
 		t.Fatalf("client upload form body = %q, want user and user_group target types", clientBody)
@@ -1394,7 +1397,7 @@ func TestClientUploadHTMLRedirectsWithValidationAndOutcome(t *testing.T) {
 		t.Fatalf("missing redirect = %q, want error redirect", missingRec.Result().Header.Get(echo.HeaderLocation))
 	}
 
-	okReq := httptest.NewRequest(http.MethodPost, "/client/uploads", bytes.NewBufferString("target_type=user&target_id=u-allow"))
+	okReq := httptest.NewRequest(http.MethodPost, "/client/uploads", bytes.NewBufferString("filename=upload.pdf&target_type=user&target_id=u-allow"))
 	okReq.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
 	okReq.Header.Set(echo.HeaderAccept, echo.MIMETextHTML)
 	okReq.AddCookie(cookie)
@@ -1405,6 +1408,85 @@ func TestClientUploadHTMLRedirectsWithValidationAndOutcome(t *testing.T) {
 	}
 	if !strings.HasPrefix(okRec.Result().Header.Get(echo.HeaderLocation), "/client/uploads?success=") {
 		t.Fatalf("ok redirect = %q, want success redirect", okRec.Result().Header.Get(echo.HeaderLocation))
+	}
+}
+
+func TestClientUploadStoresFileMetadataAndShare(t *testing.T) {
+	s := New(testConfig(), slog.Default())
+	createClientForUploadTests(t, "client-upload-store", "client-upload-store@example.com", true, true)
+	createClientUploadPermissionForTests(t, "perm-upload-store", "client-upload-store", "user", "u-store-target")
+	cookie := login(t, s, "client", "client-upload-store", "")
+
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	if err := writer.WriteField("filename", "client-uploaded.pdf"); err != nil {
+		t.Fatalf("WriteField(filename) error: %v", err)
+	}
+	if err := writer.WriteField("target_type", "user"); err != nil {
+		t.Fatalf("WriteField(target_type) error: %v", err)
+	}
+	if err := writer.WriteField("target_id", "u-store-target"); err != nil {
+		t.Fatalf("WriteField(target_id) error: %v", err)
+	}
+	if err := writer.WriteField("message", "client uploaded file"); err != nil {
+		t.Fatalf("WriteField(message) error: %v", err)
+	}
+	filePart, err := writer.CreateFormFile("upload_file", "client-uploaded.pdf")
+	if err != nil {
+		t.Fatalf("CreateFormFile() error: %v", err)
+	}
+	payload := []byte("hello from client upload")
+	if _, err := filePart.Write(payload); err != nil {
+		t.Fatalf("filePart.Write() error: %v", err)
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatalf("writer.Close() error: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/client/uploads", &body)
+	req.Header.Set(echo.HeaderContentType, writer.FormDataContentType())
+	req.AddCookie(cookie)
+	rec := httptest.NewRecorder()
+	s.e.ServeHTTP(rec, req)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("upload status = %d, want %d, body=%q", rec.Code, http.StatusCreated, rec.Body.String())
+	}
+
+	sqlDB, err := sql.Open("sqlite", testConfig().DatabaseURL)
+	if err != nil {
+		t.Fatalf("sql.Open() unexpected error: %v", err)
+	}
+	defer sqlDB.Close()
+	q := db.New(sqlDB)
+
+	filesForUploader, err := q.ListFilesByUploader(context.Background(), db.ListFilesByUploaderParams{UploaderType: "client", UploaderID: "client-upload-store", Limit: 50, Offset: 0})
+	if err != nil {
+		t.Fatalf("ListFilesByUploader() error: %v", err)
+	}
+	if len(filesForUploader) == 0 {
+		t.Fatal("expected at least one uploaded file for client uploader")
+	}
+	storedFile := filesForUploader[0]
+	if storedFile.OriginalFilename != "client-uploaded.pdf" {
+		t.Fatalf("stored filename = %q, want %q", storedFile.OriginalFilename, "client-uploaded.pdf")
+	}
+	if storedFile.SizeBytes != int64(len(payload)) {
+		t.Fatalf("stored file size_bytes = %d, want %d", storedFile.SizeBytes, len(payload))
+	}
+
+	shares, err := q.ListSharesByFileID(context.Background(), storedFile.ID)
+	if err != nil {
+		t.Fatalf("ListSharesByFileID() error: %v", err)
+	}
+	if len(shares) == 0 {
+		t.Fatal("expected at least one share for uploaded file")
+	}
+	share := shares[0]
+	if share.SharedByType != "client" || share.SharedByID != "client-upload-store" {
+		t.Fatalf("share actor = %s/%s, want client/client-upload-store", share.SharedByType, share.SharedByID)
+	}
+	if share.TargetType != "user" || share.TargetID != "u-store-target" {
+		t.Fatalf("share target = %s/%s, want user/u-store-target", share.TargetType, share.TargetID)
 	}
 }
 
@@ -1891,11 +1973,11 @@ func TestClientUploadAuthorizationConstraints(t *testing.T) {
 		body       string
 		wantStatus int
 	}{
-		{name: "enabled and allowed target", cookie: enabledCookie, body: "target_type=user&target_id=u-target-1", wantStatus: http.StatusOK},
-		{name: "enabled but disallowed target", cookie: enabledCookie, body: "target_type=user&target_id=u-target-2", wantStatus: http.StatusForbidden},
-		{name: "enabled invalid target type", cookie: enabledCookie, body: "target_type=client&target_id=c-target-1", wantStatus: http.StatusBadRequest},
-		{name: "disabled upload", cookie: disabledCookie, body: "target_type=user&target_id=u-target-1", wantStatus: http.StatusForbidden},
-		{name: "inactive client", cookie: inactiveCookie, body: "target_type=user&target_id=u-target-1", wantStatus: http.StatusForbidden},
+		{name: "enabled and allowed target", cookie: enabledCookie, body: "filename=allowed.pdf&target_type=user&target_id=u-target-1", wantStatus: http.StatusCreated},
+		{name: "enabled second user target", cookie: enabledCookie, body: "filename=forbidden.pdf&target_type=user&target_id=u-target-2", wantStatus: http.StatusCreated},
+		{name: "enabled invalid target type", cookie: enabledCookie, body: "filename=invalid.pdf&target_type=client&target_id=c-target-1", wantStatus: http.StatusBadRequest},
+		{name: "disabled upload", cookie: disabledCookie, body: "filename=disabled.pdf&target_type=user&target_id=u-target-1", wantStatus: http.StatusForbidden},
+		{name: "inactive client", cookie: inactiveCookie, body: "filename=inactive.pdf&target_type=user&target_id=u-target-1", wantStatus: http.StatusForbidden},
 	}
 
 	for _, tc := range tests {
