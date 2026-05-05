@@ -417,6 +417,12 @@ func dashboardActions(principal auth.Principal) []dashboardAction {
 			Path:        "/user/clients",
 			Icon:        "users",
 		})
+		actions = append(actions, dashboardAction{
+			Label:       "Client Groups",
+			Description: "Create groups and manage client memberships.",
+			Path:        "/user/client-groups",
+			Icon:        "users",
+		})
 	}
 	if auth.HasCapability(principal, auth.CapabilityManageUsers) {
 		actions = append(actions, dashboardAction{

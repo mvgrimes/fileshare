@@ -652,7 +652,23 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 		if err != nil {
 			return c.String(http.StatusInternalServerError, "failed to load clients")
 		}
-		groups, err := queries.ListClientGroups(c.Request().Context(), db.ListClientGroupsParams{Limit: 50, Offset: 0})
+		groups, err := queries.ListClientGroups(c.Request().Context(), db.ListClientGroupsParams{Limit: 200, Offset: 0})
+		if err != nil {
+			return c.String(http.StatusInternalServerError, "failed to load client groups")
+		}
+		return c.Render(http.StatusOK, "clients_management", map[string]any{"Title": "Client Management", "Subtitle": "Create clients and manage client accounts.", "ContentTemplate": "clients_management_content", "FlashError": c.QueryParam("error"), "FlashSuccess": c.QueryParam("success"), "Clients": clients, "ClientGroups": groups})
+	}, auth.RequireCapability(auth.CapabilityManageClients))
+
+	user.GET("/client-groups", func(c echo.Context) error {
+		principal, _ := auth.PrincipalFromContext(c)
+		if err := s.authz.AuthorizeManageClients(principal); err != nil {
+			return c.String(http.StatusForbidden, "forbidden")
+		}
+		clients, err := queries.ListClients(c.Request().Context(), db.ListClientsParams{Limit: 200, Offset: 0})
+		if err != nil {
+			return c.String(http.StatusInternalServerError, "failed to load clients")
+		}
+		groups, err := queries.ListClientGroups(c.Request().Context(), db.ListClientGroupsParams{Limit: 200, Offset: 0})
 		if err != nil {
 			return c.String(http.StatusInternalServerError, "failed to load client groups")
 		}
@@ -664,7 +680,7 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 			}
 			groupItems = append(groupItems, clientGroupListItem{ID: g.ID, Name: g.Name, MemberCount: len(members)})
 		}
-		return c.Render(http.StatusOK, "clients_management", map[string]any{"Title": "Client Management", "Subtitle": "Create clients, groups, and memberships.", "ContentTemplate": "clients_management_content", "FlashError": c.QueryParam("error"), "FlashSuccess": c.QueryParam("success"), "Clients": clients, "ClientGroups": groups, "ClientGroupItems": groupItems})
+		return c.Render(http.StatusOK, "client_groups_management", map[string]any{"Title": "Client Groups", "Subtitle": "Create groups and add client memberships.", "ContentTemplate": "client_groups_management_content", "FlashError": c.QueryParam("error"), "FlashSuccess": c.QueryParam("success"), "Clients": clients, "ClientGroups": groups, "ClientGroupItems": groupItems})
 	}, auth.RequireCapability(auth.CapabilityManageClients))
 
 	user.POST("/clients", func(c echo.Context) error {
@@ -688,12 +704,30 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 		if c.FormValue("is_active") == "1" {
 			isActive = 1
 		}
-		if err := queries.CreateClient(c.Request().Context(), db.CreateClientParams{ID: uuid.NewString(), Email: email, DisplayName: displayName, PasswordHash: sql.NullString{}, CanUpload: canUpload, IsActive: isActive}); err != nil {
+		clientID := uuid.NewString()
+		if err := queries.CreateClient(c.Request().Context(), db.CreateClientParams{ID: clientID, Email: email, DisplayName: displayName, PasswordHash: sql.NullString{}, CanUpload: canUpload, IsActive: isActive}); err != nil {
 			auditAuthEvent(c, queries, "admin.client.create", principal.ActorType, principal.ActorID, "client", "", map[string]any{"outcome": "failure", "reason": "create_failed", "email": email})
 			if isHTMLRequest(c) {
 				return c.Redirect(http.StatusSeeOther, "/user/clients?error="+url.QueryEscape("failed to create client"))
 			}
 			return c.String(http.StatusInternalServerError, "failed to create client")
+		}
+		formParams, formErr := c.FormParams()
+		if formErr != nil {
+			return c.String(http.StatusBadRequest, "failed to parse form params")
+		}
+		groupIDs := formParams["group_ids"]
+		for _, groupID := range groupIDs {
+			groupID = strings.TrimSpace(groupID)
+			if groupID == "" {
+				continue
+			}
+			if err := queries.AddClientToGroup(c.Request().Context(), db.AddClientToGroupParams{ClientGroupID: groupID, ClientID: clientID}); err != nil {
+				if isHTMLRequest(c) {
+					return c.Redirect(http.StatusSeeOther, "/user/clients?error="+url.QueryEscape("failed to assign client group membership"))
+				}
+				return c.String(http.StatusInternalServerError, "failed to assign client group membership")
+			}
 		}
 		auditAuthEvent(c, queries, "admin.client.create", principal.ActorType, principal.ActorID, "client", email, map[string]any{"outcome": "success"})
 		if isHTMLRequest(c) {
@@ -795,20 +829,20 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 		name := strings.TrimSpace(c.FormValue("name"))
 		if name == "" {
 			if isHTMLRequest(c) {
-				return c.Redirect(http.StatusSeeOther, "/user/clients?error="+url.QueryEscape("name is required"))
+				return c.Redirect(http.StatusSeeOther, "/user/client-groups?error="+url.QueryEscape("name is required"))
 			}
 			return c.String(http.StatusBadRequest, "name is required")
 		}
 		if err := queries.CreateClientGroup(c.Request().Context(), db.CreateClientGroupParams{ID: uuid.NewString(), Name: name, CreatedByUserID: sql.NullString{Valid: true, String: principal.ActorID}}); err != nil {
 			auditAuthEvent(c, queries, "admin.client_group.create", principal.ActorType, principal.ActorID, "client_group", "", map[string]any{"outcome": "failure", "reason": "create_failed", "name": name})
 			if isHTMLRequest(c) {
-				return c.Redirect(http.StatusSeeOther, "/user/clients?error="+url.QueryEscape("failed to create client group"))
+				return c.Redirect(http.StatusSeeOther, "/user/client-groups?error="+url.QueryEscape("failed to create client group"))
 			}
 			return c.String(http.StatusInternalServerError, "failed to create client group")
 		}
 		auditAuthEvent(c, queries, "admin.client_group.create", principal.ActorType, principal.ActorID, "client_group", name, map[string]any{"outcome": "success"})
 		if isHTMLRequest(c) {
-			return c.Redirect(http.StatusSeeOther, "/user/clients?success="+url.QueryEscape("Client group created"))
+			return c.Redirect(http.StatusSeeOther, "/user/client-groups?success="+url.QueryEscape("Client group created"))
 		}
 		return c.NoContent(http.StatusCreated)
 	}, auth.RequireCapability(auth.CapabilityManageClients))
@@ -822,20 +856,20 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 		clientID := strings.TrimSpace(c.FormValue("client_id"))
 		if groupID == "" || clientID == "" {
 			if isHTMLRequest(c) {
-				return c.Redirect(http.StatusSeeOther, "/user/clients?error="+url.QueryEscape("group_id and client_id are required"))
+				return c.Redirect(http.StatusSeeOther, "/user/client-groups?error="+url.QueryEscape("group_id and client_id are required"))
 			}
 			return c.String(http.StatusBadRequest, "group_id and client_id are required")
 		}
 		if err := queries.AddClientToGroup(c.Request().Context(), db.AddClientToGroupParams{ClientGroupID: groupID, ClientID: clientID}); err != nil {
 			auditAuthEvent(c, queries, "admin.client_group.membership.add", principal.ActorType, principal.ActorID, "client_group", groupID, map[string]any{"outcome": "failure", "reason": "add_failed", "client_id": clientID})
 			if isHTMLRequest(c) {
-				return c.Redirect(http.StatusSeeOther, "/user/clients?error="+url.QueryEscape("failed to add membership"))
+				return c.Redirect(http.StatusSeeOther, "/user/client-groups?error="+url.QueryEscape("failed to add membership"))
 			}
 			return c.String(http.StatusInternalServerError, "failed to add membership")
 		}
 		auditAuthEvent(c, queries, "admin.client_group.membership.add", principal.ActorType, principal.ActorID, "client_group", groupID, map[string]any{"outcome": "success", "client_id": clientID})
 		if isHTMLRequest(c) {
-			return c.Redirect(http.StatusSeeOther, "/user/clients?success="+url.QueryEscape("Membership added"))
+			return c.Redirect(http.StatusSeeOther, "/user/client-groups?success="+url.QueryEscape("Membership added"))
 		}
 		return c.NoContent(http.StatusCreated)
 	}, auth.RequireCapability(auth.CapabilityManageClients))

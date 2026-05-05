@@ -1,0 +1,60 @@
+{{define "client_groups_management"}}{{template "base" .}}{{end}}
+
+{{define "client_groups_management_content"}}
+<section class="grid gap-4 lg:grid-cols-2">
+  <article class="card bg-base-100 shadow-sm">
+    <div class="card-body gap-4">
+      {{template "page_header" .}}
+      <form method="post" action="/user/client-groups" class="grid gap-3" data-enhance="submission">
+        <label class="form-control w-full">
+          <span class="label-text">Group Name</span>
+          <input class="input input-bordered w-full" type="text" name="name" required>
+        </label>
+        <button class="btn btn-primary" type="submit" data-pending-text="Creating...">Create Group</button>
+      </form>
+    </div>
+  </article>
+
+  <article class="card bg-base-100 shadow-sm">
+    <div class="card-body gap-4">
+      <h2 class="text-xl font-semibold">Add Client to Group</h2>
+      <form method="post" action="/user/client-groups/memberships" class="grid gap-3" data-enhance="submission">
+        <label class="form-control w-full">
+          <span class="label-text">Group</span>
+          <select class="select select-bordered w-full" name="group_id" required>
+            <option value="" disabled selected>Select a group</option>
+            {{range .ClientGroups}}
+            <option value="{{.ID}}">{{.Name}} ({{.ID}})</option>
+            {{end}}
+          </select>
+        </label>
+        <label class="form-control w-full">
+          <span class="label-text">Client</span>
+          <select class="select select-bordered w-full" name="client_id" required>
+            <option value="" disabled selected>Select a client</option>
+            {{range .Clients}}
+            <option value="{{.ID}}">{{.DisplayName}} ({{.Email}})</option>
+            {{end}}
+          </select>
+        </label>
+        <button class="btn btn-primary" type="submit" data-pending-text="Adding...">Add Membership</button>
+      </form>
+    </div>
+  </article>
+</section>
+
+<section class="card bg-base-100 shadow-sm mt-4">
+  <div class="card-body">
+    <h2 class="text-xl font-semibold">Client Groups</h2>
+    {{if .ClientGroupItems}}
+    <ul class="menu bg-base-100 w-full">
+      {{range .ClientGroupItems}}
+      <li><span>{{.Name}} ({{.MemberCount}} members)</span></li>
+      {{end}}
+    </ul>
+    {{else}}
+    <p class="opacity-70">No client groups created yet.</p>
+    {{end}}
+  </div>
+</section>
+{{end}}

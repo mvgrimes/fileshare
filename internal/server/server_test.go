@@ -1362,11 +1362,29 @@ func TestClientsManagementPageRendersForManager(t *testing.T) {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
 	}
 	body := rec.Body.String()
-	if !strings.Contains(body, "Create Client") || !strings.Contains(body, "Create Client Group") || !strings.Contains(body, "Add Membership") {
-		t.Fatalf("body = %q, want management forms", body)
+	if !strings.Contains(body, "Create Client") || !strings.Contains(body, "Open Client Groups") {
+		t.Fatalf("body = %q, want client management sections", body)
 	}
-	if !strings.Contains(body, "name=\"group_id\"") || !strings.Contains(body, "name=\"client_id\"") || !strings.Contains(body, "Select a group") || !strings.Contains(body, "Select a client") {
-		t.Fatalf("body = %q, want group/client select inputs", body)
+	if !strings.Contains(body, "name=\"group_ids\"") {
+		t.Fatalf("body = %q, want optional group select on client form", body)
+	}
+}
+
+func TestClientGroupsManagementPageRendersForManager(t *testing.T) {
+	s := New(testConfig(), slog.Default())
+	managerCookie := login(t, s, "user", "u-manager-group-page", "account_manager")
+
+	req := httptest.NewRequest(http.MethodGet, "/user/client-groups", nil)
+	req.AddCookie(managerCookie)
+	rec := httptest.NewRecorder()
+	s.e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+	}
+	body := rec.Body.String()
+	if !strings.Contains(body, "Create Group") || !strings.Contains(body, "Add Client to Group") {
+		t.Fatalf("body = %q, want client group management forms", body)
 	}
 }
 
@@ -1444,7 +1462,7 @@ func TestClientManagementGroupListShowsMemberCount(t *testing.T) {
 		t.Fatalf("add membership status = %d, want %d", addMemberRec.Code, http.StatusCreated)
 	}
 
-	pageReq := httptest.NewRequest(http.MethodGet, "/user/clients", nil)
+	pageReq := httptest.NewRequest(http.MethodGet, "/user/client-groups", nil)
 	pageReq.AddCookie(managerCookie)
 	pageRec := httptest.NewRecorder()
 	s.e.ServeHTTP(pageRec, pageReq)
@@ -1474,6 +1492,70 @@ func TestClientManagementHTMLValidationRedirect(t *testing.T) {
 	}
 	if !strings.HasPrefix(rec.Result().Header.Get(echo.HeaderLocation), "/user/clients?error=") {
 		t.Fatalf("location = %q, want user clients error redirect", rec.Result().Header.Get(echo.HeaderLocation))
+	}
+}
+
+func TestClientCreateAllowsOptionalNoGroupSelection(t *testing.T) {
+	s := New(testConfig(), slog.Default())
+	managerCookie := login(t, s, "user", "u-manager-no-group", "account_manager")
+
+	req := httptest.NewRequest(http.MethodPost, "/user/clients", bytes.NewBufferString("email=nogroup-client@example.com&display_name=No+Group+Client&can_upload=1&is_active=1"))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
+	req.AddCookie(managerCookie)
+	rec := httptest.NewRecorder()
+	s.e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("create client status = %d, want %d", rec.Code, http.StatusCreated)
+	}
+
+	clientID := lookupClientIDByEmail(t, "nogroup-client@example.com")
+	groups := listClientGroupsForClient(t, clientID)
+	if len(groups) != 0 {
+		t.Fatalf("groups = %+v, want no groups", groups)
+	}
+}
+
+func TestClientCreateCanAssignMultipleGroups(t *testing.T) {
+	s := New(testConfig(), slog.Default())
+	managerCookie := login(t, s, "user", "u-manager-multi-group", "account_manager")
+
+	createGroupReqA := httptest.NewRequest(http.MethodPost, "/user/client-groups", bytes.NewBufferString("name=AlphaGroup"))
+	createGroupReqA.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
+	createGroupReqA.AddCookie(managerCookie)
+	createGroupRecA := httptest.NewRecorder()
+	s.e.ServeHTTP(createGroupRecA, createGroupReqA)
+	if createGroupRecA.Code != http.StatusCreated {
+		t.Fatalf("create group A status = %d, want %d", createGroupRecA.Code, http.StatusCreated)
+	}
+
+	createGroupReqB := httptest.NewRequest(http.MethodPost, "/user/client-groups", bytes.NewBufferString("name=BetaGroup"))
+	createGroupReqB.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
+	createGroupReqB.AddCookie(managerCookie)
+	createGroupRecB := httptest.NewRecorder()
+	s.e.ServeHTTP(createGroupRecB, createGroupReqB)
+	if createGroupRecB.Code != http.StatusCreated {
+		t.Fatalf("create group B status = %d, want %d", createGroupRecB.Code, http.StatusCreated)
+	}
+
+	groupA := lookupClientGroupIDByName(t, "AlphaGroup")
+	groupB := lookupClientGroupIDByName(t, "BetaGroup")
+
+	body := bytes.NewBufferString("email=multigroup-client@example.com&display_name=Multi+Group+Client&is_active=1&group_ids=" + groupA + "&group_ids=" + groupB)
+	req := httptest.NewRequest(http.MethodPost, "/user/clients", body)
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
+	req.AddCookie(managerCookie)
+	rec := httptest.NewRecorder()
+	s.e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("create client status = %d, want %d", rec.Code, http.StatusCreated)
+	}
+
+	clientID := lookupClientIDByEmail(t, "multigroup-client@example.com")
+	groups := listClientGroupsForClient(t, clientID)
+	if len(groups) != 2 {
+		t.Fatalf("group count = %d, want 2", len(groups))
 	}
 }
 
@@ -3009,4 +3091,54 @@ func listGroupClientsForTests(t *testing.T, groupID string) []db.Client {
 		t.Fatalf("ListGroupClients() error: %v", err)
 	}
 	return clients
+}
+
+func lookupClientGroupIDByName(t *testing.T, name string) string {
+	t.Helper()
+	sqlDB, err := sql.Open("sqlite", testConfig().DatabaseURL)
+	if err != nil {
+		t.Fatalf("sql.Open() unexpected error: %v", err)
+	}
+	defer sqlDB.Close()
+
+	groups, err := db.New(sqlDB).ListClientGroups(context.Background(), db.ListClientGroupsParams{Limit: 200, Offset: 0})
+	if err != nil {
+		t.Fatalf("ListClientGroups() error: %v", err)
+	}
+	for _, g := range groups {
+		if g.Name == name {
+			return g.ID
+		}
+	}
+	t.Fatalf("client group named %q not found", name)
+	return ""
+}
+
+func listClientGroupsForClient(t *testing.T, clientID string) []db.ClientGroup {
+	t.Helper()
+	sqlDB, err := sql.Open("sqlite", testConfig().DatabaseURL)
+	if err != nil {
+		t.Fatalf("sql.Open() unexpected error: %v", err)
+	}
+	defer sqlDB.Close()
+
+	queries := db.New(sqlDB)
+	groups, err := queries.ListClientGroups(context.Background(), db.ListClientGroupsParams{Limit: 200, Offset: 0})
+	if err != nil {
+		t.Fatalf("ListClientGroups() error: %v", err)
+	}
+	out := make([]db.ClientGroup, 0)
+	for _, g := range groups {
+		clients, listErr := queries.ListGroupClients(context.Background(), g.ID)
+		if listErr != nil {
+			t.Fatalf("ListGroupClients() error: %v", listErr)
+		}
+		for _, c := range clients {
+			if c.ID == clientID {
+				out = append(out, g)
+				break
+			}
+		}
+	}
+	return out
 }
