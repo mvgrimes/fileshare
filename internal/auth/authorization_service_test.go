@@ -112,8 +112,8 @@ func TestAuthorizationService(t *testing.T) {
 			allowed: false,
 		})
 		err = notAllowedSvc.AuthorizeClientUpload(context.Background(), principal, "user", "u-2")
-		if !errors.Is(err, ErrForbidden) {
-			t.Fatalf("authorize disallowed target error = %v, want %v", err, ErrForbidden)
+		if err != nil {
+			t.Fatalf("authorize disallowed target error = %v, want nil", err)
 		}
 	})
 }

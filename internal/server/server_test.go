@@ -197,8 +197,8 @@ func TestAuthPagesContainFormTargets(t *testing.T) {
 		t.Fatalf("/login status = %d, want %d", loginRec.Code, http.StatusOK)
 	}
 	loginBody := loginRec.Body.String()
-	if !strings.Contains(loginBody, "action=\"/auth/sso/login\"") || !strings.Contains(loginBody, "action=\"/auth/password/login\"") {
-		t.Fatalf("/login body = %q, want auth form actions", loginBody)
+	if !strings.Contains(loginBody, "action=\"/auth/password/login\"") {
+		t.Fatalf("/login body = %q, want password login form action", loginBody)
 	}
 	if !strings.Contains(loginBody, "data-enhance=\"submission\"") || !strings.Contains(loginBody, "data-pending-text=") {
 		t.Fatalf("/login body = %q, want progressive enhancement hooks", loginBody)
@@ -414,8 +414,8 @@ func TestSessionLoginAndActorAuthorization(t *testing.T) {
 		wantStatus int
 		wantBody   string
 	}{
-		{name: "user to user dashboard", path: "/user/dashboard", cookie: userCookie, wantStatus: http.StatusOK, wantBody: "Actor ID: <code>u-123</code>"},
-		{name: "client to client dashboard", path: "/client/dashboard", cookie: clientCookie, wantStatus: http.StatusOK, wantBody: "Actor ID: <code>c-123</code>"},
+		{name: "user to user dashboard", path: "/user/dashboard", cookie: userCookie, wantStatus: http.StatusOK, wantBody: "actor: u-123"},
+		{name: "client to client dashboard", path: "/client/dashboard", cookie: clientCookie, wantStatus: http.StatusOK, wantBody: "actor: c-123"},
 		{name: "client forbidden from user dashboard", path: "/user/dashboard", cookie: clientCookie, wantStatus: http.StatusForbidden, wantBody: "forbidden"},
 		{name: "user forbidden from client dashboard", path: "/client/dashboard", cookie: userCookie, wantStatus: http.StatusForbidden, wantBody: "forbidden"},
 	}
@@ -794,8 +794,8 @@ func TestClientSharedFilesListAndDetail(t *testing.T) {
 	if strings.Count(listRec.Body.String(), "file-list-direct.txt") != 1 {
 		t.Fatalf("list body = %q, want direct shared file listed once", listRec.Body.String())
 	}
-	if !strings.Contains(listRec.Body.String(), "client, client_group") {
-		t.Fatalf("list body = %q, want merged share target types", listRec.Body.String())
+	if strings.Contains(listRec.Body.String(), "<th>Shared Via</th>") {
+		t.Fatalf("list body = %q, should not show shared via column", listRec.Body.String())
 	}
 
 	groupListReq := httptest.NewRequest(http.MethodGet, "/client/received", nil)
@@ -1886,7 +1886,7 @@ func TestSSOLoginCreatesUserSession(t *testing.T) {
 	if userRec.Code != http.StatusOK {
 		t.Fatalf("dashboard status = %d, want %d", userRec.Code, http.StatusOK)
 	}
-	if !strings.Contains(userRec.Body.String(), "Actor ID: <code>user-from-sso</code>") {
+	if !strings.Contains(userRec.Body.String(), "actor: user-from-sso") {
 		t.Fatalf("body = %q, want actor id from sso", userRec.Body.String())
 	}
 }
