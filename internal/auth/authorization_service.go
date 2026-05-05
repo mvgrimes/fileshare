@@ -72,15 +72,19 @@ func (s *AuthorizationService) AuthorizeClientUpload(ctx context.Context, p Prin
 	if client.IsActive != 1 || client.CanUpload != 1 {
 		return ErrForbidden
 	}
-	allowed, err := s.uploads.ClientCanUploadToTarget(ctx, db.ClientCanUploadToTargetParams{
-		ClientID:   p.ActorID,
-		TargetType: targetType,
-		TargetID:   targetID,
-	})
-	if err != nil {
-		return err
-	}
-	if !allowed {
+	// NOTE: for now, any client can upload to any user
+	// allowed, err := s.uploads.ClientCanUploadToTarget(ctx, db.ClientCanUploadToTargetParams{
+	// 	ClientID:   p.ActorID,
+	// 	TargetType: targetType,
+	// 	TargetID:   targetID,
+	// })
+	// if err != nil {
+	// 	return err
+	// }
+	// if !allowed {
+	// 	return ErrForbidden
+	// }
+	if targetType != "user" {
 		return ErrForbidden
 	}
 	return nil
