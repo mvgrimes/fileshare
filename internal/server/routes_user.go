@@ -425,7 +425,11 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 		if share.Message.Valid {
 			message = strings.TrimSpace(share.Message.String)
 		}
-		return c.Render(http.StatusOK, "shared_files", map[string]any{"Title": "Sent Share Detail", "Subtitle": "Detailed metadata for this sent share.", "ContentTemplate": "share_detail_content", "File": fileListItem{ID: share.ID, FileID: file.ID, Name: file.OriginalFilename, ContentType: file.ContentType, SizeBytes: file.SizeBytes, SharedVia: sharedVia, SharedBy: sharedBy, UploadedAt: file.CreatedAt, SharedAt: share.CreatedAt, ViewStatus: status, Message: message}, "BackPath": "/user/sent", "BackLabel": "Back to Sent Files", "DownloadPath": "/user/file/" + file.ID + "/download", "FileDetailPath": "/user/file/" + file.ID, "UnsharePath": "/user/sent/" + share.ID + "/delete", "FlashError": c.QueryParam("error"), "FlashSuccess": c.QueryParam("success")})
+		viewHistory, err := queries.ListShareViewHistory(c.Request().Context(), share.ID)
+		if err != nil {
+			return c.String(http.StatusInternalServerError, "failed to load view history")
+		}
+		return c.Render(http.StatusOK, "shared_files", map[string]any{"Title": "Sent Share Detail", "Subtitle": "Detailed metadata for this sent share.", "ContentTemplate": "share_detail_content", "File": fileListItem{ID: share.ID, FileID: file.ID, Name: file.OriginalFilename, ContentType: file.ContentType, SizeBytes: file.SizeBytes, SharedVia: sharedVia, SharedBy: sharedBy, UploadedAt: file.CreatedAt, SharedAt: share.CreatedAt, ViewStatus: status, Message: message}, "BackPath": "/user/sent", "BackLabel": "Back to Sent Files", "DownloadPath": "/user/file/" + file.ID + "/download", "FileDetailPath": "/user/file/" + file.ID, "UnsharePath": "/user/sent/" + share.ID + "/delete", "ViewHistory": viewHistory, "FlashError": c.QueryParam("error"), "FlashSuccess": c.QueryParam("success")})
 	})
 
 	user.POST("/sent/:shareID/delete", func(c echo.Context) error {

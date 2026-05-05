@@ -63,13 +63,14 @@
       <div class="overflow-x-auto">
         <table class="table table-zebra table-sm">
           <thead>
-            <tr><th>Viewer</th><th>Viewed At</th><th>Total Views</th></tr>
+            <tr><th>Viewer</th><th>First Viewed</th><th>Last Viewed</th><th>View Count</th></tr>
           </thead>
           <tbody>
             {{range .ViewHistory}}
             <tr>
               <td>{{.ViewerName}}</td>
-              <td><span data-format-datetime="{{.ViewedAt}}">{{.ViewedAt}}</span></td>
+              <td><span data-format-datetime="{{.FirstDownloadedAt}}">{{.FirstDownloadedAt}}</span></td>
+              <td><span data-format-datetime="{{.LastDownloadedAt}}">{{.LastDownloadedAt}}</span></td>
               <td>{{.DownloadCount}}</td>
             </tr>
             {{end}}
@@ -174,6 +175,27 @@
     <form method="post" action="{{.UnsharePath}}" data-enhance="submission">
       <button class="btn btn-sm btn-warning" type="submit" data-pending-text="Removing...">Unshare</button>
     </form>
+    {{end}}
+    {{if .ViewHistory}}
+    <div class="divider my-1"></div>
+    <h3 class="text-lg font-semibold">Viewing History</h3>
+    <div class="overflow-x-auto">
+      <table class="table table-zebra table-sm">
+        <thead>
+          <tr><th>Viewer</th><th>First Viewed</th><th>Last Viewed</th><th>View Count</th></tr>
+        </thead>
+        <tbody>
+          {{range .ViewHistory}}
+          <tr>
+            <td>{{.ViewerName}}</td>
+            <td><span data-format-datetime="{{.FirstDownloadedAt}}">{{.FirstDownloadedAt}}</span></td>
+            <td><span data-format-datetime="{{.LastDownloadedAt}}">{{.LastDownloadedAt}}</span></td>
+            <td>{{.DownloadCount}}</td>
+          </tr>
+          {{end}}
+        </tbody>
+      </table>
+    </div>
     {{end}}
   </div>
 </section>

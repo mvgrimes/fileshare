@@ -58,6 +58,7 @@ type Querier interface {
 	ListRoleNamesByUserID(ctx context.Context, userID string) ([]string, error)
 	ListRoles(ctx context.Context) ([]Role, error)
 	ListSessionsByActor(ctx context.Context, arg ListSessionsByActorParams) ([]Session, error)
+	ListShareViewHistory(ctx context.Context, shareID string) ([]ListShareViewHistoryRow, error)
 	ListSharesByTarget(ctx context.Context, arg ListSharesByTargetParams) ([]Share, error)
 	ListUserGroups(ctx context.Context, arg ListUserGroupsParams) ([]UserGroup, error)
 	ListUserRoles(ctx context.Context, userID string) ([]UserRole, error)

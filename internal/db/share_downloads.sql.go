@@ -28,7 +28,8 @@ func (q *Queries) FileHasAnyClientDownload(ctx context.Context, fileID string) (
 const listFileViewHistory = `-- name: ListFileViewHistory :many
 SELECT
   c.display_name AS viewer_name,
-  sd.last_downloaded_at AS viewed_at,
+  sd.first_downloaded_at,
+  sd.last_downloaded_at,
   sd.download_count
 FROM share_downloads sd
 JOIN shares s ON s.id = sd.share_id
@@ -38,9 +39,10 @@ ORDER BY sd.last_downloaded_at DESC
 `
 
 type ListFileViewHistoryRow struct {
-	ViewerName    string `json:"viewer_name"`
-	ViewedAt      string `json:"viewed_at"`
-	DownloadCount int64  `json:"download_count"`
+	ViewerName        string `json:"viewer_name"`
+	FirstDownloadedAt string `json:"first_downloaded_at"`
+	LastDownloadedAt  string `json:"last_downloaded_at"`
+	DownloadCount     int64  `json:"download_count"`
 }
 
 func (q *Queries) ListFileViewHistory(ctx context.Context, fileID string) ([]ListFileViewHistoryRow, error) {
@@ -52,7 +54,59 @@ func (q *Queries) ListFileViewHistory(ctx context.Context, fileID string) ([]Lis
 	var items []ListFileViewHistoryRow
 	for rows.Next() {
 		var i ListFileViewHistoryRow
-		if err := rows.Scan(&i.ViewerName, &i.ViewedAt, &i.DownloadCount); err != nil {
+		if err := rows.Scan(
+			&i.ViewerName,
+			&i.FirstDownloadedAt,
+			&i.LastDownloadedAt,
+			&i.DownloadCount,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listShareViewHistory = `-- name: ListShareViewHistory :many
+SELECT
+  c.display_name AS viewer_name,
+  sd.first_downloaded_at,
+  sd.last_downloaded_at,
+  sd.download_count
+FROM share_downloads sd
+JOIN clients c ON c.id = sd.client_id
+WHERE sd.share_id = ?
+ORDER BY sd.last_downloaded_at DESC
+`
+
+type ListShareViewHistoryRow struct {
+	ViewerName        string `json:"viewer_name"`
+	FirstDownloadedAt string `json:"first_downloaded_at"`
+	LastDownloadedAt  string `json:"last_downloaded_at"`
+	DownloadCount     int64  `json:"download_count"`
+}
+
+func (q *Queries) ListShareViewHistory(ctx context.Context, shareID string) ([]ListShareViewHistoryRow, error) {
+	rows, err := q.db.QueryContext(ctx, listShareViewHistory, shareID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListShareViewHistoryRow
+	for rows.Next() {
+		var i ListShareViewHistoryRow
+		if err := rows.Scan(
+			&i.ViewerName,
+			&i.FirstDownloadedAt,
+			&i.LastDownloadedAt,
+			&i.DownloadCount,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

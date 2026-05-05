@@ -935,7 +935,7 @@ func TestUserSharedFilesListAndDetail(t *testing.T) {
 		t.Fatalf("list body = %q, should not include other user's file", body)
 	}
 
-	ownerDetailReq := httptest.NewRequest(http.MethodGet, "/user/sent/share-owned-client", nil)
+	ownerDetailReq := httptest.NewRequest(http.MethodGet, "/user/sent/share-owned-view", nil)
 	ownerDetailReq.AddCookie(ownerCookie)
 	ownerDetailRec := httptest.NewRecorder()
 	s.e.ServeHTTP(ownerDetailRec, ownerDetailReq)
@@ -953,6 +953,9 @@ func TestUserSharedFilesListAndDetail(t *testing.T) {
 	}
 	if !strings.Contains(ownerDetailRec.Body.String(), "Back to Sent Files") {
 		t.Fatalf("owner detail body = %q, want back link near title", ownerDetailRec.Body.String())
+	}
+	if !strings.Contains(ownerDetailRec.Body.String(), "First Viewed") || !strings.Contains(ownerDetailRec.Body.String(), "Last Viewed") || !strings.Contains(ownerDetailRec.Body.String(), "View Count") {
+		t.Fatalf("owner detail body = %q, want expanded viewing history columns", ownerDetailRec.Body.String())
 	}
 
 	forbiddenReq := httptest.NewRequest(http.MethodGet, "/user/sent/share-owned-client", nil)
