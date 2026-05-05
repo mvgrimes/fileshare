@@ -186,7 +186,7 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 			return c.String(http.StatusInternalServerError, "failed to load profile")
 		}
 		return c.Render(http.StatusOK, "profile", map[string]any{"Title": "Profile", "Subtitle": "Update your name and password.", "ContentTemplate": "profile_content", "ProfileType": "user", "ActorID": principal.ActorID, "Email": account.Email, "DisplayName": account.FullName, "FormAction": "/user/profile", "FlashError": c.QueryParam("error"), "FlashSuccess": c.QueryParam("success")})
-	}, auth.RequireCapability(auth.CapabilityManageClients))
+	})
 
 	user.POST("/profile", func(c echo.Context) error {
 		principal, _ := auth.PrincipalFromContext(c)
