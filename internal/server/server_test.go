@@ -520,9 +520,11 @@ func TestUserDashboardShowsStatsAndPrioritizesUnviewedSentFiles(t *testing.T) {
 	createClientGroupForTests(t, "cg-dashboard")
 	createFileWithUploader(t, "file-dashboard-unviewed", "u-dashboard")
 	createFileWithUploader(t, "file-dashboard-viewed", "u-dashboard")
+	createFileWithUploader(t, "file-dashboard-received", "c-dashboard")
 	createShareForTests(t, "share-dashboard-unviewed", "file-dashboard-unviewed", "client", "c-dashboard")
 	createShareForTests(t, "share-dashboard-viewed", "file-dashboard-viewed", "client", "c-dashboard")
 	createShareForTests(t, "share-dashboard-group", "file-dashboard-unviewed", "client_group", "cg-dashboard")
+	createShareForTests(t, "share-dashboard-received", "file-dashboard-received", "user", "u-dashboard")
 
 	sqlDB, err := sql.Open("sqlite", testConfig().DatabaseURL)
 	if err != nil {
@@ -1950,6 +1952,24 @@ func TestSessionLoginSetsCookieTTLFromConfig(t *testing.T) {
 	}
 	if cookie.MaxAge != 5*60*60 {
 		t.Fatalf("cookie max-age = %d, want %d", cookie.MaxAge, 5*60*60)
+	}
+}
+
+func TestSessionLoginForbiddenOutsideTestEnvironment(t *testing.T) {
+	s := New(testConfig(), slog.Default())
+	s.cfg.Environment = "development"
+
+	body := bytes.NewBufferString("actor_type=user&actor_id=u-forbidden")
+	req := httptest.NewRequest(http.MethodPost, "/auth/session", body)
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
+	rec := httptest.NewRecorder()
+	s.e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusForbidden)
+	}
+	if strings.TrimSpace(rec.Body.String()) != "forbidden: test-only endpoint" {
+		t.Fatalf("body = %q, want %q", rec.Body.String(), "forbidden: test-only endpoint")
 	}
 }
 

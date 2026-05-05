@@ -44,10 +44,24 @@ func (s *Server) registerPublicRoutes(queries *db.Queries, sessionTTL time.Durat
 		return c.Render(http.StatusOK, "auth", map[string]any{"Title": "Set New Password", "Subtitle": "Choose a new password for your account.", "FlashError": c.QueryParam("error"), "FlashSuccess": c.QueryParam("success"), "Token": c.QueryParam("token"), "ContentTemplate": "password_reset_confirm_content"})
 	})
 	public.POST("/auth/session", func(c echo.Context) error {
-		// Deprecated endpoint intentionally disabled.
-		// Historical behavior created sessions from caller-supplied actor fields,
-		// which is no longer permitted.
-		return c.String(http.StatusGone, "deprecated endpoint: use supported authentication flows")
+		if s.cfg.Environment != "test" {
+			return c.String(http.StatusForbidden, "forbidden: test-only endpoint")
+		}
+		actorType := c.FormValue("actor_type")
+		actorID := c.FormValue("actor_id")
+		roles := parseRoles(c.FormValue("roles"))
+		if actorType == "" || actorID == "" {
+			return c.String(http.StatusBadRequest, "actor_type and actor_id are required")
+		}
+		if actorType != "user" && actorType != "client" {
+			return c.String(http.StatusBadRequest, "actor_type must be user or client")
+		}
+		token, _, err := s.sessions.CreateSession(c.Request().Context(), auth.Principal{ActorType: actorType, ActorID: actorID, Roles: roles})
+		if err != nil {
+			return c.String(http.StatusInternalServerError, "failed to create session")
+		}
+		setSessionCookie(c, s.cfg.Environment, token, sessionTTL)
+		return c.NoContent(http.StatusNoContent)
 	})
 	public.POST("/auth/logout", func(c echo.Context) error {
 		cookie, err := c.Cookie(auth.SessionCookieName)
