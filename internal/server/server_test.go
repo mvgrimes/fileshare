@@ -862,8 +862,8 @@ func TestClientSharedFilesListAndDetail(t *testing.T) {
 	if detailRec.Code != http.StatusOK {
 		t.Fatalf("detail status = %d, want %d", detailRec.Code, http.StatusOK)
 	}
-	if !strings.Contains(detailRec.Body.String(), "<strong>Shared At:</strong>") {
-		t.Fatalf("detail body = %q, want shared timestamp", detailRec.Body.String())
+	if !strings.Contains(detailRec.Body.String(), "Shared At") {
+		t.Fatalf("detail body = %q, want shared timestamp label", detailRec.Body.String())
 	}
 	if !strings.Contains(detailRec.Body.String(), "href=\"/client/file/file-list-direct/download\"") {
 		t.Fatalf("detail body = %q, want detail download link", detailRec.Body.String())

@@ -37,11 +37,16 @@
   <article class="card bg-base-100 shadow-sm lg:col-span-2">
     <div class="card-body gap-3">
       {{template "page_header" .}}
-      <p><strong>Name:</strong> {{.File.Name}}</p>
-      <p><strong>ID:</strong> <code>{{.File.ID}}</code></p>
-      <p><strong>Content Type:</strong> {{.File.ContentType}}</p>
-      <p><strong>Size:</strong> <span data-format-bytes="{{.File.SizeBytes}}">{{.File.SizeBytes}}</span></p>
-      <p><strong>Uploaded At:</strong> {{if .File.UploadedAt}}<span data-format-datetime="{{.File.UploadedAt}}">{{.File.UploadedAt}}</span>{{end}}</p>
+      <div class="rounded-box border border-base-300 bg-base-200/30 p-4">
+        <div class="text-xs font-semibold uppercase tracking-wide text-base-content/60">File Name</div>
+        <div class="text-lg font-semibold leading-tight">{{.File.Name}}</div>
+      </div>
+      <div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+        <div class="flex flex-col gap-1 rounded-box border border-base-300 bg-base-200/40 p-3"><div class="text-xs font-semibold uppercase tracking-wide text-base-content/60">File ID</div><div class="text-sm"><code>{{.File.ID}}</code></div></div>
+        <div class="flex flex-col gap-1 rounded-box border border-base-300 bg-base-200/40 p-3"><div class="text-xs font-semibold uppercase tracking-wide text-base-content/60">Content Type</div><div class="text-sm">{{.File.ContentType}}</div></div>
+        <div class="flex flex-col gap-1 rounded-box border border-base-300 bg-base-200/40 p-3"><div class="text-xs font-semibold uppercase tracking-wide text-base-content/60">Size</div><div class="text-sm"><span data-format-bytes="{{.File.SizeBytes}}">{{.File.SizeBytes}}</span></div></div>
+        <div class="flex flex-col gap-1 rounded-box border border-base-300 bg-base-200/40 p-3"><div class="text-xs font-semibold uppercase tracking-wide text-base-content/60">Uploaded At</div><div class="text-sm">{{if .File.UploadedAt}}<span data-format-datetime="{{.File.UploadedAt}}">{{.File.UploadedAt}}</span>{{end}}</div></div>
+      </div>
       {{if .DownloadPath}}<a class="btn btn-sm btn-secondary" href="{{.DownloadPath}}">Download</a>{{end}}
     </div>
   </article>
@@ -156,17 +161,25 @@
 <section class="card bg-base-100 shadow-sm">
   <div class="card-body gap-3">
     {{template "page_header" .}}
-    <p><strong>Name:</strong> {{.File.Name}}</p>
-    <p><strong>Share ID:</strong> <code>{{.File.ID}}</code></p>
-    <p><strong>File ID:</strong> <code>{{.File.FileID}}</code></p>
-    <p><strong>Content Type:</strong> {{.File.ContentType}}</p>
-    <p><strong>Size:</strong> <span data-format-bytes="{{.File.SizeBytes}}">{{.File.SizeBytes}}</span></p>
-    <p><strong>Shared Via:</strong> {{.File.SharedVia}}</p>
-    <p><strong>Shared By:</strong> {{.File.SharedBy}}</p>
-    <p><strong>Viewed:</strong> {{if eq .File.ViewStatus "viewed"}}<span class="badge badge-success badge-outline">Viewed</span>{{else if eq .File.ViewStatus "unviewed"}}<span class="badge badge-warning badge-outline">Unviewed</span>{{else}}<span class="badge badge-neutral badge-outline">Unknown</span>{{end}}</p>
-    <p><strong>Uploaded At:</strong> {{if .File.UploadedAt}}<span data-format-datetime="{{.File.UploadedAt}}">{{.File.UploadedAt}}</span>{{end}}</p>
-    <p><strong>Shared At:</strong> {{if .File.SharedAt}}<span data-format-datetime="{{.File.SharedAt}}">{{.File.SharedAt}}</span>{{end}}</p>
-    <p><strong>Message:</strong> {{if .File.Message}}{{.File.Message}}{{else}}<span class="opacity-70">No message</span>{{end}}</p>
+    <div class="rounded-box border border-base-300 bg-base-200/30 p-4">
+      <div class="text-xs font-semibold uppercase tracking-wide text-base-content/60">File Name</div>
+      <div class="text-lg font-semibold leading-tight">{{.File.Name}}</div>
+    </div>
+    <div class="rounded-box border border-base-300 bg-base-200/20 p-4">
+      <div class="text-xs font-semibold uppercase tracking-wide text-base-content/60">Message</div>
+      <div class="text-sm">{{if .File.Message}}{{.File.Message}}{{else}}<span class="opacity-70">No message</span>{{end}}</div>
+    </div>
+    <div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+      <div class="flex flex-col gap-1 rounded-box border border-base-300 bg-base-200/40 p-3"><div class="text-xs font-semibold uppercase tracking-wide text-base-content/60">Share ID</div><div class="text-sm"><code>{{.File.ID}}</code></div></div>
+      <div class="flex flex-col gap-1 rounded-box border border-base-300 bg-base-200/40 p-3"><div class="text-xs font-semibold uppercase tracking-wide text-base-content/60">File ID</div><div class="text-sm"><code>{{.File.FileID}}</code></div></div>
+      <div class="flex flex-col gap-1 rounded-box border border-base-300 bg-base-200/40 p-3"><div class="text-xs font-semibold uppercase tracking-wide text-base-content/60">Content Type</div><div class="text-sm">{{.File.ContentType}}</div></div>
+      <div class="flex flex-col gap-1 rounded-box border border-base-300 bg-base-200/40 p-3"><div class="text-xs font-semibold uppercase tracking-wide text-base-content/60">Size</div><div class="text-sm"><span data-format-bytes="{{.File.SizeBytes}}">{{.File.SizeBytes}}</span></div></div>
+      <div class="flex flex-col gap-1 rounded-box border border-base-300 bg-base-200/40 p-3"><div class="text-xs font-semibold uppercase tracking-wide text-base-content/60">Shared Via</div><div class="text-sm">{{.File.SharedVia}}</div></div>
+      <div class="flex flex-col gap-1 rounded-box border border-base-300 bg-base-200/40 p-3"><div class="text-xs font-semibold uppercase tracking-wide text-base-content/60">Shared By</div><div class="text-sm">{{.File.SharedBy}}</div></div>
+      <div class="flex flex-col gap-1 rounded-box border border-base-300 bg-base-200/40 p-3"><div class="text-xs font-semibold uppercase tracking-wide text-base-content/60">Viewed</div><div class="text-sm">{{if eq .File.ViewStatus "viewed"}}<span class="badge badge-success badge-outline">Viewed</span>{{else if eq .File.ViewStatus "unviewed"}}<span class="badge badge-warning badge-outline">Unviewed</span>{{else}}<span class="badge badge-neutral badge-outline">Unknown</span>{{end}}</div></div>
+      <div class="flex flex-col gap-1 rounded-box border border-base-300 bg-base-200/40 p-3"><div class="text-xs font-semibold uppercase tracking-wide text-base-content/60">Uploaded At</div><div class="text-sm">{{if .File.UploadedAt}}<span data-format-datetime="{{.File.UploadedAt}}">{{.File.UploadedAt}}</span>{{end}}</div></div>
+      <div class="flex flex-col gap-1 rounded-box border border-base-300 bg-base-200/40 p-3"><div class="text-xs font-semibold uppercase tracking-wide text-base-content/60">Shared At</div><div class="text-sm">{{if .File.SharedAt}}<span data-format-datetime="{{.File.SharedAt}}">{{.File.SharedAt}}</span>{{end}}</div></div>
+    </div>
     {{if .DownloadPath}}<a class="btn btn-sm btn-secondary" href="{{.DownloadPath}}">Download</a>{{end}}
     {{if .FileDetailPath}}<a class="btn btn-sm btn-primary" href="{{.FileDetailPath}}">Open File Detail</a>{{end}}
     {{if .UnsharePath}}
@@ -205,13 +218,18 @@
 <section class="card bg-base-100 shadow-sm">
   <div class="card-body gap-3">
     {{template "page_header" .}}
-    <p><strong>Name:</strong> {{.File.Name}}</p>
-    <p><strong>ID:</strong> <code>{{.File.ID}}</code></p>
-    <p><strong>Content Type:</strong> {{.File.ContentType}}</p>
-    <p><strong>Size:</strong> <span data-format-bytes="{{.File.SizeBytes}}">{{.File.SizeBytes}}</span></p>
-    <p><strong>Shared Via:</strong> {{.File.SharedVia}}</p>
-    <p><strong>Uploaded At:</strong> {{if .File.UploadedAt}}<span data-format-datetime="{{.File.UploadedAt}}">{{.File.UploadedAt}}</span>{{end}}</p>
-    <p><strong>Shared At:</strong> {{if .File.SharedAt}}<span data-format-datetime="{{.File.SharedAt}}">{{.File.SharedAt}}</span>{{end}}</p>
+    <div class="rounded-box border border-base-300 bg-base-200/30 p-4">
+      <div class="text-xs font-semibold uppercase tracking-wide text-base-content/60">File Name</div>
+      <div class="text-lg font-semibold leading-tight">{{.File.Name}}</div>
+    </div>
+    <div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+      <div class="flex flex-col gap-1 rounded-box border border-base-300 bg-base-200/40 p-3"><div class="text-xs font-semibold uppercase tracking-wide text-base-content/60">File ID</div><div class="text-sm"><code>{{.File.ID}}</code></div></div>
+      <div class="flex flex-col gap-1 rounded-box border border-base-300 bg-base-200/40 p-3"><div class="text-xs font-semibold uppercase tracking-wide text-base-content/60">Content Type</div><div class="text-sm">{{.File.ContentType}}</div></div>
+      <div class="flex flex-col gap-1 rounded-box border border-base-300 bg-base-200/40 p-3"><div class="text-xs font-semibold uppercase tracking-wide text-base-content/60">Size</div><div class="text-sm"><span data-format-bytes="{{.File.SizeBytes}}">{{.File.SizeBytes}}</span></div></div>
+      <div class="flex flex-col gap-1 rounded-box border border-base-300 bg-base-200/40 p-3"><div class="text-xs font-semibold uppercase tracking-wide text-base-content/60">Shared Via</div><div class="text-sm">{{.File.SharedVia}}</div></div>
+      <div class="flex flex-col gap-1 rounded-box border border-base-300 bg-base-200/40 p-3"><div class="text-xs font-semibold uppercase tracking-wide text-base-content/60">Uploaded At</div><div class="text-sm">{{if .File.UploadedAt}}<span data-format-datetime="{{.File.UploadedAt}}">{{.File.UploadedAt}}</span>{{end}}</div></div>
+      <div class="flex flex-col gap-1 rounded-box border border-base-300 bg-base-200/40 p-3"><div class="text-xs font-semibold uppercase tracking-wide text-base-content/60">Shared At</div><div class="text-sm">{{if .File.SharedAt}}<span data-format-datetime="{{.File.SharedAt}}">{{.File.SharedAt}}</span>{{end}}</div></div>
+    </div>
     {{if .DownloadPath}}<a class="btn btn-sm btn-secondary" href="{{.DownloadPath}}">Download</a>{{end}}
   </div>
 </section>
