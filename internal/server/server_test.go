@@ -550,6 +550,12 @@ func TestUserDashboardShowsStatsAndPrioritizesUnviewedSentFiles(t *testing.T) {
 	if !strings.Contains(body, "file-dashboard-unviewed.dat") || !strings.Contains(body, "file-dashboard-viewed.dat") {
 		t.Fatalf("body = %q, want sent files table", body)
 	}
+	if !strings.Contains(body, "href=\"/user/sent/share-dashboard-unviewed\"") || !strings.Contains(body, "href=\"/user/sent/share-dashboard-viewed\"") {
+		t.Fatalf("body = %q, want sent file detail links", body)
+	}
+	if !strings.Contains(body, "href=\"/user/received/") {
+		t.Fatalf("body = %q, want received file detail links", body)
+	}
 	if !strings.Contains(body, "Client: c-dashboard@example.com") || !strings.Contains(body, "Client Group: Download Group cg-dashboard") {
 		t.Fatalf("body = %q, want dashboard share labels", body)
 	}
