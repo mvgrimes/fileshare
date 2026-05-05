@@ -85,3 +85,18 @@ func (q *Queries) RecordShareDownload(ctx context.Context, arg RecordShareDownlo
 	_, err := q.db.ExecContext(ctx, recordShareDownload, arg.ID, arg.ShareID, arg.ClientID)
 	return err
 }
+
+const shareHasAnyDownload = `-- name: ShareHasAnyDownload :one
+SELECT EXISTS (
+  SELECT 1
+  FROM share_downloads sd
+  WHERE sd.share_id = ?
+)
+`
+
+func (q *Queries) ShareHasAnyDownload(ctx context.Context, shareID string) (bool, error) {
+	row := q.db.QueryRowContext(ctx, shareHasAnyDownload, shareID)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}

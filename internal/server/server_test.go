@@ -907,6 +907,12 @@ func TestUserSharedFilesListAndDetail(t *testing.T) {
 	if !strings.Contains(body, "Client: c-shared-target@example.com") || !strings.Contains(body, "Client Group: Download Group cg-shared-target") {
 		t.Fatalf("list body = %q, want share target labels", body)
 	}
+	if strings.Count(body, "badge badge-success badge-outline\">Viewed</span>") != 1 {
+		t.Fatalf("list body = %q, want one viewed share row", body)
+	}
+	if strings.Count(body, "badge badge-warning badge-outline\">Unviewed</span>") < 2 {
+		t.Fatalf("list body = %q, want unviewed badge for non-viewed share rows", body)
+	}
 	if strings.Count(body, "file-owned.dat") != 3 {
 		t.Fatalf("list body = %q, want one row per share target", body)
 	}
@@ -930,8 +936,14 @@ func TestUserSharedFilesListAndDetail(t *testing.T) {
 	if !strings.Contains(ownerDetailRec.Body.String(), "Client: c-shared-target@example.com") {
 		t.Fatalf("owner detail body = %q, want current shares to show client name", ownerDetailRec.Body.String())
 	}
-	if !strings.Contains(ownerDetailRec.Body.String(), "Viewing History") || !strings.Contains(ownerDetailRec.Body.String(), "c-viewer-owned@example.com") || !strings.Contains(ownerDetailRec.Body.String(), "Viewed At:") {
-		t.Fatalf("owner detail body = %q, want viewing history card with viewer and viewed timestamp", ownerDetailRec.Body.String())
+	if !strings.Contains(ownerDetailRec.Body.String(), "Viewing History") || !strings.Contains(ownerDetailRec.Body.String(), "c-viewer-owned@example.com") || !strings.Contains(ownerDetailRec.Body.String(), "<th>Viewed At</th>") {
+		t.Fatalf("owner detail body = %q, want viewing history table with viewer and viewed timestamp", ownerDetailRec.Body.String())
+	}
+	if strings.Count(ownerDetailRec.Body.String(), "Current Shares") != 1 {
+		t.Fatalf("owner detail body = %q, want current shares in its own card", ownerDetailRec.Body.String())
+	}
+	if !strings.Contains(ownerDetailRec.Body.String(), "badge badge-success badge-outline\">Viewed</span>") || !strings.Contains(ownerDetailRec.Body.String(), "badge badge-warning badge-outline\">Unviewed</span>") {
+		t.Fatalf("owner detail body = %q, want viewed/unviewed badges for each share", ownerDetailRec.Body.String())
 	}
 	if strings.Count(ownerDetailRec.Body.String(), "Back to List") != 1 || strings.Index(ownerDetailRec.Body.String(), "Back to List") > strings.Index(ownerDetailRec.Body.String(), "Delete File") {
 		t.Fatalf("owner detail body = %q, want back-to-list in details card before delete card", ownerDetailRec.Body.String())

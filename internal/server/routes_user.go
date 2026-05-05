@@ -282,23 +282,23 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 
 		items := make([]fileListItem, 0, len(files))
 		for _, f := range files {
-			viewed, viewErr := queries.FileHasAnyClientDownload(c.Request().Context(), f.ID)
-			if viewErr != nil {
-				return c.String(http.StatusInternalServerError, "failed to load download status")
-			}
-			status := "unviewed"
-			if viewed {
-				status = "viewed"
-			}
 			shares, sharesErr := queries.ListSharesByFileID(c.Request().Context(), f.ID)
 			if sharesErr != nil {
 				return c.String(http.StatusInternalServerError, "failed to load shares")
 			}
 			if len(shares) == 0 {
-				items = append(items, fileListItem{ID: f.ID, Name: f.OriginalFilename, ContentType: f.ContentType, SizeBytes: f.SizeBytes, SharedVia: "Not shared", UploadedAt: f.CreatedAt, ViewStatus: status})
+				items = append(items, fileListItem{ID: f.ID, Name: f.OriginalFilename, ContentType: f.ContentType, SizeBytes: f.SizeBytes, SharedVia: "Not shared", UploadedAt: f.CreatedAt, ViewStatus: "unviewed"})
 				continue
 			}
 			for _, sh := range shares {
+				status := "unviewed"
+				viewed, viewErr := queries.ShareHasAnyDownload(c.Request().Context(), sh.ID)
+				if viewErr != nil {
+					return c.String(http.StatusInternalServerError, "failed to load download status")
+				}
+				if viewed {
+					status = "viewed"
+				}
 				targetLabel := sh.TargetType + ":" + sh.TargetID
 				switch sh.TargetType {
 				case "client":
@@ -394,6 +394,14 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 		shareItems := make([]fileShareListItem, 0, len(shares))
 		for _, sh := range shares {
 			targetLabel := sh.TargetType + ":" + sh.TargetID
+			status := "unviewed"
+			viewed, viewedErr := queries.ShareHasAnyDownload(c.Request().Context(), sh.ID)
+			if viewedErr != nil {
+				return c.String(http.StatusInternalServerError, "failed to load share status")
+			}
+			if viewed {
+				status = "viewed"
+			}
 			switch sh.TargetType {
 			case "client":
 				if cl, ok := clientByID[sh.TargetID]; ok {
@@ -416,7 +424,7 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 					targetLabel = "User Group: " + strings.TrimSpace(ug.Name)
 				}
 			}
-			shareItems = append(shareItems, fileShareListItem{ID: sh.ID, TargetType: sh.TargetType, TargetID: sh.TargetID, TargetLabel: targetLabel})
+			shareItems = append(shareItems, fileShareListItem{ID: sh.ID, TargetType: sh.TargetType, TargetID: sh.TargetID, TargetLabel: targetLabel, ViewStatus: status})
 		}
 		viewHistory, err := queries.ListFileViewHistory(c.Request().Context(), fileID)
 		if err != nil {

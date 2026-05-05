@@ -78,6 +78,7 @@ type fileShareListItem struct {
 	TargetType  string
 	TargetID    string
 	TargetLabel string
+	ViewStatus  string
 }
 
 func (r *TemplateRenderer) Render(w io.Writer, name string, data any, c echo.Context) error {

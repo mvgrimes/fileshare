@@ -104,6 +104,13 @@ func TestShareDownloadTrackingQueries(t *testing.T) {
 	if viewed {
 		t.Fatalf("viewed before download = true, want false")
 	}
+	shareViewed, err := queries.ShareHasAnyDownload(ctx, "s1")
+	if err != nil {
+		t.Fatalf("ShareHasAnyDownload() unexpected error: %v", err)
+	}
+	if shareViewed {
+		t.Fatalf("share viewed before download = true, want false")
+	}
 
 	if err := queries.RecordShareDownload(ctx, db.RecordShareDownloadParams{ID: "d1", ShareID: "s1", ClientID: "c1"}); err != nil {
 		t.Fatalf("RecordShareDownload() first call unexpected error: %v", err)
@@ -118,6 +125,13 @@ func TestShareDownloadTrackingQueries(t *testing.T) {
 	}
 	if !viewed {
 		t.Fatalf("viewed after download = false, want true")
+	}
+	shareViewed, err = queries.ShareHasAnyDownload(ctx, "s1")
+	if err != nil {
+		t.Fatalf("ShareHasAnyDownload() unexpected error: %v", err)
+	}
+	if !shareViewed {
+		t.Fatalf("share viewed after download = false, want true")
 	}
 }
 

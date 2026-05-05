@@ -61,14 +61,21 @@
     <div class="card-body gap-3">
       <h3 class="text-lg font-semibold">Viewing History</h3>
       {{if .ViewHistory}}
-      <div class="space-y-2">
-        {{range .ViewHistory}}
-        <div class="rounded-box border border-base-300 p-2 text-sm">
-          <p><strong>Viewer:</strong> {{.ViewerName}}</p>
-          <p><strong>Viewed At:</strong> <span data-format-datetime="{{.ViewedAt}}">{{.ViewedAt}}</span></p>
-          <p><strong>Total Views:</strong> {{.DownloadCount}}</p>
-        </div>
-        {{end}}
+      <div class="overflow-x-auto">
+        <table class="table table-zebra table-sm">
+          <thead>
+            <tr><th>Viewer</th><th>Viewed At</th><th>Total Views</th></tr>
+          </thead>
+          <tbody>
+            {{range .ViewHistory}}
+            <tr>
+              <td>{{.ViewerName}}</td>
+              <td><span data-format-datetime="{{.ViewedAt}}">{{.ViewedAt}}</span></td>
+              <td>{{.DownloadCount}}</td>
+            </tr>
+            {{end}}
+          </tbody>
+        </table>
       </div>
       {{else}}
       <p class="text-sm opacity-70">No views yet.</p>
@@ -104,13 +111,18 @@
         </label>
         <button class="btn btn-sm btn-primary md:col-span-2" type="submit" data-pending-text="Sharing...">Add Share</button>
       </form>
+    </div>
+  </article>
 
-      <h3 class="text-lg font-semibold mt-3">Current Shares</h3>
+  <article class="card bg-base-100 shadow-sm lg:col-span-2">
+    <div class="card-body gap-3">
+      <h3 class="text-lg font-semibold">Current Shares</h3>
       {{if .ShareTargets}}
       <div class="space-y-2">
         {{range .ShareTargets}}
         <form method="post" action="{{$.ManageBasePath}}/{{$.File.ID}}/shares/{{.ID}}/delete" class="flex items-center justify-between gap-2 rounded-box border border-base-300 p-2" data-enhance="submission">
           <span class="text-sm">{{.TargetLabel}}</span>
+          <span>{{if eq .ViewStatus "viewed"}}<span class="badge badge-success badge-outline">Viewed</span>{{else}}<span class="badge badge-warning badge-outline">Unviewed</span>{{end}}</span>
           <button class="btn btn-xs btn-warning" type="submit" data-pending-text="Removing...">Unshare</button>
         </form>
         {{end}}

@@ -67,6 +67,7 @@ type Querier interface {
 	RemoveUserFromGroup(ctx context.Context, arg RemoveUserFromGroupParams) error
 	RemoveUserRole(ctx context.Context, arg RemoveUserRoleParams) error
 	RevokeSessionByID(ctx context.Context, id string) error
+	ShareHasAnyDownload(ctx context.Context, shareID string) (bool, error)
 	UpdateClient(ctx context.Context, arg UpdateClientParams) error
 	UpdateClientGroup(ctx context.Context, arg UpdateClientGroupParams) error
 	UpdateEmailEventStatus(ctx context.Context, arg UpdateEmailEventStatusParams) error

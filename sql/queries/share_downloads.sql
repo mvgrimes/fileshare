@@ -14,6 +14,13 @@ SELECT EXISTS (
   WHERE s.file_id = ?
 );
 
+-- name: ShareHasAnyDownload :one
+SELECT EXISTS (
+  SELECT 1
+  FROM share_downloads sd
+  WHERE sd.share_id = ?
+);
+
 -- name: ListFileViewHistory :many
 SELECT
   c.display_name AS viewer_name,
