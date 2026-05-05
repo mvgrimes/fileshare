@@ -4,7 +4,6 @@
 <section class="card bg-base-100 shadow-sm">
   <div class="card-body gap-4">
     {{template "page_header" .}}
-    <p class="text-sm opacity-80">Actor ID: <code>{{.ActorID}}</code></p>
     <form method="post" action="{{.FormAction}}" enctype="multipart/form-data" class="grid gap-3 md:grid-cols-2" data-enhance="submission" data-target-select-form>
       {{if .ShowShareFields}}
       <label class="form-control w-full md:col-span-2">

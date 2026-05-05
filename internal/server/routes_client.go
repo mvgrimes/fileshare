@@ -252,7 +252,7 @@ func (s *Server) registerClientRoutes(queries *db.Queries) {
 				sharedBy = "Client: " + strings.TrimSpace(client.DisplayName)
 			}
 		}
-		return c.Render(http.StatusOK, "shared_files", map[string]any{"Title": "Received Share Detail", "Subtitle": "File metadata and share details.", "ContentTemplate": "share_detail_content", "File": fileListItem{ID: selected.ID, FileID: file.ID, Name: file.OriginalFilename, ContentType: file.ContentType, SizeBytes: file.SizeBytes, SharedVia: sharedVia, SharedBy: sharedBy, SharedAt: selected.CreatedAt, UploadedAt: file.CreatedAt, Message: message}, "BackPath": "/client/received", "BackLabel": "Back to Received Files", "DownloadPath": "/client/file/" + file.ID + "/download", "FileDetailPath": "/client/file/" + file.ID})
+		return c.Render(http.StatusOK, "shared_files", map[string]any{"Title": "Received Share Detail", "Subtitle": "File metadata and share details.", "ContentTemplate": "share_detail_content", "File": fileListItem{ID: selected.ID, FileID: file.ID, Name: file.OriginalFilename, ContentType: file.ContentType, SizeBytes: file.SizeBytes, SharedVia: sharedVia, SharedBy: sharedBy, SharedAt: selected.CreatedAt, UploadedAt: file.CreatedAt, Message: message}, "BackPath": "/client/received", "BackLabel": "Back to Received Files", "DownloadPath": "/client/file/" + file.ID + "/download"})
 	})
 	client.POST("/uploads", func(c echo.Context) error {
 		principal, _ := auth.PrincipalFromContext(c)

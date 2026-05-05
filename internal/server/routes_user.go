@@ -803,7 +803,7 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 		if selected.Message.Valid {
 			message = strings.TrimSpace(selected.Message.String)
 		}
-		return c.Render(http.StatusOK, "shared_files", map[string]any{"Title": "Received Share Detail", "Subtitle": "File metadata and share details.", "ContentTemplate": "share_detail_content", "File": fileListItem{ID: selected.ID, FileID: file.ID, Name: file.OriginalFilename, ContentType: file.ContentType, SizeBytes: file.SizeBytes, SharedVia: sharedVia, SharedBy: sharedBy, SharedAt: selected.CreatedAt, UploadedAt: file.CreatedAt, Message: message}, "BackPath": "/user/received", "BackLabel": "Back to Received Files", "DownloadPath": "/user/file/" + file.ID + "/download"})
+		return c.Render(http.StatusOK, "shared_files", map[string]any{"Title": "Received Share Detail", "Subtitle": "File metadata and share details.", "ContentTemplate": "share_detail_content", "File": fileListItem{ID: selected.ID, FileID: file.ID, Name: file.OriginalFilename, ContentType: file.ContentType, SizeBytes: file.SizeBytes, SharedVia: sharedVia, SharedBy: sharedBy, SharedAt: selected.CreatedAt, UploadedAt: file.CreatedAt, Message: message}, "BackPath": "/user/received", "BackLabel": "Back to Received Files", "DownloadPath": "/user/file/" + file.ID + "/download", "FileDetailPath": "/user/file/" + file.ID})
 	})
 
 	user.GET("/received/:shareID/download", func(c echo.Context) error {
