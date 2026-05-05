@@ -517,10 +517,12 @@ func TestUserDashboardShowsStatsAndPrioritizesUnviewedSentFiles(t *testing.T) {
 	s := New(testConfig(), slog.Default())
 	createUserWithoutPassword(t, "u-dashboard", "u-dashboard@example.com", true, 1)
 	createClientWithoutPassword(t, "c-dashboard", "c-dashboard@example.com", true)
+	createClientGroupForTests(t, "cg-dashboard")
 	createFileWithUploader(t, "file-dashboard-unviewed", "u-dashboard")
 	createFileWithUploader(t, "file-dashboard-viewed", "u-dashboard")
 	createShareForTests(t, "share-dashboard-unviewed", "file-dashboard-unviewed", "client", "c-dashboard")
 	createShareForTests(t, "share-dashboard-viewed", "file-dashboard-viewed", "client", "c-dashboard")
+	createShareForTests(t, "share-dashboard-group", "file-dashboard-unviewed", "client_group", "cg-dashboard")
 
 	sqlDB, err := sql.Open("sqlite", testConfig().DatabaseURL)
 	if err != nil {
@@ -547,6 +549,9 @@ func TestUserDashboardShowsStatsAndPrioritizesUnviewedSentFiles(t *testing.T) {
 	}
 	if !strings.Contains(body, "file-dashboard-unviewed.dat") || !strings.Contains(body, "file-dashboard-viewed.dat") {
 		t.Fatalf("body = %q, want sent files table", body)
+	}
+	if !strings.Contains(body, "Client: c-dashboard@example.com") || !strings.Contains(body, "Client Group: Download Group cg-dashboard") {
+		t.Fatalf("body = %q, want dashboard share labels", body)
 	}
 	if strings.Index(body, "file-dashboard-unviewed.dat") > strings.Index(body, "file-dashboard-viewed.dat") {
 		t.Fatalf("body = %q, want unviewed file listed before viewed file", body)
@@ -863,9 +868,13 @@ func TestUserSharedFilesListAndDetail(t *testing.T) {
 	s := New(testConfig(), slog.Default())
 	ownerCookie := login(t, s, "user", "u-owner-files", "uploader")
 	otherCookie := login(t, s, "user", "u-other-files", "uploader")
+	createClientWithoutPassword(t, "c-shared-target", "c-shared-target@example.com", true)
+	createClientGroupForTests(t, "cg-shared-target")
 
 	createFileWithUploader(t, "file-owned", "u-owner-files")
 	createFileWithUploader(t, "file-other", "u-other-files")
+	createShareForTests(t, "share-owned-client", "file-owned", "client", "c-shared-target")
+	createShareForTests(t, "share-owned-group", "file-owned", "client_group", "cg-shared-target")
 
 	listReq := httptest.NewRequest(http.MethodGet, "/user/sent", nil)
 	listReq.AddCookie(ownerCookie)
@@ -883,6 +892,12 @@ func TestUserSharedFilesListAndDetail(t *testing.T) {
 	}
 	if !strings.Contains(body, "href=\"/user/sent/file-owned/download\"") {
 		t.Fatalf("list body = %q, want download link", body)
+	}
+	if !strings.Contains(body, "Client: c-shared-target@example.com") || !strings.Contains(body, "Client Group: Download Group cg-shared-target") {
+		t.Fatalf("list body = %q, want share target labels", body)
+	}
+	if strings.Count(body, "file-owned.dat") != 2 {
+		t.Fatalf("list body = %q, want one row per share target", body)
 	}
 	if strings.Contains(body, "file-other.dat") {
 		t.Fatalf("list body = %q, should not include other user's file", body)
@@ -967,6 +982,9 @@ func TestUserReceivedFilesListAndDetail(t *testing.T) {
 	body := listRec.Body.String()
 	if !strings.Contains(body, "file-received-direct.dat") || !strings.Contains(body, "file-received-group.dat") {
 		t.Fatalf("list body = %q, missing received files", body)
+	}
+	if !strings.Contains(body, "c-received-sender@example.com") {
+		t.Fatalf("list body = %q, want sender name", body)
 	}
 	if strings.Contains(body, "file-received-hidden.dat") {
 		t.Fatalf("list body = %q, should not include unrelated files", body)
