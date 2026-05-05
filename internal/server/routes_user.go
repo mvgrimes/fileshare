@@ -60,9 +60,7 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 			if viewErr != nil {
 				return c.String(http.StatusInternalServerError, "failed to load dashboard file status")
 			}
-			status := "unviewed"
 			if viewed {
-				status = "viewed"
 				userSentViewed++
 			}
 			shares, sharesErr := queries.ListSharesByFileID(c.Request().Context(), f.ID)
@@ -70,10 +68,18 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 				return c.String(http.StatusInternalServerError, "failed to load dashboard shares")
 			}
 			if len(shares) == 0 {
-				sentItems = append(sentItems, fileListItem{ID: f.ID, Name: f.OriginalFilename, UploadedAt: f.CreatedAt, ViewStatus: status, SharedVia: "Not shared"})
+				sentItems = append(sentItems, fileListItem{ID: f.ID, Name: f.OriginalFilename, UploadedAt: f.CreatedAt, ViewStatus: "unviewed", SharedVia: "Not shared"})
 				continue
 			}
 			for _, sh := range shares {
+				status := "unviewed"
+				shareViewed, shareViewErr := queries.ShareHasAnyDownload(c.Request().Context(), sh.ID)
+				if shareViewErr != nil {
+					return c.String(http.StatusInternalServerError, "failed to load dashboard share status")
+				}
+				if shareViewed {
+					status = "viewed"
+				}
 				targetLabel := sh.TargetType + ":" + sh.TargetID
 				switch sh.TargetType {
 				case "client":
