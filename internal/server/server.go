@@ -456,9 +456,9 @@ func dashboardActions(principal auth.Principal) []dashboardAction {
 
 func clientDashboardActions() []dashboardAction {
 	return []dashboardAction{
-		{Label: "Received Files", Description: "Browse files sent directly or through your client groups.", Path: "/client/received", Icon: "inbox"},
+		{Label: "Received Files", Description: "Browse files sent to your account.", Path: "/client/received", Icon: "inbox"},
 		{Label: "Sent Files", Description: "Review files sent from your client account.", Path: "/client/sent", Icon: "paper-airplane"},
-		{Label: "Upload Files", Description: "Submit upload targets; permissions are validated per client.", Path: "/client/uploads", Icon: "arrow-up-tray"},
+		{Label: "Upload Files", Description: "Submit files for review.", Path: "/client/uploads", Icon: "arrow-up-tray"},
 		{Label: "Profile", Description: "Manage your display name and password.", Path: "/client/profile", Icon: "user-circle"},
 	}
 }

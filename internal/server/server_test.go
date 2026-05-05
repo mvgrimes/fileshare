@@ -511,6 +511,12 @@ func TestClientDashboardShowsMagicLinkAction(t *testing.T) {
 	if !strings.Contains(body, "Sent Files") || !strings.Contains(body, "href=\"/client/sent\"") {
 		t.Fatalf("body = %q, want uploaded files dashboard action", body)
 	}
+	if !strings.Contains(body, "Browse files sent to your account.") {
+		t.Fatalf("body = %q, want updated received files subtitle", body)
+	}
+	if !strings.Contains(body, "Submit files for review.") {
+		t.Fatalf("body = %q, want updated upload files subtitle", body)
+	}
 }
 
 func TestUserDashboardShowsStatsAndPrioritizesUnviewedSentFiles(t *testing.T) {
