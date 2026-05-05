@@ -734,6 +734,12 @@ func TestClientUploadedFilesListAndDetail(t *testing.T) {
 	if strings.Contains(listRec.Body.String(), "file-client-other.dat") {
 		t.Fatalf("list body = %q, should not include other client uploads", listRec.Body.String())
 	}
+	if strings.Contains(listRec.Body.String(), "<th>Status</th>") {
+		t.Fatalf("list body = %q, should not show status column", listRec.Body.String())
+	}
+	if strings.Contains(listRec.Body.String(), "<th>Shared At</th>") {
+		t.Fatalf("list body = %q, should not show shared at column", listRec.Body.String())
+	}
 
 	detailReq := httptest.NewRequest(http.MethodGet, "/client/sent/file-client-own", nil)
 	detailReq.AddCookie(ownerCookie)

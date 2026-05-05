@@ -8,16 +8,16 @@
     <div class="overflow-x-auto">
       <table class="table table-zebra">
         <thead>
-          <tr><th>Name</th><th>Size</th><th>Status</th><th>Uploaded At</th><th>Shared At</th><th></th></tr>
+          <tr><th>Name</th><th>Size</th>{{if not .HideStatusColumn}}<th>Status</th>{{end}}<th>Uploaded At</th>{{if not .HideSharedAtColumn}}<th>Shared At</th>{{end}}<th></th></tr>
         </thead>
         <tbody>
           {{range .Files}}
           <tr>
             <td>{{.Name}}</td>
             <td><span data-format-bytes="{{.SizeBytes}}">{{.SizeBytes}}</span></td>
-            <td>{{if eq .ViewStatus "viewed"}}<span class="badge badge-success">Viewed</span>{{else if eq .ViewStatus "unviewed"}}<span class="badge badge-warning">Unviewed</span>{{end}}</td>
+            {{if not $.HideStatusColumn}}<td>{{if eq .ViewStatus "viewed"}}<span class="badge badge-success">Viewed</span>{{else if eq .ViewStatus "unviewed"}}<span class="badge badge-warning">Unviewed</span>{{end}}</td>{{end}}
             <td>{{if .UploadedAt}}<span data-format-datetime="{{.UploadedAt}}">{{.UploadedAt}}</span>{{end}}</td>
-            <td>{{if .SharedAt}}<span data-format-datetime="{{.SharedAt}}">{{.SharedAt}}</span>{{end}}</td>
+            {{if not $.HideSharedAtColumn}}<td>{{if .SharedAt}}<span data-format-datetime="{{.SharedAt}}">{{.SharedAt}}</span>{{end}}</td>{{end}}
             <td class="space-x-1"><a class="btn btn-xs btn-primary" href="{{$.DetailBasePath}}/{{.ID}}">Details</a>{{if $.DownloadBasePath}}<a class="btn btn-xs btn-outline" href="{{$.DownloadBasePath}}/{{.ID}}/download">Download</a>{{end}}</td>
           </tr>
           {{end}}
