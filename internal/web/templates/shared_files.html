@@ -15,7 +15,7 @@
           <tr>
             <td>{{.Name}}</td>
             <td><span data-format-bytes="{{.SizeBytes}}">{{.SizeBytes}}</span></td>
-            <td>{{if eq .ViewStatus "viewed"}}<span class="badge badge-success badge-outline">Viewed</span>{{else if eq .ViewStatus "unviewed"}}<span class="badge badge-warning badge-outline">Unviewed</span>{{end}}</td>
+            <td>{{if eq .ViewStatus "viewed"}}<span class="badge badge-success">Viewed</span>{{else if eq .ViewStatus "unviewed"}}<span class="badge badge-warning">Unviewed</span>{{end}}</td>
             <td>{{if .UploadedAt}}<span data-format-datetime="{{.UploadedAt}}">{{.UploadedAt}}</span>{{end}}</td>
             <td>{{if .SharedAt}}<span data-format-datetime="{{.SharedAt}}">{{.SharedAt}}</span>{{end}}</td>
             <td class="space-x-1"><a class="btn btn-xs btn-primary" href="{{$.DetailBasePath}}/{{.ID}}">Details</a>{{if $.DownloadBasePath}}<a class="btn btn-xs btn-outline" href="{{$.DownloadBasePath}}/{{.ID}}/download">Download</a>{{end}}</td>
