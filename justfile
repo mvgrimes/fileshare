@@ -25,7 +25,8 @@ fmt:
   go fmt ./...
 
 test:
-  go test ./...
+  # go test ./...
+  gotestsum
 
 generage:
   sqlc generate
