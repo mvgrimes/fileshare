@@ -591,7 +591,7 @@ func TestUserProfileUpdateNameAndPassword(t *testing.T) {
 		t.Fatalf("profile body = %q, want display_name field", getRec.Body.String())
 	}
 
-	body := bytes.NewBufferString("display_name=Updated+User&new_password=new-password-123")
+	body := bytes.NewBufferString("display_name=Updated+User&new_password=new-password-123&confirm_password=new-password-123")
 	postReq := httptest.NewRequest(http.MethodPost, "/user/profile", body)
 	postReq.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
 	postReq.Header.Set(echo.HeaderAccept, echo.MIMETextHTML)
@@ -637,7 +637,7 @@ func TestClientProfileUpdateNameAndPassword(t *testing.T) {
 		t.Fatalf("profile get status = %d, want %d", getRec.Code, http.StatusOK)
 	}
 
-	body := bytes.NewBufferString("display_name=Updated+Client&new_password=new-password-123")
+	body := bytes.NewBufferString("display_name=Updated+Client&new_password=new-password-123&confirm_password=new-password-123")
 	postReq := httptest.NewRequest(http.MethodPost, "/client/profile", body)
 	postReq.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
 	postReq.Header.Set(echo.HeaderAccept, echo.MIMETextHTML)
@@ -667,6 +667,46 @@ func TestClientProfileUpdateNameAndPassword(t *testing.T) {
 	s.e.ServeHTTP(loginRec, loginReq)
 	if loginRec.Code != http.StatusNoContent {
 		t.Fatalf("password login status = %d, want %d", loginRec.Code, http.StatusNoContent)
+	}
+}
+
+func TestUserProfileRejectsMismatchedConfirmPassword(t *testing.T) {
+	s := New(testConfig(), slog.Default())
+	createUserWithPassword(t, "u-profile-mismatch", "u-profile-mismatch@example.com", "old-password-123", true, 3)
+	cookie := login(t, s, "user", "u-profile-mismatch", "uploader")
+
+	body := bytes.NewBufferString("display_name=Updated+User&new_password=new-password-123&confirm_password=different-password-123")
+	postReq := httptest.NewRequest(http.MethodPost, "/user/profile", body)
+	postReq.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
+	postReq.AddCookie(cookie)
+	postRec := httptest.NewRecorder()
+	s.e.ServeHTTP(postRec, postReq)
+
+	if postRec.Code != http.StatusBadRequest {
+		t.Fatalf("profile post status = %d, want %d", postRec.Code, http.StatusBadRequest)
+	}
+	if !strings.Contains(postRec.Body.String(), "passwords do not match") {
+		t.Fatalf("body = %q, want mismatch validation error", postRec.Body.String())
+	}
+}
+
+func TestClientProfileRejectsMismatchedConfirmPassword(t *testing.T) {
+	s := New(testConfig(), slog.Default())
+	createClientWithPassword(t, "c-profile-mismatch", "c-profile-mismatch@example.com", "old-password-123", true)
+	cookie := login(t, s, "client", "c-profile-mismatch", "")
+
+	body := bytes.NewBufferString("display_name=Updated+Client&new_password=new-password-123&confirm_password=different-password-123")
+	postReq := httptest.NewRequest(http.MethodPost, "/client/profile", body)
+	postReq.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
+	postReq.AddCookie(cookie)
+	postRec := httptest.NewRecorder()
+	s.e.ServeHTTP(postRec, postReq)
+
+	if postRec.Code != http.StatusBadRequest {
+		t.Fatalf("profile post status = %d, want %d", postRec.Code, http.StatusBadRequest)
+	}
+	if !strings.Contains(postRec.Body.String(), "passwords do not match") {
+		t.Fatalf("body = %q, want mismatch validation error", postRec.Body.String())
 	}
 }
 

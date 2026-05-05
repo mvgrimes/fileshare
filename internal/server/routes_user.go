@@ -157,6 +157,13 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 			return c.String(http.StatusBadRequest, "display_name is required")
 		}
 		newPassword := strings.TrimSpace(c.FormValue("new_password"))
+		confirmPassword := strings.TrimSpace(c.FormValue("confirm_password"))
+		if newPassword != confirmPassword {
+			if isHTMLRequest(c) {
+				return c.Redirect(http.StatusSeeOther, "/user/profile?error="+url.QueryEscape("Passwords do not match"))
+			}
+			return c.String(http.StatusBadRequest, "passwords do not match")
+		}
 		if len(newPassword) > 0 && len(newPassword) < 12 {
 			if isHTMLRequest(c) {
 				return c.Redirect(http.StatusSeeOther, "/user/profile?error="+url.QueryEscape("Password must be at least 12 characters"))
