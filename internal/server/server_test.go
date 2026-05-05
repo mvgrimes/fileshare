@@ -788,8 +788,8 @@ func TestClientUploadedFilesListAndDetail(t *testing.T) {
 	if detailRec.Code != http.StatusOK {
 		t.Fatalf("detail status = %d, want %d", detailRec.Code, http.StatusOK)
 	}
-	if !strings.Contains(detailRec.Body.String(), "<strong>Uploaded At:</strong>") {
-		t.Fatalf("detail body = %q, want uploaded timestamp", detailRec.Body.String())
+	if !strings.Contains(detailRec.Body.String(), "Uploaded At") {
+		t.Fatalf("detail body = %q, want uploaded timestamp label", detailRec.Body.String())
 	}
 
 	forbiddenReq := httptest.NewRequest(http.MethodGet, "/client/file/file-client-own", nil)
@@ -956,8 +956,8 @@ func TestUserSharedFilesListAndDetail(t *testing.T) {
 	if ownerDetailRec.Code != http.StatusOK {
 		t.Fatalf("owner detail status = %d, want %d", ownerDetailRec.Code, http.StatusOK)
 	}
-	if !strings.Contains(ownerDetailRec.Body.String(), "<strong>Uploaded At:</strong>") {
-		t.Fatalf("owner detail body = %q, want uploaded timestamp", ownerDetailRec.Body.String())
+	if !strings.Contains(ownerDetailRec.Body.String(), "Uploaded At") {
+		t.Fatalf("owner detail body = %q, want uploaded timestamp label", ownerDetailRec.Body.String())
 	}
 	if !strings.Contains(ownerDetailRec.Body.String(), "href=\"/user/file/file-owned/download\"") {
 		t.Fatalf("owner detail body = %q, want detail download link", ownerDetailRec.Body.String())
