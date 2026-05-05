@@ -169,16 +169,16 @@
       <div class="text-xs font-semibold uppercase tracking-wide text-base-content/60">Message</div>
       <div class="text-sm">{{if .File.Message}}{{.File.Message}}{{else}}<span class="opacity-70">No message</span>{{end}}</div>
     </div>
-    <div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-      <div class="flex flex-col gap-1 rounded-box border border-base-300 bg-base-200/40 p-3"><div class="text-xs font-semibold uppercase tracking-wide text-base-content/60">Share ID</div><div class="text-sm"><code>{{.File.ID}}</code></div></div>
-      <div class="flex flex-col gap-1 rounded-box border border-base-300 bg-base-200/40 p-3"><div class="text-xs font-semibold uppercase tracking-wide text-base-content/60">File ID</div><div class="text-sm"><code>{{.File.FileID}}</code></div></div>
-      <div class="flex flex-col gap-1 rounded-box border border-base-300 bg-base-200/40 p-3"><div class="text-xs font-semibold uppercase tracking-wide text-base-content/60">Content Type</div><div class="text-sm">{{.File.ContentType}}</div></div>
-      <div class="flex flex-col gap-1 rounded-box border border-base-300 bg-base-200/40 p-3"><div class="text-xs font-semibold uppercase tracking-wide text-base-content/60">Size</div><div class="text-sm"><span data-format-bytes="{{.File.SizeBytes}}">{{.File.SizeBytes}}</span></div></div>
-      <div class="flex flex-col gap-1 rounded-box border border-base-300 bg-base-200/40 p-3"><div class="text-xs font-semibold uppercase tracking-wide text-base-content/60">Shared Via</div><div class="text-sm">{{.File.SharedVia}}</div></div>
-      <div class="flex flex-col gap-1 rounded-box border border-base-300 bg-base-200/40 p-3"><div class="text-xs font-semibold uppercase tracking-wide text-base-content/60">Shared By</div><div class="text-sm">{{.File.SharedBy}}</div></div>
-      <div class="flex flex-col gap-1 rounded-box border border-base-300 bg-base-200/40 p-3"><div class="text-xs font-semibold uppercase tracking-wide text-base-content/60">Viewed</div><div class="text-sm">{{if eq .File.ViewStatus "viewed"}}<span class="badge badge-success badge-outline">Viewed</span>{{else if eq .File.ViewStatus "unviewed"}}<span class="badge badge-warning badge-outline">Unviewed</span>{{else}}<span class="badge badge-neutral badge-outline">Unknown</span>{{end}}</div></div>
-      <div class="flex flex-col gap-1 rounded-box border border-base-300 bg-base-200/40 p-3"><div class="text-xs font-semibold uppercase tracking-wide text-base-content/60">Uploaded At</div><div class="text-sm">{{if .File.UploadedAt}}<span data-format-datetime="{{.File.UploadedAt}}">{{.File.UploadedAt}}</span>{{end}}</div></div>
-      <div class="flex flex-col gap-1 rounded-box border border-base-300 bg-base-200/40 p-3"><div class="text-xs font-semibold uppercase tracking-wide text-base-content/60">Shared At</div><div class="text-sm">{{if .File.SharedAt}}<span data-format-datetime="{{.File.SharedAt}}">{{.File.SharedAt}}</span>{{end}}</div></div>
+    <div class="grid gap-1 sm:grid-cols-2 lg:grid-cols-3 rounded-box border border-base-300 bg-base-200/40">
+      <div class="flex flex-col gap-1 p-3"><div class="text-xs font-semibold uppercase tracking-wide text-base-content/60">Share ID</div><div class="text-sm"><code>{{.File.ID}}</code></div></div>
+      <div class="flex flex-col gap-1 p-3"><div class="text-xs font-semibold uppercase tracking-wide text-base-content/60">File ID</div><div class="text-sm"><code>{{.File.FileID}}</code></div></div>
+      <div class="flex flex-col gap-1 p-3"><div class="text-xs font-semibold uppercase tracking-wide text-base-content/60">Content Type</div><div class="text-sm">{{.File.ContentType}}</div></div>
+      <div class="flex flex-col gap-1 p-3"><div class="text-xs font-semibold uppercase tracking-wide text-base-content/60">Size</div><div class="text-sm"><span data-format-bytes="{{.File.SizeBytes}}">{{.File.SizeBytes}}</span></div></div>
+      <div class="flex flex-col gap-1 p-3"><div class="text-xs font-semibold uppercase tracking-wide text-base-content/60">Shared Via</div><div class="text-sm">{{.File.SharedVia}}</div></div>
+      <div class="flex flex-col gap-1 p-3"><div class="text-xs font-semibold uppercase tracking-wide text-base-content/60">Shared By</div><div class="text-sm">{{.File.SharedBy}}</div></div>
+      <div class="flex flex-col gap-1 p-3"><div class="text-xs font-semibold uppercase tracking-wide text-base-content/60">Viewed</div><div class="text-sm">{{if eq .File.ViewStatus "viewed"}}<span class="badge badge-success badge-outline">Viewed</span>{{else if eq .File.ViewStatus "unviewed"}}<span class="badge badge-warning badge-outline">Unviewed</span>{{else}}<span class="badge badge-neutral badge-outline">Unknown</span>{{end}}</div></div>
+      <div class="flex flex-col gap-1 p-3"><div class="text-xs font-semibold uppercase tracking-wide text-base-content/60">Uploaded At</div><div class="text-sm">{{if .File.UploadedAt}}<span data-format-datetime="{{.File.UploadedAt}}">{{.File.UploadedAt}}</span>{{end}}</div></div>
+      <div class="flex flex-col gap-1 p-3"><div class="text-xs font-semibold uppercase tracking-wide text-base-content/60">Shared At</div><div class="text-sm">{{if .File.SharedAt}}<span data-format-datetime="{{.File.SharedAt}}">{{.File.SharedAt}}</span>{{end}}</div></div>
     </div>
     {{if .DownloadPath}}<a class="btn btn-sm btn-secondary" href="{{.DownloadPath}}">Download</a>{{end}}
     {{if .FileDetailPath}}<a class="btn btn-sm btn-primary" href="{{.FileDetailPath}}">Open File Detail</a>{{end}}
@@ -222,13 +222,13 @@
       <div class="text-xs font-semibold uppercase tracking-wide text-base-content/60">File Name</div>
       <div class="text-lg font-semibold leading-tight">{{.File.Name}}</div>
     </div>
-    <div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-      <div class="flex flex-col gap-1 rounded-box border border-base-300 bg-base-200/40 p-3"><div class="text-xs font-semibold uppercase tracking-wide text-base-content/60">File ID</div><div class="text-sm"><code>{{.File.ID}}</code></div></div>
-      <div class="flex flex-col gap-1 rounded-box border border-base-300 bg-base-200/40 p-3"><div class="text-xs font-semibold uppercase tracking-wide text-base-content/60">Content Type</div><div class="text-sm">{{.File.ContentType}}</div></div>
-      <div class="flex flex-col gap-1 rounded-box border border-base-300 bg-base-200/40 p-3"><div class="text-xs font-semibold uppercase tracking-wide text-base-content/60">Size</div><div class="text-sm"><span data-format-bytes="{{.File.SizeBytes}}">{{.File.SizeBytes}}</span></div></div>
-      <div class="flex flex-col gap-1 rounded-box border border-base-300 bg-base-200/40 p-3"><div class="text-xs font-semibold uppercase tracking-wide text-base-content/60">Shared Via</div><div class="text-sm">{{.File.SharedVia}}</div></div>
-      <div class="flex flex-col gap-1 rounded-box border border-base-300 bg-base-200/40 p-3"><div class="text-xs font-semibold uppercase tracking-wide text-base-content/60">Uploaded At</div><div class="text-sm">{{if .File.UploadedAt}}<span data-format-datetime="{{.File.UploadedAt}}">{{.File.UploadedAt}}</span>{{end}}</div></div>
-      <div class="flex flex-col gap-1 rounded-box border border-base-300 bg-base-200/40 p-3"><div class="text-xs font-semibold uppercase tracking-wide text-base-content/60">Shared At</div><div class="text-sm">{{if .File.SharedAt}}<span data-format-datetime="{{.File.SharedAt}}">{{.File.SharedAt}}</span>{{end}}</div></div>
+    <div class="grid gap-1 sm:grid-cols-2 lg:grid-cols-3 rounded-box border border-base-300 bg-base-200/40">
+      <div class="flex flex-col gap-1 p-3"><div class="text-xs font-semibold uppercase tracking-wide text-base-content/60">File ID</div><div class="text-sm"><code>{{.File.ID}}</code></div></div>
+      <div class="flex flex-col gap-1 p-3"><div class="text-xs font-semibold uppercase tracking-wide text-base-content/60">Content Type</div><div class="text-sm">{{.File.ContentType}}</div></div>
+      <div class="flex flex-col gap-1 p-3"><div class="text-xs font-semibold uppercase tracking-wide text-base-content/60">Size</div><div class="text-sm"><span data-format-bytes="{{.File.SizeBytes}}">{{.File.SizeBytes}}</span></div></div>
+      <div class="flex flex-col gap-1 p-3"><div class="text-xs font-semibold uppercase tracking-wide text-base-content/60">Shared Via</div><div class="text-sm">{{.File.SharedVia}}</div></div>
+      <div class="flex flex-col gap-1 p-3"><div class="text-xs font-semibold uppercase tracking-wide text-base-content/60">Uploaded At</div><div class="text-sm">{{if .File.UploadedAt}}<span data-format-datetime="{{.File.UploadedAt}}">{{.File.UploadedAt}}</span>{{end}}</div></div>
+      <div class="flex flex-col gap-1 p-3"><div class="text-xs font-semibold uppercase tracking-wide text-base-content/60">Shared At</div><div class="text-sm">{{if .File.SharedAt}}<span data-format-datetime="{{.File.SharedAt}}">{{.File.SharedAt}}</span>{{end}}</div></div>
     </div>
     {{if .DownloadPath}}<a class="btn btn-sm btn-secondary" href="{{.DownloadPath}}">Download</a>{{end}}
   </div>
