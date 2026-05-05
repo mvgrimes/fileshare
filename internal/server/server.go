@@ -58,6 +58,7 @@ type dashboardAction struct {
 	Label       string
 	Description string
 	Path        string
+	Icon        string
 }
 
 type fileListItem struct {
@@ -92,6 +93,15 @@ func (r *TemplateRenderer) Render(w io.Writer, name string, data any, c echo.Con
 	viewData["IsAuthenticated"] = isAuthenticated
 	if isAuthenticated {
 		viewData["DashboardPath"] = dashboardPathForPrincipal(principal, c.Request().URL.Path)
+		viewData["PrincipalActorType"] = principal.ActorType
+		switch principal.ActorType {
+		case "user":
+			viewData["UseAppDrawer"] = true
+			viewData["SidebarActions"] = dashboardActions(principal)
+		case "client":
+			viewData["UseAppDrawer"] = true
+			viewData["SidebarActions"] = clientDashboardActions()
+		}
 	}
 	return r.templates.ExecuteTemplate(w, name, viewData)
 }
@@ -148,7 +158,7 @@ func New(cfg *config.Config, log *slog.Logger) *Server {
 
 	e.Use(middleware.Recover())
 	e.Use(middleware.Secure())
-		e.Use(middleware.CSRFWithConfig(middleware.CSRFConfig{
+	e.Use(middleware.CSRFWithConfig(middleware.CSRFConfig{
 		Skipper: func(c echo.Context) bool {
 			return c.Path() == "/auth/session" || c.Path() == "/auth/logout" || c.Path() == "/auth/sso/login" || c.Path() == "/auth/magic/request" || c.Path() == "/auth/magic/verify" || c.Path() == "/auth/password/login" || c.Path() == "/auth/password/reset/request" || c.Path() == "/auth/password/reset/confirm" || c.Path() == "/client/uploads" || c.Path() == "/client/profile" || c.Path() == "/user/uploads" || c.Path() == "/user/profile" || c.Path() == "/user/clients" || c.Path() == "/user/clients/:clientID" || c.Path() == "/user/clients/:clientID/reset-password" || c.Path() == "/user/client-groups" || c.Path() == "/user/client-groups/memberships" || c.Path() == "/user/sent/:fileID/rename" || c.Path() == "/user/sent/:fileID/delete" || c.Path() == "/user/sent/:fileID/shares" || c.Path() == "/user/sent/:fileID/shares/:shareID/delete" || c.Path() == "/admin/users" || c.Path() == "/admin/users/:userID" || c.Path() == "/admin/users/:userID/reset-password"
 		},
@@ -389,12 +399,14 @@ func dashboardActions(principal auth.Principal) []dashboardAction {
 		Label:       "Profile",
 		Description: "Manage your name and password.",
 		Path:        "/user/profile",
+		Icon:        "user-circle",
 	})
 	if auth.HasCapability(principal, auth.CapabilityUploadFiles) {
 		actions = append(actions, dashboardAction{
 			Label:       "Upload Files",
 			Description: "Submit files for sharing with approved recipients.",
 			Path:        "/user/uploads",
+			Icon:        "arrow-up-tray",
 		})
 	}
 	if auth.HasCapability(principal, auth.CapabilityUploadFiles) {
@@ -402,11 +414,13 @@ func dashboardActions(principal auth.Principal) []dashboardAction {
 			Label:       "Sent Files",
 			Description: "Review files sent from your account.",
 			Path:        "/user/sent",
+			Icon:        "paper-airplane",
 		})
 		actions = append(actions, dashboardAction{
 			Label:       "Received Files",
 			Description: "Browse files sent to your account.",
 			Path:        "/user/received",
+			Icon:        "inbox",
 		})
 	}
 	if auth.HasCapability(principal, auth.CapabilityManageClients) {
@@ -414,6 +428,7 @@ func dashboardActions(principal auth.Principal) []dashboardAction {
 			Label:       "Manage Clients",
 			Description: "Create clients and manage client-group membership.",
 			Path:        "/user/clients",
+			Icon:        "users",
 		})
 	}
 	if auth.HasCapability(principal, auth.CapabilityManageUsers) {
@@ -421,9 +436,19 @@ func dashboardActions(principal auth.Principal) []dashboardAction {
 			Label:       "Manage Users",
 			Description: "Administer user access and user roles.",
 			Path:        "/admin/users",
+			Icon:        "shield-check",
 		})
 	}
 	return actions
+}
+
+func clientDashboardActions() []dashboardAction {
+	return []dashboardAction{
+		{Label: "Profile", Description: "Manage your display name and password.", Path: "/client/profile", Icon: "user-circle"},
+		{Label: "Upload Files", Description: "Submit upload targets; permissions are validated per client.", Path: "/client/uploads", Icon: "arrow-up-tray"},
+		{Label: "Received Files", Description: "Browse files sent directly or through your client groups.", Path: "/client/received", Icon: "inbox"},
+		{Label: "Sent Files", Description: "Review files sent from your client account.", Path: "/client/sent", Icon: "paper-airplane"},
+	}
 }
 
 func normalizeBrandAsset(raw string) string {

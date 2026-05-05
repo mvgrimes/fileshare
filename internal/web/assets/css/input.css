@@ -5,3 +5,44 @@
 @plugin "daisyui" {
   themes: corporate --default;
 }
+
+#app-drawer-shell.app-sidebar-collapsed .drawer-side .sidebar-menu {
+  width: 5rem;
+}
+
+#app-drawer-shell.app-sidebar-collapsed .drawer-side .sidebar-text-wrap {
+  display: none;
+}
+
+#app-drawer-shell.app-sidebar-collapsed .drawer-side .sidebar-link {
+  justify-content: center;
+}
+
+.sidebar-link {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding-top: 0.625rem;
+  padding-bottom: 0.625rem;
+}
+
+.sidebar-icon {
+  display: inline-flex;
+  flex: none;
+}
+
+.sidebar-text-wrap {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.sidebar-label {
+  font-weight: 600;
+}
+
+.sidebar-meta {
+  font-size: 0.75rem;
+  line-height: 1rem;
+  opacity: 0.72;
+}

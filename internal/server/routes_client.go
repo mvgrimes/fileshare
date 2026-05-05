@@ -35,7 +35,7 @@ func (s *Server) registerClientRoutes(queries *db.Queries) {
 	})
 	client.GET("/dashboard", func(c echo.Context) error {
 		principal, _ := auth.PrincipalFromContext(c)
-		actions := []dashboardAction{{Label: "Profile", Description: "Manage your display name and password.", Path: "/client/profile"}, {Label: "Upload Files", Description: "Submit upload targets; permissions are validated per client.", Path: "/client/uploads"}, {Label: "Received Files", Description: "Browse files sent directly or through your client groups.", Path: "/client/received"}, {Label: "Sent Files", Description: "Review files sent from your client account.", Path: "/client/sent"}}
+		actions := clientDashboardActions()
 		shares, err := queries.ListClientAccessibleShares(c.Request().Context(), db.ListClientAccessibleSharesParams{ClientID: principal.ActorID, Limit: 200, Offset: 0})
 		if err != nil {
 			return c.String(http.StatusInternalServerError, "failed to load dashboard files")

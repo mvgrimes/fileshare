@@ -9,37 +9,80 @@
     <link rel="stylesheet" href="/assets/app.css">
   </head>
   <body class="min-h-screen bg-base-200 text-base-content">
-    {{template "app_nav" .}}
-    <main class="mx-auto max-w-5xl p-4">
-      {{template "flash_messages" .}}
-      {{if eq .ContentTemplate "home_content"}}
-        {{template "home_content" .}}
-      {{else if eq .ContentTemplate "dashboard_content"}}
-        {{template "dashboard_content" .}}
-      {{else if eq .ContentTemplate "login_content"}}
-        {{template "login_content" .}}
-      {{else if eq .ContentTemplate "request_link_content"}}
-        {{template "request_link_content" .}}
-      {{else if eq .ContentTemplate "verify_token_content"}}
-        {{template "verify_token_content" .}}
-      {{else if eq .ContentTemplate "upload_share_content"}}
-        {{template "upload_share_content" .}}
-      {{else if eq .ContentTemplate "clients_management_content"}}
-        {{template "clients_management_content" .}}
-      {{else if eq .ContentTemplate "shared_files_content"}}
-        {{template "shared_files_content" .}}
-      {{else if eq .ContentTemplate "file_detail_content"}}
-        {{template "file_detail_content" .}}
-      {{else if eq .ContentTemplate "profile_content"}}
-        {{template "profile_content" .}}
-      {{else if eq .ContentTemplate "admin_users_content"}}
-        {{template "admin_users_content" .}}
-      {{else if eq .ContentTemplate "client_edit_content"}}
-        {{template "client_edit_content" .}}
-      {{else}}
-        <p>missing content template</p>
-      {{end}}
-    </main>
+    {{if .UseAppDrawer}}
+    <div class="drawer md:drawer-open" id="app-drawer-shell">
+      <input id="app-drawer" type="checkbox" class="drawer-toggle">
+      <div class="drawer-content">
+        {{template "app_nav" .}}
+        <main class="p-4">
+          {{template "flash_messages" .}}
+          {{if eq .ContentTemplate "home_content"}}
+            {{template "home_content" .}}
+          {{else if eq .ContentTemplate "dashboard_content"}}
+            {{template "dashboard_content" .}}
+          {{else if eq .ContentTemplate "login_content"}}
+            {{template "login_content" .}}
+          {{else if eq .ContentTemplate "request_link_content"}}
+            {{template "request_link_content" .}}
+          {{else if eq .ContentTemplate "verify_token_content"}}
+            {{template "verify_token_content" .}}
+          {{else if eq .ContentTemplate "upload_share_content"}}
+            {{template "upload_share_content" .}}
+          {{else if eq .ContentTemplate "clients_management_content"}}
+            {{template "clients_management_content" .}}
+          {{else if eq .ContentTemplate "shared_files_content"}}
+            {{template "shared_files_content" .}}
+          {{else if eq .ContentTemplate "file_detail_content"}}
+            {{template "file_detail_content" .}}
+          {{else if eq .ContentTemplate "profile_content"}}
+            {{template "profile_content" .}}
+          {{else if eq .ContentTemplate "admin_users_content"}}
+            {{template "admin_users_content" .}}
+          {{else if eq .ContentTemplate "client_edit_content"}}
+            {{template "client_edit_content" .}}
+          {{else}}
+            <p>missing content template</p>
+          {{end}}
+        </main>
+      </div>
+      <div class="drawer-side border-r border-base-300">
+        <label for="app-drawer" aria-label="close sidebar" class="drawer-overlay"></label>
+        {{template "app_sidebar" .}}
+      </div>
+    </div>
+    {{else}}
+      {{template "app_nav" .}}
+      <main class="mx-auto max-w-5xl p-4">
+        {{template "flash_messages" .}}
+        {{if eq .ContentTemplate "home_content"}}
+          {{template "home_content" .}}
+        {{else if eq .ContentTemplate "dashboard_content"}}
+          {{template "dashboard_content" .}}
+        {{else if eq .ContentTemplate "login_content"}}
+          {{template "login_content" .}}
+        {{else if eq .ContentTemplate "request_link_content"}}
+          {{template "request_link_content" .}}
+        {{else if eq .ContentTemplate "verify_token_content"}}
+          {{template "verify_token_content" .}}
+        {{else if eq .ContentTemplate "upload_share_content"}}
+          {{template "upload_share_content" .}}
+        {{else if eq .ContentTemplate "clients_management_content"}}
+          {{template "clients_management_content" .}}
+        {{else if eq .ContentTemplate "shared_files_content"}}
+          {{template "shared_files_content" .}}
+        {{else if eq .ContentTemplate "file_detail_content"}}
+          {{template "file_detail_content" .}}
+        {{else if eq .ContentTemplate "profile_content"}}
+          {{template "profile_content" .}}
+        {{else if eq .ContentTemplate "admin_users_content"}}
+          {{template "admin_users_content" .}}
+        {{else if eq .ContentTemplate "client_edit_content"}}
+          {{template "client_edit_content" .}}
+        {{else}}
+          <p>missing content template</p>
+        {{end}}
+      </main>
+    {{end}}
     <script>
       (() => {
         const forms = document.querySelectorAll("form[data-enhance='submission']");
@@ -111,6 +154,22 @@
             }
             fileInput.files = event.dataTransfer.files;
             syncFilename();
+          });
+        }
+
+        const drawer = document.getElementById("app-drawer-shell");
+        const desktopToggle = document.getElementById("app-drawer-desktop-toggle");
+        if (drawer && desktopToggle) {
+          const collapsedClass = "app-sidebar-collapsed";
+          const applyState = (collapsed) => {
+            drawer.classList.toggle(collapsedClass, collapsed);
+            desktopToggle.setAttribute("aria-label", collapsed ? "Expand menu" : "Collapse menu");
+          };
+          applyState(localStorage.getItem("appSidebarCollapsed") === "1");
+          desktopToggle.addEventListener("click", () => {
+            const collapsed = !drawer.classList.contains(collapsedClass);
+            applyState(collapsed);
+            localStorage.setItem("appSidebarCollapsed", collapsed ? "1" : "0");
           });
         }
       })();
