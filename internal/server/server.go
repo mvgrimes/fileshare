@@ -59,6 +59,7 @@ type dashboardAction struct {
 	Description string
 	Path        string
 	Icon        string
+	Active      bool
 }
 
 type fileListItem struct {
@@ -97,10 +98,10 @@ func (r *TemplateRenderer) Render(w io.Writer, name string, data any, c echo.Con
 		switch principal.ActorType {
 		case "user":
 			viewData["UseAppDrawer"] = true
-			viewData["SidebarActions"] = dashboardActions(principal)
+			viewData["SidebarActions"] = markActiveSidebarActions(withDashboardAction(dashboardActions(principal), "/user/dashboard"), c.Request().URL.Path)
 		case "client":
 			viewData["UseAppDrawer"] = true
-			viewData["SidebarActions"] = clientDashboardActions()
+			viewData["SidebarActions"] = markActiveSidebarActions(withDashboardAction(clientDashboardActions(), "/client/dashboard"), c.Request().URL.Path)
 		}
 	}
 	return r.templates.ExecuteTemplate(w, name, viewData)
@@ -394,21 +395,7 @@ func resolveClientUploadRecipients(ctx context.Context, queries *db.Queries, tar
 }
 
 func dashboardActions(principal auth.Principal) []dashboardAction {
-	actions := make([]dashboardAction, 0, 4)
-	actions = append(actions, dashboardAction{
-		Label:       "Profile",
-		Description: "Manage your name and password.",
-		Path:        "/user/profile",
-		Icon:        "user-circle",
-	})
-	if auth.HasCapability(principal, auth.CapabilityUploadFiles) {
-		actions = append(actions, dashboardAction{
-			Label:       "Upload Files",
-			Description: "Submit files for sharing with approved recipients.",
-			Path:        "/user/uploads",
-			Icon:        "arrow-up-tray",
-		})
-	}
+	actions := make([]dashboardAction, 0, 6)
 	if auth.HasCapability(principal, auth.CapabilityUploadFiles) {
 		actions = append(actions, dashboardAction{
 			Label:       "Sent Files",
@@ -439,16 +426,47 @@ func dashboardActions(principal auth.Principal) []dashboardAction {
 			Icon:        "shield-check",
 		})
 	}
+	if auth.HasCapability(principal, auth.CapabilityUploadFiles) {
+		actions = append(actions, dashboardAction{
+			Label:       "Upload Files",
+			Description: "Submit files for sharing with approved recipients.",
+			Path:        "/user/uploads",
+			Icon:        "arrow-up-tray",
+		})
+	}
+	actions = append(actions, dashboardAction{
+		Label:       "Profile",
+		Description: "Manage your name and password.",
+		Path:        "/user/profile",
+		Icon:        "user-circle",
+	})
 	return actions
 }
 
 func clientDashboardActions() []dashboardAction {
 	return []dashboardAction{
-		{Label: "Profile", Description: "Manage your display name and password.", Path: "/client/profile", Icon: "user-circle"},
-		{Label: "Upload Files", Description: "Submit upload targets; permissions are validated per client.", Path: "/client/uploads", Icon: "arrow-up-tray"},
 		{Label: "Received Files", Description: "Browse files sent directly or through your client groups.", Path: "/client/received", Icon: "inbox"},
 		{Label: "Sent Files", Description: "Review files sent from your client account.", Path: "/client/sent", Icon: "paper-airplane"},
+		{Label: "Upload Files", Description: "Submit upload targets; permissions are validated per client.", Path: "/client/uploads", Icon: "arrow-up-tray"},
+		{Label: "Profile", Description: "Manage your display name and password.", Path: "/client/profile", Icon: "user-circle"},
 	}
+}
+
+func withDashboardAction(actions []dashboardAction, dashboardPath string) []dashboardAction {
+	withDashboard := make([]dashboardAction, 0, len(actions)+1)
+	withDashboard = append(withDashboard, dashboardAction{Label: "Dashboard", Description: "Overview and recent file activity.", Path: dashboardPath, Icon: "home"})
+	withDashboard = append(withDashboard, actions...)
+	return withDashboard
+}
+
+func markActiveSidebarActions(actions []dashboardAction, requestPath string) []dashboardAction {
+	out := make([]dashboardAction, 0, len(actions))
+	for _, action := range actions {
+		a := action
+		a.Active = requestPath == action.Path || strings.HasPrefix(requestPath, action.Path+"/")
+		out = append(out, a)
+	}
+	return out
 }
 
 func normalizeBrandAsset(raw string) string {

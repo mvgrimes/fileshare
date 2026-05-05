@@ -14,13 +14,13 @@
 {{end}}
 
 {{define "user_dashboard_main"}}
-<section class="grid gap-4 lg:grid-cols-3">
-  <article class="stats stats-vertical bg-base-100 shadow-sm lg:col-span-3 lg:stats-horizontal">
+<section class="grid gap-4 xl:grid-cols-3">
+  <article class="stats stats-vertical bg-base-100 shadow-sm xl:col-span-3 xl:stats-horizontal">
     <div class="stat"><div class="stat-title">Clients</div><div class="stat-value text-2xl">{{.Stats.ClientCount}}</div></div>
     <div class="stat"><div class="stat-title">Your Sent Files</div><div class="stat-value text-2xl">{{.Stats.UserSentTotal}}</div><div class="stat-desc">{{.Stats.UserSentViewed}} viewed / {{.Stats.UserSentUnviewed}} unviewed</div></div>
     <div class="stat"><div class="stat-title">Client Sent Files</div><div class="stat-value text-2xl">{{.Stats.ClientSentTotal}}</div><div class="stat-desc">{{.Stats.ClientSentViewed}} viewed / {{.Stats.ClientSentUnviewed}} unviewed</div></div>
   </article>
-  <article class="card bg-base-100 shadow-sm lg:col-span-2">
+  <article class="card bg-base-100 shadow-sm xl:col-span-2">
     <div class="card-body">
       <div class="flex items-center justify-between"><h2 class="card-title">Files Received</h2><a class="btn btn-xs btn-ghost" href="/user/received">View all</a></div>
       {{if .DashboardReceivedFiles}}

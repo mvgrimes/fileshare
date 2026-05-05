@@ -43,6 +43,15 @@
           {{else}}
             <p>missing content template</p>
           {{end}}
+          {{if .IsAuthenticated}}
+          <div class="mt-6 text-xs opacity-55">
+            <span>signed in: {{.PrincipalActorType}}</span>
+            <span class="mx-2">|</span>
+            <span>actor: {{.ActorID}}</span>
+            <span class="mx-2">|</span>
+            <span>path: {{.Path}}</span>
+          </div>
+          {{end}}
         </main>
       </div>
       <div class="drawer-side border-r border-base-300">
@@ -171,6 +180,40 @@
             applyState(collapsed);
             localStorage.setItem("appSidebarCollapsed", collapsed ? "1" : "0");
           });
+        }
+
+        const dateNodes = document.querySelectorAll("[data-format-datetime]");
+        const dtf = new Intl.DateTimeFormat("en-US", {
+          timeZone: "America/New_York",
+          month: "short",
+          day: "numeric",
+          year: "numeric",
+          hour: "numeric",
+          minute: "2-digit",
+        });
+        for (const node of dateNodes) {
+          const raw = node.getAttribute("data-format-datetime");
+          if (!raw) continue;
+          const d = new Date(raw);
+          if (Number.isNaN(d.getTime())) continue;
+          node.textContent = dtf.format(d) + " ET";
+        }
+
+        const sizeNodes = document.querySelectorAll("[data-format-bytes]");
+        const units = ["B", "KB", "MB", "GB", "TB"];
+        for (const node of sizeNodes) {
+          const raw = Number(node.getAttribute("data-format-bytes") || "0");
+          if (!Number.isFinite(raw)) continue;
+          let value = Math.max(raw, 0);
+          let unit = units[0];
+          let idx = 0;
+          while (value >= 1024 && idx < units.length - 1) {
+            value /= 1024;
+            idx++;
+            unit = units[idx];
+          }
+          const digits = value >= 100 || idx === 0 ? 0 : value >= 10 ? 1 : 2;
+          node.textContent = `${value.toFixed(digits)} ${unit}`;
         }
       })();
     </script>
