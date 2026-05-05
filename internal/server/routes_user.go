@@ -121,7 +121,7 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 		})
 	}, auth.RequireCapability(auth.CapabilityUploadFiles))
 
-	user.GET("/files", func(c echo.Context) error {
+	user.GET("/sent", func(c echo.Context) error {
 		principal, _ := auth.PrincipalFromContext(c)
 		files, err := queries.ListFilesByUploader(c.Request().Context(), db.ListFilesByUploaderParams{UploaderType: "user", UploaderID: principal.ActorID, Limit: 50, Offset: 0})
 		if err != nil {
@@ -131,10 +131,10 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 		for _, f := range files {
 			items = append(items, fileListItem{ID: f.ID, Name: f.OriginalFilename, ContentType: f.ContentType, SizeBytes: f.SizeBytes, SharedVia: "owned", UploadedAt: f.CreatedAt})
 		}
-		return c.Render(http.StatusOK, "shared_files", map[string]any{"Title": "Shared Files", "Subtitle": "Files uploaded by your account.", "ContentTemplate": "shared_files_content", "Files": items, "EmptyMessage": "No files uploaded yet.", "DetailBasePath": "/user/files", "DownloadBasePath": "/user/files"})
+		return c.Render(http.StatusOK, "shared_files", map[string]any{"Title": "Sent Files", "Subtitle": "Files sent from your account.", "ContentTemplate": "shared_files_content", "Files": items, "EmptyMessage": "No files sent yet.", "DetailBasePath": "/user/sent", "DownloadBasePath": "/user/sent"})
 	})
 
-	user.GET("/files/:fileID/download", func(c echo.Context) error {
+	user.GET("/sent/:fileID/download", func(c echo.Context) error {
 		principal, _ := auth.PrincipalFromContext(c)
 		fileID := c.Param("fileID")
 		file, err := queries.GetFileByID(c.Request().Context(), fileID)
@@ -147,10 +147,20 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 		if file.UploaderType != "user" || file.UploaderID != principal.ActorID {
 			return c.String(http.StatusForbidden, "forbidden")
 		}
-		return c.String(http.StatusOK, "download access granted")
+		signedURL, err := s.downSvc.SignedDownloadURL(c.Request().Context(), principal, fileID)
+		if err != nil {
+			if err == auth.ErrForbidden {
+				return c.String(http.StatusForbidden, "forbidden")
+			}
+			return c.String(http.StatusInternalServerError, "failed to authorize download")
+		}
+		if isHTMLRequest(c) {
+			return c.Redirect(http.StatusSeeOther, signedURL)
+		}
+		return c.String(http.StatusOK, signedURL)
 	})
 
-	user.GET("/files/:fileID", func(c echo.Context) error {
+	user.GET("/sent/:fileID", func(c echo.Context) error {
 		principal, _ := auth.PrincipalFromContext(c)
 		fileID := c.Param("fileID")
 		file, err := queries.GetFileByID(c.Request().Context(), fileID)
@@ -187,10 +197,10 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 		if err != nil {
 			return c.String(http.StatusInternalServerError, "failed to load user groups")
 		}
-		return c.Render(http.StatusOK, "shared_files", map[string]any{"Title": "File Detail", "Subtitle": "Detailed metadata for your uploaded file.", "ContentTemplate": "file_detail_content", "File": fileListItem{ID: file.ID, Name: file.OriginalFilename, ContentType: file.ContentType, SizeBytes: file.SizeBytes, SharedVia: "owned", UploadedAt: file.CreatedAt}, "BackPath": "/user/files", "DownloadPath": "/user/files/" + file.ID + "/download", "ManageFile": true, "ShareTargets": shareItems, "Clients": clients, "ClientGroups": clientGroups, "Users": users, "UserGroups": userGroups, "FlashError": c.QueryParam("error"), "FlashSuccess": c.QueryParam("success")})
+		return c.Render(http.StatusOK, "shared_files", map[string]any{"Title": "Sent File Detail", "Subtitle": "Detailed metadata for your sent file.", "ContentTemplate": "file_detail_content", "File": fileListItem{ID: file.ID, Name: file.OriginalFilename, ContentType: file.ContentType, SizeBytes: file.SizeBytes, SharedVia: "sent", UploadedAt: file.CreatedAt}, "BackPath": "/user/sent", "DownloadPath": "/user/sent/" + file.ID + "/download", "ManageFile": true, "ManageBasePath": "/user/sent", "ShareTargets": shareItems, "Clients": clients, "ClientGroups": clientGroups, "Users": users, "UserGroups": userGroups, "FlashError": c.QueryParam("error"), "FlashSuccess": c.QueryParam("success")})
 	})
 
-	user.POST("/files/:fileID/rename", func(c echo.Context) error {
+	user.POST("/sent/:fileID/rename", func(c echo.Context) error {
 		principal, _ := auth.PrincipalFromContext(c)
 		fileID := c.Param("fileID")
 		file, err := queries.GetFileByID(c.Request().Context(), fileID)
@@ -206,7 +216,7 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 		name := strings.TrimSpace(c.FormValue("filename"))
 		if name == "" {
 			if isHTMLRequest(c) {
-				return c.Redirect(http.StatusSeeOther, "/user/files/"+fileID+"?error="+url.QueryEscape("filename is required"))
+				return c.Redirect(http.StatusSeeOther, "/user/sent/"+fileID+"?error="+url.QueryEscape("filename is required"))
 			}
 			return c.String(http.StatusBadRequest, "filename is required")
 		}
@@ -214,12 +224,12 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 			return c.String(http.StatusInternalServerError, "failed to rename file")
 		}
 		if isHTMLRequest(c) {
-			return c.Redirect(http.StatusSeeOther, "/user/files/"+fileID+"?success="+url.QueryEscape("File renamed"))
+			return c.Redirect(http.StatusSeeOther, "/user/sent/"+fileID+"?success="+url.QueryEscape("File renamed"))
 		}
 		return c.NoContent(http.StatusNoContent)
 	})
 
-	user.POST("/files/:fileID/delete", func(c echo.Context) error {
+	user.POST("/sent/:fileID/delete", func(c echo.Context) error {
 		principal, _ := auth.PrincipalFromContext(c)
 		fileID := c.Param("fileID")
 		file, err := queries.GetFileByID(c.Request().Context(), fileID)
@@ -236,12 +246,12 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 			return c.String(http.StatusInternalServerError, "failed to delete file")
 		}
 		if isHTMLRequest(c) {
-			return c.Redirect(http.StatusSeeOther, "/user/files?success="+url.QueryEscape("File deleted"))
+			return c.Redirect(http.StatusSeeOther, "/user/sent?success="+url.QueryEscape("File deleted"))
 		}
 		return c.NoContent(http.StatusNoContent)
 	})
 
-	user.POST("/files/:fileID/shares", func(c echo.Context) error {
+	user.POST("/sent/:fileID/shares", func(c echo.Context) error {
 		principal, _ := auth.PrincipalFromContext(c)
 		fileID := c.Param("fileID")
 		file, err := queries.GetFileByID(c.Request().Context(), fileID)
@@ -259,7 +269,7 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 		message := strings.TrimSpace(c.FormValue("message"))
 		if targetType == "" || targetID == "" {
 			if isHTMLRequest(c) {
-				return c.Redirect(http.StatusSeeOther, "/user/files/"+fileID+"?error="+url.QueryEscape("target_type and target_id are required"))
+				return c.Redirect(http.StatusSeeOther, "/user/sent/"+fileID+"?error="+url.QueryEscape("target_type and target_id are required"))
 			}
 			return c.String(http.StatusBadRequest, "target_type and target_id are required")
 		}
@@ -277,7 +287,7 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 		}
 		if err != nil {
 			if isHTMLRequest(c) {
-				return c.Redirect(http.StatusSeeOther, "/user/files/"+fileID+"?error="+url.QueryEscape("invalid share target"))
+				return c.Redirect(http.StatusSeeOther, "/user/sent/"+fileID+"?error="+url.QueryEscape("invalid share target"))
 			}
 			return c.String(http.StatusBadRequest, "invalid share target")
 		}
@@ -289,12 +299,12 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 			return c.String(http.StatusInternalServerError, "failed to create share")
 		}
 		if isHTMLRequest(c) {
-			return c.Redirect(http.StatusSeeOther, "/user/files/"+fileID+"?success="+url.QueryEscape("Share added"))
+			return c.Redirect(http.StatusSeeOther, "/user/sent/"+fileID+"?success="+url.QueryEscape("Share added"))
 		}
 		return c.NoContent(http.StatusCreated)
 	})
 
-	user.POST("/files/:fileID/shares/:shareID/delete", func(c echo.Context) error {
+	user.POST("/sent/:fileID/shares/:shareID/delete", func(c echo.Context) error {
 		principal, _ := auth.PrincipalFromContext(c)
 		fileID := c.Param("fileID")
 		file, err := queries.GetFileByID(c.Request().Context(), fileID)
@@ -322,9 +332,101 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 			return c.String(http.StatusInternalServerError, "failed to remove share")
 		}
 		if isHTMLRequest(c) {
-			return c.Redirect(http.StatusSeeOther, "/user/files/"+fileID+"?success="+url.QueryEscape("Share removed"))
+			return c.Redirect(http.StatusSeeOther, "/user/sent/"+fileID+"?success="+url.QueryEscape("Share removed"))
 		}
 		return c.NoContent(http.StatusNoContent)
+	})
+
+	user.GET("/received", func(c echo.Context) error {
+		principal, _ := auth.PrincipalFromContext(c)
+		shares, err := queries.ListUserAccessibleShares(c.Request().Context(), db.ListUserAccessibleSharesParams{UserID: principal.ActorID, Limit: 50, Offset: 0})
+		if err != nil {
+			return c.String(http.StatusInternalServerError, "failed to load received files")
+		}
+		items := make([]fileListItem, 0, len(shares))
+		itemIndex := make(map[string]int, len(shares))
+		fileVia := make(map[string]map[string]struct{}, len(shares))
+		fileSharedAt := make(map[string]string, len(shares))
+		for _, sh := range shares {
+			f, fileErr := queries.GetFileByID(c.Request().Context(), sh.FileID)
+			if fileErr != nil {
+				continue
+			}
+			viaSet, ok := fileVia[f.ID]
+			if !ok {
+				viaSet = map[string]struct{}{}
+				fileVia[f.ID] = viaSet
+			}
+			viaSet[sh.TargetType] = struct{}{}
+			if prev, exists := fileSharedAt[f.ID]; !exists || sh.CreatedAt > prev {
+				fileSharedAt[f.ID] = sh.CreatedAt
+			}
+
+			if idx, exists := itemIndex[f.ID]; exists {
+				items[idx].SharedVia = joinedShareTargets(viaSet)
+				items[idx].SharedAt = fileSharedAt[f.ID]
+				continue
+			}
+
+			itemIndex[f.ID] = len(items)
+			items = append(items, fileListItem{ID: f.ID, Name: f.OriginalFilename, ContentType: f.ContentType, SizeBytes: f.SizeBytes, SharedVia: joinedShareTargets(viaSet), SharedAt: fileSharedAt[f.ID]})
+		}
+		return c.Render(http.StatusOK, "shared_files", map[string]any{"Title": "Received Files", "Subtitle": "Files sent to your account.", "ContentTemplate": "shared_files_content", "Files": items, "EmptyMessage": "No files have been received yet.", "DetailBasePath": "/user/received", "DownloadBasePath": "/user/received"})
+	})
+
+	user.GET("/received/:fileID", func(c echo.Context) error {
+		principal, _ := auth.PrincipalFromContext(c)
+		fileID := c.Param("fileID")
+		shares, err := queries.ListUserAccessibleShares(c.Request().Context(), db.ListUserAccessibleSharesParams{UserID: principal.ActorID, Limit: 200, Offset: 0})
+		if err != nil {
+			return c.String(http.StatusInternalServerError, "failed to authorize file")
+		}
+		allowed := false
+		sharedAt := ""
+		for _, sh := range shares {
+			if sh.FileID == fileID {
+				allowed = true
+				if sharedAt == "" || sh.CreatedAt > sharedAt {
+					sharedAt = sh.CreatedAt
+				}
+			}
+		}
+		if !allowed {
+			return c.String(http.StatusForbidden, "forbidden")
+		}
+		file, err := queries.GetFileByID(c.Request().Context(), fileID)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return c.String(http.StatusNotFound, "file not found")
+			}
+			return c.String(http.StatusInternalServerError, "failed to load file")
+		}
+		return c.Render(http.StatusOK, "shared_files", map[string]any{"Title": "Received File Detail", "Subtitle": "File metadata and available actions.", "ContentTemplate": "file_detail_content", "File": fileListItem{ID: file.ID, Name: file.OriginalFilename, ContentType: file.ContentType, SizeBytes: file.SizeBytes, SharedVia: "received", SharedAt: sharedAt}, "BackPath": "/user/received", "DownloadPath": "/user/received/" + file.ID + "/download"})
+	})
+
+	user.GET("/received/:fileID/download", func(c echo.Context) error {
+		principal, _ := auth.PrincipalFromContext(c)
+		fileID := c.Param("fileID")
+		shares, err := queries.ListUserAccessibleShares(c.Request().Context(), db.ListUserAccessibleSharesParams{UserID: principal.ActorID, Limit: 200, Offset: 0})
+		if err != nil {
+			return c.String(http.StatusInternalServerError, "failed to authorize download")
+		}
+		for _, sh := range shares {
+			if sh.FileID == fileID {
+				signedURL, signedErr := s.downSvc.SignedDownloadURL(c.Request().Context(), principal, fileID)
+				if signedErr != nil {
+					if signedErr == auth.ErrForbidden {
+						return c.String(http.StatusForbidden, "forbidden")
+					}
+					return c.String(http.StatusInternalServerError, "failed to authorize download")
+				}
+				if isHTMLRequest(c) {
+					return c.Redirect(http.StatusSeeOther, signedURL)
+				}
+				return c.String(http.StatusOK, signedURL)
+			}
+		}
+		return c.String(http.StatusForbidden, "forbidden")
 	})
 
 	user.POST("/uploads", func(c echo.Context) error {

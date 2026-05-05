@@ -10,6 +10,7 @@ import (
 
 type clientFileAccessQuerier interface {
 	ClientCanAccessFile(ctx context.Context, arg db.ClientCanAccessFileParams) (bool, error)
+	UserCanAccessFile(ctx context.Context, arg db.UserCanAccessFileParams) (bool, error)
 }
 
 type clientUploadQuerier interface {
@@ -46,6 +47,23 @@ func (s *AuthorizationService) AuthorizeClientDownload(ctx context.Context, p Pr
 		return ErrForbidden
 	}
 	allowed, err := s.fileAccess.ClientCanAccessFile(ctx, db.ClientCanAccessFileParams{FileID: fileID, ClientID: p.ActorID})
+	if err != nil {
+		return err
+	}
+	if !allowed {
+		return ErrForbidden
+	}
+	return nil
+}
+
+func (s *AuthorizationService) AuthorizeUserDownload(ctx context.Context, p Principal, fileID string) error {
+	if p.ActorType != "user" || p.ActorID == "" || fileID == "" {
+		return ErrForbidden
+	}
+	if s.fileAccess == nil {
+		return ErrForbidden
+	}
+	allowed, err := s.fileAccess.UserCanAccessFile(ctx, db.UserCanAccessFileParams{FileID: fileID, UserID: p.ActorID})
 	if err != nil {
 		return err
 	}

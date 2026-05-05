@@ -147,9 +147,9 @@ func New(cfg *config.Config, log *slog.Logger) *Server {
 
 	e.Use(middleware.Recover())
 	e.Use(middleware.Secure())
-	e.Use(middleware.CSRFWithConfig(middleware.CSRFConfig{
+		e.Use(middleware.CSRFWithConfig(middleware.CSRFConfig{
 		Skipper: func(c echo.Context) bool {
-			return c.Path() == "/auth/session" || c.Path() == "/auth/logout" || c.Path() == "/auth/sso/login" || c.Path() == "/auth/magic/request" || c.Path() == "/auth/magic/verify" || c.Path() == "/auth/password/login" || c.Path() == "/auth/password/reset/request" || c.Path() == "/auth/password/reset/confirm" || c.Path() == "/client/uploads" || c.Path() == "/client/profile" || c.Path() == "/user/uploads" || c.Path() == "/user/profile" || c.Path() == "/user/clients" || c.Path() == "/user/clients/:clientID" || c.Path() == "/user/clients/:clientID/reset-password" || c.Path() == "/user/client-groups" || c.Path() == "/user/client-groups/memberships" || c.Path() == "/user/files/:fileID/rename" || c.Path() == "/user/files/:fileID/delete" || c.Path() == "/user/files/:fileID/shares" || c.Path() == "/user/files/:fileID/shares/:shareID/delete" || c.Path() == "/admin/users" || c.Path() == "/admin/users/:userID" || c.Path() == "/admin/users/:userID/reset-password"
+			return c.Path() == "/auth/session" || c.Path() == "/auth/logout" || c.Path() == "/auth/sso/login" || c.Path() == "/auth/magic/request" || c.Path() == "/auth/magic/verify" || c.Path() == "/auth/password/login" || c.Path() == "/auth/password/reset/request" || c.Path() == "/auth/password/reset/confirm" || c.Path() == "/client/uploads" || c.Path() == "/client/profile" || c.Path() == "/user/uploads" || c.Path() == "/user/profile" || c.Path() == "/user/clients" || c.Path() == "/user/clients/:clientID" || c.Path() == "/user/clients/:clientID/reset-password" || c.Path() == "/user/client-groups" || c.Path() == "/user/client-groups/memberships" || c.Path() == "/user/sent/:fileID/rename" || c.Path() == "/user/sent/:fileID/delete" || c.Path() == "/user/sent/:fileID/shares" || c.Path() == "/user/sent/:fileID/shares/:shareID/delete" || c.Path() == "/admin/users" || c.Path() == "/admin/users/:userID" || c.Path() == "/admin/users/:userID/reset-password"
 		},
 	}))
 	e.Use(middleware.RateLimiter(middleware.NewRateLimiterMemoryStore(20)))
@@ -398,9 +398,14 @@ func dashboardActions(principal auth.Principal) []dashboardAction {
 	}
 	if auth.HasCapability(principal, auth.CapabilityUploadFiles) {
 		actions = append(actions, dashboardAction{
-			Label:       "View Shared Files",
-			Description: "Review files uploaded by your account.",
-			Path:        "/user/files",
+			Label:       "Sent Files",
+			Description: "Review files sent from your account.",
+			Path:        "/user/sent",
+		})
+		actions = append(actions, dashboardAction{
+			Label:       "Received Files",
+			Description: "Browse files sent to your account.",
+			Path:        "/user/received",
 		})
 	}
 	if auth.HasCapability(principal, auth.CapabilityManageClients) {

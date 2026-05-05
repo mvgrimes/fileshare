@@ -63,6 +63,10 @@ func (a allowClientDownloadAuthz) AuthorizeClientDownload(context.Context, auth.
 	return nil
 }
 
+func (a allowClientDownloadAuthz) AuthorizeUserDownload(context.Context, auth.Principal, string) error {
+	return nil
+}
+
 func TestWorkflowClientUploadShareAndSignedDownload(t *testing.T) {
 	ctx := context.Background()
 	repo := newFileRecordRepoStub()

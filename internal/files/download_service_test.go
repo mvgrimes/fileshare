@@ -33,6 +33,11 @@ func (s *downloadAuthzStub) AuthorizeClientDownload(context.Context, auth.Princi
 	return s.err
 }
 
+func (s *downloadAuthzStub) AuthorizeUserDownload(context.Context, auth.Principal, string) error {
+	s.called = true
+	return s.err
+}
+
 type signerStub struct {
 	url      string
 	err      error
@@ -92,7 +97,11 @@ func TestSignedDownloadURLForUserOwnership(t *testing.T) {
 	if _, err := svc.SignedDownloadURL(context.Background(), auth.Principal{ActorType: "user", ActorID: "u1"}, "f1"); err != nil {
 		t.Fatalf("owner should be allowed, err = %v", err)
 	}
-	if _, err := svc.SignedDownloadURL(context.Background(), auth.Principal{ActorType: "user", ActorID: "u2"}, "f1"); !errors.Is(err, auth.ErrForbidden) {
+	blockedSvc, err := NewDownloadService("bucket", 10*time.Minute, repo, &downloadAuthzStub{err: auth.ErrForbidden}, &signerStub{url: "ok"})
+	if err != nil {
+		t.Fatalf("NewDownloadService() error = %v", err)
+	}
+	if _, err := blockedSvc.SignedDownloadURL(context.Background(), auth.Principal{ActorType: "user", ActorID: "u2"}, "f1"); !errors.Is(err, auth.ErrForbidden) {
 		t.Fatalf("non-owner err = %v, want %v", err, auth.ErrForbidden)
 	}
 }

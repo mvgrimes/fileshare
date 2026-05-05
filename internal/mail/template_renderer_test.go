@@ -120,7 +120,7 @@ func TestHermesRendererRenderFileShared(t *testing.T) {
 		ActorLabel:  "user-17",
 		FileName:    "q1-report.pdf",
 		Message:     "Please review before Friday",
-		FileListURL: "/client/files",
+		FileListURL: "/client/received",
 	})
 	if err != nil {
 		t.Fatalf("RenderFileShared() error: %v", err)
@@ -131,7 +131,7 @@ func TestHermesRendererRenderFileShared(t *testing.T) {
 	if !strings.Contains(out.Text, "user-17 shared q1-report.pdf with you") {
 		t.Fatalf("text missing share details: %q", out.Text)
 	}
-	if !strings.Contains(out.Text, "https://sharefile.example/client/files") {
+	if !strings.Contains(out.Text, "https://sharefile.example/client/received") {
 		t.Fatalf("text missing file list url: %q", out.Text)
 	}
 	if !strings.Contains(out.Text, "asked to log in") {

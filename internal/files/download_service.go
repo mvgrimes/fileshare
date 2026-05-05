@@ -18,6 +18,7 @@ type downloadFileRepository interface {
 
 type downloadAuthorizer interface {
 	AuthorizeClientDownload(ctx context.Context, p auth.Principal, fileID string) error
+	AuthorizeUserDownload(ctx context.Context, p auth.Principal, fileID string) error
 }
 
 type URLSigner interface {
@@ -65,7 +66,9 @@ func (s *DownloadService) SignedDownloadURL(ctx context.Context, principal auth.
 		}
 	case "user":
 		if file.UploaderType != "user" || file.UploaderID != principal.ActorID {
-			return "", auth.ErrForbidden
+			if err := s.authz.AuthorizeUserDownload(ctx, principal, fileID); err != nil {
+				return "", err
+			}
 		}
 	default:
 		return "", auth.ErrForbidden

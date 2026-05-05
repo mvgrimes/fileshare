@@ -35,7 +35,7 @@ func (s *Server) registerClientRoutes(queries *db.Queries) {
 	})
 	client.GET("/dashboard", func(c echo.Context) error {
 		principal, _ := auth.PrincipalFromContext(c)
-		actions := []dashboardAction{{Label: "Profile", Description: "Manage your display name and password.", Path: "/client/profile"}, {Label: "Upload Files", Description: "Submit upload targets; permissions are validated per client.", Path: "/client/uploads"}, {Label: "View Shared Files", Description: "Browse files shared directly or through your client groups.", Path: "/client/files"}, {Label: "View Uploaded Files", Description: "Review files uploaded from your client account.", Path: "/client/uploads/files"}}
+		actions := []dashboardAction{{Label: "Profile", Description: "Manage your display name and password.", Path: "/client/profile"}, {Label: "Upload Files", Description: "Submit upload targets; permissions are validated per client.", Path: "/client/uploads"}, {Label: "Received Files", Description: "Browse files sent directly or through your client groups.", Path: "/client/received"}, {Label: "Sent Files", Description: "Review files sent from your client account.", Path: "/client/sent"}}
 		return c.Render(http.StatusOK, "dashboard", map[string]any{"Title": "Client Dashboard", "Role": principal.ActorType, "Subtitle": "Use secure links to access files and upload where permitted.", "ActorID": principal.ActorID, "DashboardActions": actions, "HasActions": true, "ContentTemplate": "dashboard_content"})
 	})
 	client.GET("/profile", func(c echo.Context) error {
@@ -89,7 +89,7 @@ func (s *Server) registerClientRoutes(queries *db.Queries) {
 		}
 		return c.NoContent(http.StatusNoContent)
 	})
-	client.GET("/uploads/files", func(c echo.Context) error {
+	client.GET("/sent", func(c echo.Context) error {
 		principal, _ := auth.PrincipalFromContext(c)
 		uploads, err := queries.ListFilesByUploader(c.Request().Context(), db.ListFilesByUploaderParams{UploaderType: "client", UploaderID: principal.ActorID, Limit: 50, Offset: 0})
 		if err != nil {
@@ -99,9 +99,9 @@ func (s *Server) registerClientRoutes(queries *db.Queries) {
 		for _, f := range uploads {
 			items = append(items, fileListItem{ID: f.ID, Name: f.OriginalFilename, ContentType: f.ContentType, SizeBytes: f.SizeBytes, SharedVia: "uploaded", UploadedAt: f.CreatedAt})
 		}
-		return c.Render(http.StatusOK, "shared_files", map[string]any{"Title": "Uploaded Files", "Subtitle": "Files uploaded by your client account.", "ContentTemplate": "shared_files_content", "Files": items, "EmptyMessage": "No uploaded files are available yet.", "DetailBasePath": "/client/uploads/files"})
+		return c.Render(http.StatusOK, "shared_files", map[string]any{"Title": "Sent Files", "Subtitle": "Files sent from your client account.", "ContentTemplate": "shared_files_content", "Files": items, "EmptyMessage": "No sent files are available yet.", "DetailBasePath": "/client/sent"})
 	})
-	client.GET("/uploads/files/:fileID", func(c echo.Context) error {
+	client.GET("/sent/:fileID", func(c echo.Context) error {
 		principal, _ := auth.PrincipalFromContext(c)
 		fileID := c.Param("fileID")
 		file, err := queries.GetFileByID(c.Request().Context(), fileID)
@@ -114,9 +114,9 @@ func (s *Server) registerClientRoutes(queries *db.Queries) {
 		if file.UploaderType != "client" || file.UploaderID != principal.ActorID {
 			return c.String(http.StatusForbidden, "forbidden")
 		}
-		return c.Render(http.StatusOK, "shared_files", map[string]any{"Title": "Uploaded File Detail", "Subtitle": "File metadata and details.", "ContentTemplate": "file_detail_content", "File": fileListItem{ID: file.ID, Name: file.OriginalFilename, ContentType: file.ContentType, SizeBytes: file.SizeBytes, SharedVia: "uploaded", UploadedAt: file.CreatedAt}, "BackPath": "/client/uploads/files"})
+		return c.Render(http.StatusOK, "shared_files", map[string]any{"Title": "Sent File Detail", "Subtitle": "File metadata and details.", "ContentTemplate": "file_detail_content", "File": fileListItem{ID: file.ID, Name: file.OriginalFilename, ContentType: file.ContentType, SizeBytes: file.SizeBytes, SharedVia: "sent", UploadedAt: file.CreatedAt}, "BackPath": "/client/sent"})
 	})
-	client.GET("/files/:fileID/download", func(c echo.Context) error {
+	client.GET("/received/:fileID/download", func(c echo.Context) error {
 		principal, _ := auth.PrincipalFromContext(c)
 		fileID := c.Param("fileID")
 		signedURL, err := s.downSvc.SignedDownloadURL(c.Request().Context(), principal, fileID)
@@ -133,7 +133,7 @@ func (s *Server) registerClientRoutes(queries *db.Queries) {
 		}
 		return c.String(http.StatusOK, signedURL)
 	})
-	client.GET("/files", func(c echo.Context) error {
+	client.GET("/received", func(c echo.Context) error {
 		principal, _ := auth.PrincipalFromContext(c)
 		shares, err := queries.ListClientAccessibleShares(c.Request().Context(), db.ListClientAccessibleSharesParams{ClientID: principal.ActorID, Limit: 50, Offset: 0})
 		if err != nil {
@@ -167,9 +167,9 @@ func (s *Server) registerClientRoutes(queries *db.Queries) {
 			itemIndex[f.ID] = len(items)
 			items = append(items, fileListItem{ID: f.ID, Name: f.OriginalFilename, ContentType: f.ContentType, SizeBytes: f.SizeBytes, SharedVia: joinedShareTargets(viaSet), SharedAt: fileSharedAt[f.ID]})
 		}
-		return c.Render(http.StatusOK, "shared_files", map[string]any{"Title": "Shared Files", "Subtitle": "Files currently accessible to your client account.", "ContentTemplate": "shared_files_content", "Files": items, "EmptyMessage": "No files are currently shared with your account.", "DetailBasePath": "/client/files", "DownloadBasePath": "/client/files"})
+		return c.Render(http.StatusOK, "shared_files", map[string]any{"Title": "Received Files", "Subtitle": "Files sent to your client account.", "ContentTemplate": "shared_files_content", "Files": items, "EmptyMessage": "No files have been received yet.", "DetailBasePath": "/client/received", "DownloadBasePath": "/client/received"})
 	})
-	client.GET("/files/:fileID", func(c echo.Context) error {
+	client.GET("/received/:fileID", func(c echo.Context) error {
 		principal, _ := auth.PrincipalFromContext(c)
 		fileID := c.Param("fileID")
 		if err := s.authz.AuthorizeClientDownload(c.Request().Context(), principal, fileID); err != nil {
@@ -195,7 +195,7 @@ func (s *Server) registerClientRoutes(queries *db.Queries) {
 				sharedAt = sh.CreatedAt
 			}
 		}
-		return c.Render(http.StatusOK, "shared_files", map[string]any{"Title": "Shared File Detail", "Subtitle": "File metadata and available actions.", "ContentTemplate": "file_detail_content", "File": fileListItem{ID: file.ID, Name: file.OriginalFilename, ContentType: file.ContentType, SizeBytes: file.SizeBytes, SharedVia: "shared", SharedAt: sharedAt}, "BackPath": "/client/files", "DownloadPath": "/client/files/" + file.ID + "/download"})
+		return c.Render(http.StatusOK, "shared_files", map[string]any{"Title": "Received File Detail", "Subtitle": "File metadata and available actions.", "ContentTemplate": "file_detail_content", "File": fileListItem{ID: file.ID, Name: file.OriginalFilename, ContentType: file.ContentType, SizeBytes: file.SizeBytes, SharedVia: "received", SharedAt: sharedAt}, "BackPath": "/client/received", "DownloadPath": "/client/received/" + file.ID + "/download"})
 	})
 	client.POST("/uploads", func(c echo.Context) error {
 		principal, _ := auth.PrincipalFromContext(c)

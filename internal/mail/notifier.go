@@ -56,12 +56,12 @@ func NewNotifier(renderer TemplateRenderer, sender MessageSender, events *EventS
 }
 
 func (n *Notifier) NotifyFileShared(ctx context.Context, in FileSharedNotification) error {
-	rendered, err := n.renderer.RenderFileShared(FileSharedTemplateData{
+		rendered, err := n.renderer.RenderFileShared(FileSharedTemplateData{
 		ToName:      in.RecipientName,
 		ActorLabel:  in.ActorLabel,
 		FileName:    in.FileName,
 		Message:     in.Message,
-		FileListURL: "/client/files",
+		FileListURL: "/client/received",
 	})
 	if err != nil {
 		return err
@@ -83,12 +83,12 @@ func (n *Notifier) NotifyFileShared(ctx context.Context, in FileSharedNotificati
 }
 
 func (n *Notifier) NotifyClientUpload(ctx context.Context, in ClientUploadNotification) error {
-	rendered, err := n.renderer.RenderFileShared(FileSharedTemplateData{
+		rendered, err := n.renderer.RenderFileShared(FileSharedTemplateData{
 		ToName:      in.RecipientName,
 		ActorLabel:  in.ClientLabel,
 		FileName:    in.FileName,
 		Message:     in.Message,
-		FileListURL: "/user/uploads",
+		FileListURL: "/user/received",
 	})
 	if err != nil {
 		return err

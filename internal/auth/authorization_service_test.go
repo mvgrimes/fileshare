@@ -72,6 +72,22 @@ func TestAuthorizationService(t *testing.T) {
 		}
 	})
 
+	t.Run("user download", func(t *testing.T) {
+		fileAccess := stubClientFileAccess{allowed: true}
+		downloadSvc := NewAuthorizationService(fileAccess, nil)
+
+		allowed := Principal{ActorType: "user", ActorID: "user-1"}
+		if err := downloadSvc.AuthorizeUserDownload(context.Background(), allowed, "file-1"); err != nil {
+			t.Fatalf("authorize user download: %v", err)
+		}
+
+		denied := NewAuthorizationService(stubClientFileAccess{allowed: false}, nil)
+		err := denied.AuthorizeUserDownload(context.Background(), allowed, "file-1")
+		if !errors.Is(err, ErrForbidden) {
+			t.Fatalf("authorize denied user download error = %v, want %v", err, ErrForbidden)
+		}
+	})
+
 	t.Run("client upload", func(t *testing.T) {
 		uploadSvc := NewAuthorizationService(nil, stubClientUploadAuth{
 			client:  db.Client{ID: "client-1", IsActive: 1, CanUpload: 1},
@@ -108,6 +124,13 @@ type stubClientFileAccess struct {
 }
 
 func (s stubClientFileAccess) ClientCanAccessFile(_ context.Context, _ db.ClientCanAccessFileParams) (bool, error) {
+	if s.err != nil {
+		return false, s.err
+	}
+	return s.allowed, nil
+}
+
+func (s stubClientFileAccess) UserCanAccessFile(_ context.Context, _ db.UserCanAccessFileParams) (bool, error) {
 	if s.err != nil {
 		return false, s.err
 	}

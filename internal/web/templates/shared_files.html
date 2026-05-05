@@ -47,13 +47,13 @@
     {{if .ManageFile}}
     <div class="divider my-1"></div>
     <h3 class="text-lg font-semibold">Rename File</h3>
-    <form method="post" action="/user/files/{{.File.ID}}/rename" class="space-y-2" data-enhance="submission">
+    <form method="post" action="{{.ManageBasePath}}/{{.File.ID}}/rename" class="space-y-2" data-enhance="submission">
       <input class="input input-bordered w-full" type="text" name="filename" required value="{{.File.Name}}">
       <button class="btn btn-sm btn-primary" type="submit" data-pending-text="Renaming...">Rename</button>
     </form>
 
     <h3 class="text-lg font-semibold mt-3">Share With Additional Targets</h3>
-    <form method="post" action="/user/files/{{.File.ID}}/shares" class="grid gap-2 md:grid-cols-2" data-enhance="submission">
+    <form method="post" action="{{.ManageBasePath}}/{{.File.ID}}/shares" class="grid gap-2 md:grid-cols-2" data-enhance="submission">
       <label class="form-control w-full">
         <span class="label-text">Target Type</span>
         <select class="select select-bordered w-full" name="target_type" required>
@@ -78,7 +78,7 @@
     {{if .ShareTargets}}
     <div class="space-y-2">
       {{range .ShareTargets}}
-      <form method="post" action="/user/files/{{$.File.ID}}/shares/{{.ID}}/delete" class="flex items-center justify-between gap-2 rounded-box border border-base-300 p-2" data-enhance="submission">
+      <form method="post" action="{{$.ManageBasePath}}/{{$.File.ID}}/shares/{{.ID}}/delete" class="flex items-center justify-between gap-2 rounded-box border border-base-300 p-2" data-enhance="submission">
         <span class="text-sm">{{.TargetLabel}}</span>
         <button class="btn btn-xs btn-outline" type="submit" data-pending-text="Removing...">Unshare</button>
       </form>
@@ -89,7 +89,7 @@
     {{end}}
 
     <h3 class="text-lg font-semibold mt-3">Delete File</h3>
-    <form method="post" action="/user/files/{{.File.ID}}/delete" data-enhance="submission">
+    <form method="post" action="{{.ManageBasePath}}/{{.File.ID}}/delete" data-enhance="submission">
       <button class="btn btn-sm btn-error" type="submit" data-pending-text="Deleting...">Delete File</button>
     </form>
     {{end}}
