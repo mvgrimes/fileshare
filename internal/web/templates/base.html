@@ -15,6 +15,10 @@
       <div class="drawer-content">
         {{template "app_nav" .}}
         <main class="p-4">
+    {{else}}
+        {{template "app_nav" .}}
+        <main class="mx-auto max-w-5xl p-4">
+    {{end}}
           {{template "flash_messages" .}}
           {{if eq .ContentTemplate "home_content"}}
             {{template "home_content" .}}
@@ -51,6 +55,7 @@
           {{else}}
             <p>missing content template</p>
           {{end}}
+    {{if .UseAppDrawer}}
           {{if .IsAuthenticated}}
           <div class="mt-6 text-xs opacity-55">
             <span>signed in: {{.PrincipalActorType}}</span>
@@ -60,54 +65,16 @@
             <span>path: {{.Path}}</span>
           </div>
           {{end}}
+    {{end}}
         </main>
       </div>
+    {{if .UseAppDrawer}}
       <div class="drawer-side border-r border-base-300">
         <label for="app-drawer" aria-label="close sidebar" class="drawer-overlay"></label>
         {{template "app_sidebar" .}}
       </div>
-    </div>
-    {{else}}
-      {{template "app_nav" .}}
-      <main class="mx-auto max-w-5xl p-4">
-        {{template "flash_messages" .}}
-        {{if eq .ContentTemplate "home_content"}}
-          {{template "home_content" .}}
-        {{else if eq .ContentTemplate "dashboard_content"}}
-          {{template "dashboard_content" .}}
-        {{else if eq .ContentTemplate "login_content"}}
-          {{template "login_content" .}}
-        {{else if eq .ContentTemplate "request_link_content"}}
-          {{template "request_link_content" .}}
-        {{else if eq .ContentTemplate "verify_token_content"}}
-          {{template "verify_token_content" .}}
-        {{else if eq .ContentTemplate "upload_share_content"}}
-          {{template "upload_share_content" .}}
-        {{else if eq .ContentTemplate "clients_management_content"}}
-          {{template "clients_management_content" .}}
-        {{else if eq .ContentTemplate "client_groups_management_content"}}
-          {{template "client_groups_management_content" .}}
-        {{else if eq .ContentTemplate "client_group_detail_content"}}
-          {{template "client_group_detail_content" .}}
-        {{else if eq .ContentTemplate "shared_files_content"}}
-          {{template "shared_files_content" .}}
-        {{else if eq .ContentTemplate "file_detail_content"}}
-          {{template "file_detail_content" .}}
-        {{else if eq .ContentTemplate "user_file_detail_content"}}
-          {{template "user_file_detail_content" .}}
-        {{else if eq .ContentTemplate "share_detail_content"}}
-          {{template "share_detail_content" .}}
-        {{else if eq .ContentTemplate "profile_content"}}
-          {{template "profile_content" .}}
-        {{else if eq .ContentTemplate "admin_users_content"}}
-          {{template "admin_users_content" .}}
-        {{else if eq .ContentTemplate "client_edit_content"}}
-          {{template "client_edit_content" .}}
-        {{else}}
-          <p>missing content template</p>
-        {{end}}
-      </main>
     {{end}}
+    </div>
     <script>
       (() => {
         const forms = document.querySelectorAll("form[data-enhance='submission']");
