@@ -6,7 +6,7 @@ import (
 
 	"github.com/joho/godotenv"
 
-	"sharefile/cmd"
+	"fileshare/cmd"
 )
 
 var version = "0.1.0"

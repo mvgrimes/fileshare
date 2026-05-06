@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"sharefile/internal/db"
+	"fileshare/internal/db"
 )
 
 func TestAuthorizationService(t *testing.T) {

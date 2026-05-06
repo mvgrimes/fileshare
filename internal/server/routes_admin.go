@@ -10,8 +10,8 @@ import (
 	"github.com/labstack/echo/v4"
 	"golang.org/x/crypto/bcrypt"
 
-	"sharefile/internal/auth"
-	"sharefile/internal/db"
+	"fileshare/internal/auth"
+	"fileshare/internal/db"
 )
 
 func (s *Server) registerAdminRoutes(queries *db.Queries) {

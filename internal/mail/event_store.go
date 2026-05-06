@@ -10,7 +10,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"sharefile/internal/db"
+	"fileshare/internal/db"
 )
 
 const (
@@ -52,9 +52,9 @@ func (s *EventStore) RecordPending(ctx context.Context, eventType, recipientEmai
 
 	id := uuid.NewString()
 	err = s.queries.CreateEmailEvent(ctx, db.CreateEmailEventParams{
-		ID:             id,
-		EventType:      eventType,
-		RecipientEmail: recipientEmail,
+		ID:                id,
+		EventType:         eventType,
+		RecipientEmail:    recipientEmail,
 		ProviderMessageID: sql.NullString{},
 		Status:            EmailEventStatusPending,
 		ErrorText:         sql.NullString{},

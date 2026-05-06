@@ -50,19 +50,19 @@ func runAddClient(cmd *cobra.Command, args []string) error {
 	}
 	defer dbConn.Close()
 
-	email := strings.TrimSpace(firstNonEmpty(addClientEmail, os.Getenv("SHAREFILE_CLIENT_EMAIL")))
+	email := strings.TrimSpace(firstNonEmpty(addClientEmail, os.Getenv("FILESHARE_CLIENT_EMAIL")))
 	if email == "" {
-		return fmt.Errorf("client email is required via --email or SHAREFILE_CLIENT_EMAIL")
+		return fmt.Errorf("client email is required via --email or FILESHARE_CLIENT_EMAIL")
 	}
 
-	displayName := strings.TrimSpace(firstNonEmpty(addClientDisplayName, os.Getenv("SHAREFILE_CLIENT_DISPLAY_NAME"), email))
+	displayName := strings.TrimSpace(firstNonEmpty(addClientDisplayName, os.Getenv("FILESHARE_CLIENT_DISPLAY_NAME"), email))
 
-	canUpload, hasCanUpload, err := resolveBool(addClientCanUploadSet, addClientCanUpload, "SHAREFILE_CLIENT_CAN_UPLOAD")
+	canUpload, hasCanUpload, err := resolveBool(addClientCanUploadSet, addClientCanUpload, "FILESHARE_CLIENT_CAN_UPLOAD")
 	if err != nil {
 		return err
 	}
 
-	password, hasPassword, err := resolveOptionalPassword(addClientPasswordStdin, addClientPassword, "SHAREFILE_CLIENT_PASSWORD")
+	password, hasPassword, err := resolveOptionalPassword(addClientPasswordStdin, addClientPassword, "FILESHARE_CLIENT_PASSWORD")
 	if err != nil {
 		return err
 	}

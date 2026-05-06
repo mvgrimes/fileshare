@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	SessionCookieName = "sharefile_session"
+	SessionCookieName = "fileshare_session"
 	principalKey      = "principal"
 )
 

@@ -1,6 +1,6 @@
-# ShareFile
+# FileShare
 
-ShareFile is a Go web application for secure file exchange between internal users and external clients. It uses server-rendered pages, role-based access control, and dual authentication flows (internal SSO cookie bridge + client magic-link login).
+FileShare is a Go web application for secure file exchange between internal users and external clients. It uses server-rendered pages, role-based access control, and dual authentication flows (internal SSO cookie bridge + client magic-link login).
 
 ## Current Status
 
@@ -67,8 +67,8 @@ Copy `.env.example` to `.env` and fill required values:
 SSO settings are optional and default to:
 
 - `SSO_COOKIE_NAME=sso_jwt`
-- `SSO_ISSUER=sharefile-sso`
-- `SSO_AUDIENCE=sharefile`
+- `SSO_ISSUER=fileshare-sso`
+- `SSO_AUDIENCE=fileshare`
 
 ### 3) Run Migrations
 
@@ -76,7 +76,7 @@ SSO settings are optional and default to:
 go run ./... migrate up
 ```
 
-Note: Goose migrations use the SQLite driver and do not support `libsql://` URLs directly. For migration commands, use a local SQLite path in `DATABASE_URL` (for example `data/sharefile.db`).
+Note: Goose migrations use the SQLite driver and do not support `libsql://` URLs directly. For migration commands, use a local SQLite path in `DATABASE_URL` (for example `data/fileshare.db`).
 
 ### 4) Bootstrap (Optional but Recommended)
 
@@ -88,15 +88,15 @@ go run ./... bootstrap
 
 Environment variables for bootstrap admin user:
 
-- `SHAREFILE_USER_EMAIL` (required)
-- `SHAREFILE_USER_PASSWORD` (required)
-- `SHAREFILE_USER_ROLE` (optional, default `admin`)
-- `SHAREFILE_USER_FULL_NAME` (optional, default email)
+- `FILESHARE_USER_EMAIL` (required)
+- `FILESHARE_USER_PASSWORD` (required)
+- `FILESHARE_USER_ROLE` (optional, default `admin`)
+- `FILESHARE_USER_FULL_NAME` (optional, default email)
 
 For container startup, use an entrypoint/command that runs bootstrap before the server:
 
 ```bash
-sharefile bootstrap && sharefile server
+fileshare bootstrap && fileshare server
 ```
 
 ### 5) Start the Server
@@ -130,16 +130,16 @@ Run a minio server for local S3 emulation:
 
 ```bash
 podman run --rm \
-  --name sharefile-minio \
+  --name fileshare-minio \
   -p 9000:9000 \
   -p 9001:9001 \
-  -e MINIO_ROOT_USER=sharefile \
-  -e MINIO_ROOT_PASSWORD=sharefile123 \
+  -e MINIO_ROOT_USER=fileshare \
+  -e MINIO_ROOT_PASSWORD=fileshare123 \
   -v "$(pwd)/data/minio:/data" \
   quay.io/minio/minio server /data --console-address ":9001"
 
-  mc alias set local http://127.0.0.1:9000 sharefile sharefile123
-  mc mb -p local/sharefile-uploads
+  mc alias set local http://127.0.0.1:9000 fileshare fileshare123
+  mc mb -p local/fileshare-uploads
 ```
 
 ## CLI Commands

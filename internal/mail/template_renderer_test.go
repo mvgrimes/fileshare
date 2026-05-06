@@ -8,11 +8,11 @@ import (
 func TestNewHermesRendererValidation(t *testing.T) {
 	t.Parallel()
 
-	if _, err := NewHermesRenderer("", "https://sharefile.example", ""); err == nil {
+	if _, err := NewHermesRenderer("", "https://fileshare.example", ""); err == nil {
 		t.Fatal("NewHermesRenderer() error = nil, want error for missing product name")
 	}
 
-	if _, err := NewHermesRenderer("ShareFile", "", ""); err == nil {
+	if _, err := NewHermesRenderer("FileShare", "", ""); err == nil {
 		t.Fatal("NewHermesRenderer() error = nil, want error for missing product link")
 	}
 }
@@ -20,27 +20,27 @@ func TestNewHermesRendererValidation(t *testing.T) {
 func TestHermesRendererRenderMagicLink(t *testing.T) {
 	t.Parallel()
 
-	renderer, err := NewHermesRenderer("ShareFile", "https://sharefile.example", "")
+	renderer, err := NewHermesRenderer("FileShare", "https://fileshare.example", "")
 	if err != nil {
 		t.Fatalf("NewHermesRenderer() error: %v", err)
 	}
 
 	rendered, err := renderer.RenderMagicLink(MagicLinkTemplateData{
 		ToName:       "Casey",
-		LoginURL:     "https://sharefile.example/auth/magic/verify?token=abc",
+		LoginURL:     "https://fileshare.example/auth/magic/verify?token=abc",
 		SupportEmail: "support@example.com",
 	})
 	if err != nil {
 		t.Fatalf("RenderMagicLink() error: %v", err)
 	}
 
-	if rendered.Subject != "Your ShareFile magic login link" {
-		t.Fatalf("subject = %q, want %q", rendered.Subject, "Your ShareFile magic login link")
+	if rendered.Subject != "Your FileShare magic login link" {
+		t.Fatalf("subject = %q, want %q", rendered.Subject, "Your FileShare magic login link")
 	}
-	if !strings.Contains(rendered.HTML, "Sign in to ShareFile") {
+	if !strings.Contains(rendered.HTML, "Sign in to FileShare") {
 		t.Fatalf("HTML missing expected CTA: %q", rendered.HTML)
 	}
-	if !strings.Contains(rendered.HTML, "https://sharefile.example/auth/magic/verify?token=abc") {
+	if !strings.Contains(rendered.HTML, "https://fileshare.example/auth/magic/verify?token=abc") {
 		t.Fatalf("HTML missing login url: %q", rendered.HTML)
 	}
 	if !strings.Contains(rendered.Text, "support@example.com") {
@@ -51,7 +51,7 @@ func TestHermesRendererRenderMagicLink(t *testing.T) {
 func TestHermesRendererRenderMagicLinkRequiresLoginURLOrToken(t *testing.T) {
 	t.Parallel()
 
-	renderer, err := NewHermesRenderer("ShareFile", "https://sharefile.example", "")
+	renderer, err := NewHermesRenderer("FileShare", "https://fileshare.example", "")
 	if err != nil {
 		t.Fatalf("NewHermesRenderer() error: %v", err)
 	}
@@ -64,7 +64,7 @@ func TestHermesRendererRenderMagicLinkRequiresLoginURLOrToken(t *testing.T) {
 func TestHermesRendererRenderMagicLinkDefaultNameAndOutro(t *testing.T) {
 	t.Parallel()
 
-	renderer, err := NewHermesRenderer("ShareFile", "https://sharefile.example", "")
+	renderer, err := NewHermesRenderer("FileShare", "https://fileshare.example", "")
 	if err != nil {
 		t.Fatalf("NewHermesRenderer() error: %v", err)
 	}
@@ -87,19 +87,19 @@ func TestHermesRendererRenderMagicLinkDefaultNameAndOutro(t *testing.T) {
 
 func TestHermesRendererRenderInvitation(t *testing.T) {
 	t.Parallel()
-	renderer, err := NewHermesRenderer("ShareFile", "https://sharefile.example", "")
+	renderer, err := NewHermesRenderer("FileShare", "https://fileshare.example", "")
 	if err != nil {
 		t.Fatalf("NewHermesRenderer() error: %v", err)
 	}
 
-	out, err := renderer.RenderInvitation(InvitationTemplateData{ToName: "Sam", InviteURL: "https://sharefile.example/invite/abc", InviterLabel: "Admin"})
+	out, err := renderer.RenderInvitation(InvitationTemplateData{ToName: "Sam", InviteURL: "https://fileshare.example/invite/abc", InviterLabel: "Admin"})
 	if err != nil {
 		t.Fatalf("RenderInvitation() error: %v", err)
 	}
-	if out.Subject != "You are invited to ShareFile" {
+	if out.Subject != "You are invited to FileShare" {
 		t.Fatalf("subject = %q", out.Subject)
 	}
-	if !strings.Contains(out.Text, "https://sharefile.example/invite/abc") {
+	if !strings.Contains(out.Text, "https://fileshare.example/invite/abc") {
 		t.Fatalf("text missing invite url: %q", out.Text)
 	}
 
@@ -110,7 +110,7 @@ func TestHermesRendererRenderInvitation(t *testing.T) {
 
 func TestHermesRendererRenderFileShared(t *testing.T) {
 	t.Parallel()
-	renderer, err := NewHermesRenderer("ShareFile", "https://sharefile.example", "")
+	renderer, err := NewHermesRenderer("FileShare", "https://fileshare.example", "")
 	if err != nil {
 		t.Fatalf("NewHermesRenderer() error: %v", err)
 	}
@@ -131,7 +131,7 @@ func TestHermesRendererRenderFileShared(t *testing.T) {
 	if !strings.Contains(out.Text, "user-17 shared q1-report.pdf with you") {
 		t.Fatalf("text missing share details: %q", out.Text)
 	}
-	if !strings.Contains(out.Text, "https://sharefile.example/client/received") {
+	if !strings.Contains(out.Text, "https://fileshare.example/client/received") {
 		t.Fatalf("text missing file list url: %q", out.Text)
 	}
 	if !strings.Contains(out.Text, "asked to log in") {
@@ -145,7 +145,7 @@ func TestHermesRendererRenderFileShared(t *testing.T) {
 
 func TestHermesRendererRenderPasswordReset(t *testing.T) {
 	t.Parallel()
-	renderer, err := NewHermesRenderer("ShareFile", "https://sharefile.example", "")
+	renderer, err := NewHermesRenderer("FileShare", "https://fileshare.example", "")
 	if err != nil {
 		t.Fatalf("NewHermesRenderer() error: %v", err)
 	}
@@ -154,10 +154,10 @@ func TestHermesRendererRenderPasswordReset(t *testing.T) {
 	if err != nil {
 		t.Fatalf("RenderPasswordReset() error: %v", err)
 	}
-	if out.Subject != "Reset your ShareFile password" {
+	if out.Subject != "Reset your FileShare password" {
 		t.Fatalf("subject = %q", out.Subject)
 	}
-	if !strings.Contains(out.Text, "https://sharefile.example/reset-password/confirm?token=abc") {
+	if !strings.Contains(out.Text, "https://fileshare.example/reset-password/confirm?token=abc") {
 		t.Fatalf("text missing reset url: %q", out.Text)
 	}
 

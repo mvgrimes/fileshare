@@ -9,17 +9,17 @@ import (
 
 	"golang.org/x/crypto/bcrypt"
 
-	"sharefile/internal/db"
+	"fileshare/internal/db"
 )
 
 var (
-	ErrPasswordResetInvalid            = errors.New("invalid password reset request")
-	ErrPasswordResetThrottled          = errors.New("password reset request throttled")
-	ErrPasswordResetNotFound           = errors.New("password reset not found")
-	ErrPasswordResetConsumed           = errors.New("password reset already consumed")
-	ErrPasswordResetExpired            = errors.New("password reset expired")
-	ErrPasswordResetDuplicateEmail     = errors.New("duplicate email exists for user and client")
-	ErrPasswordResetWeakPassword       = errors.New("password does not meet minimum requirements")
+	ErrPasswordResetInvalid        = errors.New("invalid password reset request")
+	ErrPasswordResetThrottled      = errors.New("password reset request throttled")
+	ErrPasswordResetNotFound       = errors.New("password reset not found")
+	ErrPasswordResetConsumed       = errors.New("password reset already consumed")
+	ErrPasswordResetExpired        = errors.New("password reset expired")
+	ErrPasswordResetDuplicateEmail = errors.New("duplicate email exists for user and client")
+	ErrPasswordResetWeakPassword   = errors.New("password does not meet minimum requirements")
 )
 
 type PasswordResetRequestResult struct {

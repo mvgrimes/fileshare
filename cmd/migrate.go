@@ -12,7 +12,7 @@ import (
 	"github.com/pressly/goose/v3"
 	"github.com/spf13/cobra"
 
-	"sharefile/migrations"
+	"fileshare/migrations"
 
 	_ "modernc.org/sqlite"
 )

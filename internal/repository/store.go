@@ -4,7 +4,7 @@ import (
 	"context"
 	"database/sql"
 
-	"sharefile/internal/db"
+	"fileshare/internal/db"
 )
 
 type Store struct {

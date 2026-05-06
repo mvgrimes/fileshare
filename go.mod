@@ -1,4 +1,4 @@
-module sharefile
+module fileshare
 
 go 1.25.7
 

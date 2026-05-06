@@ -7,7 +7,7 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 
-	"sharefile/internal/db"
+	"fileshare/internal/db"
 )
 
 func TestUserSyncerRejectsMissingIdentityOrEmail(t *testing.T) {

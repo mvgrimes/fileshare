@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"sharefile/internal/db"
+	"fileshare/internal/db"
 )
 
 func TestIsFileExpired(t *testing.T) {

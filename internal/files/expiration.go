@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"time"
 
-	"sharefile/internal/db"
+	"fileshare/internal/db"
 )
 
 func IsFileExpired(file db.File, now time.Time) bool {

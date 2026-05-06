@@ -11,7 +11,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"sharefile/internal/auth"
+	"fileshare/internal/auth"
 )
 
 var ErrBucketRequired = errors.New("bucket is required")

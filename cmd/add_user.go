@@ -45,19 +45,19 @@ func runAddUser(cmd *cobra.Command, args []string) error {
 	}
 	defer dbConn.Close()
 
-	email := firstNonEmpty(addUserEmail, os.Getenv("SHAREFILE_USER_EMAIL"))
+	email := firstNonEmpty(addUserEmail, os.Getenv("FILESHARE_USER_EMAIL"))
 	if strings.TrimSpace(email) == "" {
-		return fmt.Errorf("user email is required via --email or SHAREFILE_USER_EMAIL")
+		return fmt.Errorf("user email is required via --email or FILESHARE_USER_EMAIL")
 	}
 	email = strings.TrimSpace(email)
 
-	role := firstNonEmpty(addUserRole, os.Getenv("SHAREFILE_USER_ROLE"), "admin")
+	role := firstNonEmpty(addUserRole, os.Getenv("FILESHARE_USER_ROLE"), "admin")
 	roleID, err := roleIDFromName(role)
 	if err != nil {
 		return err
 	}
 
-	password, err := resolvePassword(addUserPasswordStdin, addUserPassword, "SHAREFILE_USER_PASSWORD")
+	password, err := resolvePassword(addUserPasswordStdin, addUserPassword, "FILESHARE_USER_PASSWORD")
 	if err != nil {
 		return err
 	}
@@ -66,7 +66,7 @@ func runAddUser(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("hash password: %w", err)
 	}
 
-	fullName := strings.TrimSpace(firstNonEmpty(addUserFullName, os.Getenv("SHAREFILE_USER_FULL_NAME"), email))
+	fullName := strings.TrimSpace(firstNonEmpty(addUserFullName, os.Getenv("FILESHARE_USER_FULL_NAME"), email))
 
 	tx, err := dbConn.Begin()
 	if err != nil {

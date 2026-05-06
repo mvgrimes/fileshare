@@ -11,7 +11,7 @@ This project uses `goose` SQL migrations in this directory.
 
 ## Local Usage
 
-- Set a local SQLite `DATABASE_URL` (for example: `DATABASE_URL=sharefile.db`).
+- Set a local SQLite `DATABASE_URL` (for example: `DATABASE_URL=fileshare.db`).
 - Run:
   - `go run . migrate up`
   - `go run . migrate status`
@@ -19,7 +19,7 @@ This project uses `goose` SQL migrations in this directory.
 
 ## CI Usage
 
-- Use a writable SQLite path in the job workspace (for example: `DATABASE_URL=$PWD/sharefile-ci.db`).
+- Use a writable SQLite path in the job workspace (for example: `DATABASE_URL=$PWD/fileshare-ci.db`).
 - Run migrations in order to validate both apply and rollback paths:
   - `go run . migrate up`
   - `go run . migrate status`
@@ -28,8 +28,8 @@ This project uses `goose` SQL migrations in this directory.
 ## DATABASE_URL Rules
 
 - Supported values:
-  - Plain SQLite file path (for example: `sharefile.db` or `/tmp/sharefile.db`)
-  - `sqlite://` URL form (for example: `sqlite:///tmp/sharefile.db`)
+  - Plain SQLite file path (for example: `fileshare.db` or `/tmp/fileshare.db`)
+  - `sqlite://` URL form (for example: `sqlite:///tmp/fileshare.db`)
 - Unsupported values:
   - `libsql://...` (goose currently uses the SQLite driver in this repo)
   - Other URL schemes such as `postgres://...`

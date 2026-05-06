@@ -11,14 +11,14 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"sharefile/internal/config"
-	"sharefile/internal/logger"
-	"sharefile/internal/server"
+	"fileshare/internal/config"
+	"fileshare/internal/logger"
+	"fileshare/internal/server"
 )
 
 var serverCmd = &cobra.Command{
 	Use:   "server",
-	Short: "Start the ShareFile HTTP server",
+	Short: "Start the FileShare HTTP server",
 	RunE:  runServer,
 }
 

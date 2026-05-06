@@ -9,21 +9,21 @@ import (
 
 	"golang.org/x/crypto/bcrypt"
 
-	"sharefile/internal/db"
+	"fileshare/internal/db"
 )
 
 type passwordResetQuerierStub struct {
-	user             db.User
-	client           db.Client
-	userErr          error
-	clientErr        error
-	resets           []db.PasswordReset
-	getReset         db.PasswordReset
-	getResetErr      error
-	consumeResult    bool
-	updatedUserID    string
-	updatedClientID  string
-	updatedUserHash  sql.NullString
+	user              db.User
+	client            db.Client
+	userErr           error
+	clientErr         error
+	resets            []db.PasswordReset
+	getReset          db.PasswordReset
+	getResetErr       error
+	consumeResult     bool
+	updatedUserID     string
+	updatedClientID   string
+	updatedUserHash   sql.NullString
 	updatedClientHash sql.NullString
 }
 
@@ -94,7 +94,7 @@ func TestPasswordResetRequestMissingAccountIsIgnored(t *testing.T) {
 
 func TestPasswordResetConfirmUpdatesUserPassword(t *testing.T) {
 	stub := &passwordResetQuerierStub{
-		getReset: db.PasswordReset{ID: "r1", ActorType: "user", ActorID: "u1", ExpiresAt: time.Now().Add(time.Minute).Format(time.RFC3339Nano)},
+		getReset:      db.PasswordReset{ID: "r1", ActorType: "user", ActorID: "u1", ExpiresAt: time.Now().Add(time.Minute).Format(time.RFC3339Nano)},
 		consumeResult: true,
 	}
 	m := NewPasswordResetManager(stub, time.Minute, time.Second, 12)

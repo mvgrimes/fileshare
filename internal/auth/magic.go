@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"sharefile/internal/db"
+	"fileshare/internal/db"
 )
 
 var (

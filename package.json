@@ -1,5 +1,5 @@
 {
-  "name": "sharefile-ui-assets",
+  "name": "fileshare-ui-assets",
   "private": true,
   "scripts": {
     "css:build": "tailwindcss -i ./internal/web/assets/css/input.css -o ./internal/web/assets/dist/app.css --minify",

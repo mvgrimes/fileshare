@@ -35,41 +35,41 @@ type Config struct {
 	S3Bucket           string
 	S3ForcePathStyle   bool
 
-	Branding     string
-	Favicon      string
-	Logo         string
-	LogoHero     string
+	Branding string
+	Favicon  string
+	Logo     string
+	LogoHero string
 }
 
 func Load() (*Config, error) {
 	cfg := &Config{
-		ServerAddress:     envOrDefault("SERVER_ADDRESS", "0.0.0.0"),
-		ServerPort:        intEnvOrDefault("SERVER_PORT", 8080),
-		ServerUrl:         os.Getenv("SERVER_URL"),
-		Environment:       envOrDefault("ENVIRONMENT", "development"),
-		LogLevel:          envOrDefault("LOG_LEVEL", "info"),
-		SessionTTL:        intEnvOrDefault("SESSION_TTL_HOURS", 12),
-		DatabaseURL:       os.Getenv("DATABASE_URL"),
-		SessionSecret:     os.Getenv("SESSION_SECRET"),
-		JWTSecret:         os.Getenv("JWT_SECRET"),
-		SSOCookieName:     envOrDefault("SSO_COOKIE_NAME", "sso_jwt"),
-		SSOIssuer:         envOrDefault("SSO_ISSUER", "sharefile-sso"),
-		SSOAudience:       envOrDefault("SSO_AUDIENCE", "sharefile"),
-		MailgunAPIBaseURL: envOrDefault("MAILGUN_API_BASE_URL", "https://api.mailgun.net"),
-		MailgunDomain:     strings.TrimSpace(os.Getenv("MAILGUN_DOMAIN")),
-		MailgunAPIKey:     strings.TrimSpace(os.Getenv("MAILGUN_API_KEY")),
-		MailgunFromEmail:  strings.TrimSpace(os.Getenv("MAILGUN_FROM_EMAIL")),
+		ServerAddress:      envOrDefault("SERVER_ADDRESS", "0.0.0.0"),
+		ServerPort:         intEnvOrDefault("SERVER_PORT", 8080),
+		ServerUrl:          os.Getenv("SERVER_URL"),
+		Environment:        envOrDefault("ENVIRONMENT", "development"),
+		LogLevel:           envOrDefault("LOG_LEVEL", "info"),
+		SessionTTL:         intEnvOrDefault("SESSION_TTL_HOURS", 12),
+		DatabaseURL:        os.Getenv("DATABASE_URL"),
+		SessionSecret:      os.Getenv("SESSION_SECRET"),
+		JWTSecret:          os.Getenv("JWT_SECRET"),
+		SSOCookieName:      envOrDefault("SSO_COOKIE_NAME", "sso_jwt"),
+		SSOIssuer:          envOrDefault("SSO_ISSUER", "fileshare-sso"),
+		SSOAudience:        envOrDefault("SSO_AUDIENCE", "fileshare"),
+		MailgunAPIBaseURL:  envOrDefault("MAILGUN_API_BASE_URL", "https://api.mailgun.net"),
+		MailgunDomain:      strings.TrimSpace(os.Getenv("MAILGUN_DOMAIN")),
+		MailgunAPIKey:      strings.TrimSpace(os.Getenv("MAILGUN_API_KEY")),
+		MailgunFromEmail:   strings.TrimSpace(os.Getenv("MAILGUN_FROM_EMAIL")),
 		AWSRegion:          envOrDefault("AWS_REGION", "us-east-1"),
 		AWSAccessKeyID:     strings.TrimSpace(os.Getenv("AWS_ACCESS_KEY_ID")),
 		AWSSecretAccessKey: strings.TrimSpace(os.Getenv("AWS_SECRET_ACCESS_KEY")),
 		AWSSessionToken:    strings.TrimSpace(os.Getenv("AWS_SESSION_TOKEN")),
 		S3Endpoint:         strings.TrimSpace(os.Getenv("S3_ENDPOINT")),
-		S3Bucket:           envOrDefault("S3_BUCKET", "sharefile-uploads"),
+		S3Bucket:           envOrDefault("S3_BUCKET", "fileshare-uploads"),
 		S3ForcePathStyle:   boolEnvOrDefault("S3_FORCE_PATH_STYLE", false),
-		Branding:           envOrDefault("SHAREFILE_BRANDING", "ShareFile"),
-		Favicon:            strings.TrimSpace(os.Getenv("SHAREFILE_FAVICON")),
-		Logo:               strings.TrimSpace(os.Getenv("SHAREFILE_LOGO")),
-		LogoHero:           strings.TrimSpace(os.Getenv("SHAREFILE_LOGO_HERO")),
+		Branding:           envOrDefault("FILESHARE_BRANDING", "FileShare"),
+		Favicon:            strings.TrimSpace(os.Getenv("FILESHARE_FAVICON")),
+		Logo:               strings.TrimSpace(os.Getenv("FILESHARE_LOGO")),
+		LogoHero:           strings.TrimSpace(os.Getenv("FILESHARE_LOGO_HERO")),
 	}
 
 	if err := cfg.Validate(); err != nil {

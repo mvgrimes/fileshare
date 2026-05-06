@@ -8,8 +8,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"sharefile/internal/auth"
-	"sharefile/internal/db"
+	"fileshare/internal/auth"
+	"fileshare/internal/db"
 )
 
 var (

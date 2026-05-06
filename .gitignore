@@ -29,7 +29,7 @@ Session.vim
 /docs/plan/
 
 # Build artifacts
-/sharefile
+/fileshare
 
 # Frontend deps
 node_modules/

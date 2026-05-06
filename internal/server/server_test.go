@@ -24,9 +24,9 @@ import (
 	"github.com/pressly/goose/v3"
 	"golang.org/x/crypto/bcrypt"
 
-	"sharefile/internal/config"
-	"sharefile/internal/db"
-	"sharefile/migrations"
+	"fileshare/internal/config"
+	"fileshare/internal/db"
+	"fileshare/migrations"
 
 	_ "modernc.org/sqlite"
 )
@@ -64,7 +64,7 @@ func testConfig() *config.Config {
 	return &config.Config{
 		ServerAddress: "127.0.0.1",
 		ServerPort:    0,
-		ServerUrl:     "https://sharefile.test",
+		ServerUrl:     "https://fileshare.test",
 		Environment:   "test",
 		LogLevel:      "debug",
 		SessionTTL:    6,
@@ -101,7 +101,7 @@ func TestRouteGroupsRender(t *testing.T) {
 		wantStatus int
 		wantBody   string
 	}{
-		{name: "public home", path: "/", wantStatus: http.StatusOK, wantBody: "ShareFile File Share"},
+		{name: "public home", path: "/", wantStatus: http.StatusOK, wantBody: "FileShare File Share"},
 		{name: "login page", path: "/login", wantStatus: http.StatusOK, wantBody: "Password Login"},
 		{name: "request link page", path: "/request-link", wantStatus: http.StatusOK, wantBody: "Send Magic Link"},
 		{name: "verify token page", path: "/verify-token", wantStatus: http.StatusOK, wantBody: "Verify and Sign In"},
@@ -1427,7 +1427,7 @@ func TestUserShareHTMLRedirectsOnSuccess(t *testing.T) {
 	}
 }
 
-func TestUserShareFilesAppearsInUploaderList(t *testing.T) {
+func TestUserFileShareAppearsInUploaderList(t *testing.T) {
 	s := New(testConfig(), slog.Default())
 	cookie := login(t, s, "user", "u-list-sharer", "uploader")
 	createClientWithoutPassword(t, "c-list-target", "c-list-target@example.com", true)
@@ -1961,9 +1961,9 @@ func TestSessionLoginSetsCookieTTLFromConfig(t *testing.T) {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusNoContent)
 	}
 
-	cookie := cookieByName(rec.Result().Cookies(), "sharefile_session")
+	cookie := cookieByName(rec.Result().Cookies(), "fileshare_session")
 	if cookie == nil {
-		t.Fatal("expected sharefile_session cookie")
+		t.Fatal("expected fileshare_session cookie")
 	}
 	if cookie.MaxAge != 5*60*60 {
 		t.Fatalf("cookie max-age = %d, want %d", cookie.MaxAge, 5*60*60)
@@ -2000,9 +2000,9 @@ func TestLogoutRevokesSession(t *testing.T) {
 		t.Fatalf("logout status = %d, want %d", logoutRec.Code, http.StatusNoContent)
 	}
 
-	cleared := cookieByName(logoutRec.Result().Cookies(), "sharefile_session")
+	cleared := cookieByName(logoutRec.Result().Cookies(), "fileshare_session")
 	if cleared == nil {
-		t.Fatal("expected cleared sharefile_session cookie")
+		t.Fatal("expected cleared fileshare_session cookie")
 	}
 	if cleared.MaxAge != -1 {
 		t.Fatalf("logout cookie max-age = %d, want %d", cleared.MaxAge, -1)
@@ -2032,9 +2032,9 @@ func TestLogoutWithoutSessionCookieStillClearsCookie(t *testing.T) {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusNoContent)
 	}
 
-	cleared := cookieByName(rec.Result().Cookies(), "sharefile_session")
+	cleared := cookieByName(rec.Result().Cookies(), "fileshare_session")
 	if cleared == nil {
-		t.Fatal("expected cleared sharefile_session cookie")
+		t.Fatal("expected cleared fileshare_session cookie")
 	}
 	if cleared.MaxAge != -1 {
 		t.Fatalf("logout cookie max-age = %d, want %d", cleared.MaxAge, -1)
@@ -2058,9 +2058,9 @@ func TestLogoutHTMLRedirectsToLogin(t *testing.T) {
 		t.Fatalf("location = %q, want %q", got, "/login")
 	}
 
-	cleared := cookieByName(rec.Result().Cookies(), "sharefile_session")
+	cleared := cookieByName(rec.Result().Cookies(), "fileshare_session")
 	if cleared == nil {
-		t.Fatal("expected cleared sharefile_session cookie")
+		t.Fatal("expected cleared fileshare_session cookie")
 	}
 	if cleared.MaxAge != -1 {
 		t.Fatalf("logout cookie max-age = %d, want %d", cleared.MaxAge, -1)
@@ -2082,13 +2082,13 @@ func TestSSOLoginCreatesUserSession(t *testing.T) {
 
 	var appCookie *http.Cookie
 	for _, c := range rec.Result().Cookies() {
-		if c.Name == "sharefile_session" {
+		if c.Name == "fileshare_session" {
 			appCookie = c
 			break
 		}
 	}
 	if appCookie == nil {
-		t.Fatal("expected sharefile_session cookie")
+		t.Fatal("expected fileshare_session cookie")
 	}
 
 	userReq := httptest.NewRequest(http.MethodGet, "/user/dashboard", nil)
@@ -2219,13 +2219,13 @@ func TestMagicLinkVerifyCreatesClientSession(t *testing.T) {
 
 	var sessionCookie *http.Cookie
 	for _, c := range rec.Result().Cookies() {
-		if c.Name == "sharefile_session" {
+		if c.Name == "fileshare_session" {
 			sessionCookie = c
 			break
 		}
 	}
 	if sessionCookie == nil {
-		t.Fatal("expected sharefile_session cookie")
+		t.Fatal("expected fileshare_session cookie")
 	}
 
 	clientReq := httptest.NewRequest(http.MethodGet, "/client/dashboard", nil)
@@ -2553,9 +2553,9 @@ func TestClientPasswordLoginSuccess(t *testing.T) {
 		t.Fatalf("status = %d, want %d, body=%q", rec.Code, http.StatusNoContent, rec.Body.String())
 	}
 
-	cookie := cookieByName(rec.Result().Cookies(), "sharefile_session")
+	cookie := cookieByName(rec.Result().Cookies(), "fileshare_session")
 	if cookie == nil {
-		t.Fatal("expected sharefile_session cookie")
+		t.Fatal("expected fileshare_session cookie")
 	}
 
 	clientReq := httptest.NewRequest(http.MethodGet, "/client/dashboard", nil)
@@ -2686,9 +2686,9 @@ func TestUserPasswordLoginSuccess(t *testing.T) {
 		t.Fatalf("status = %d, want %d, body=%q", rec.Code, http.StatusNoContent, rec.Body.String())
 	}
 
-	cookie := cookieByName(rec.Result().Cookies(), "sharefile_session")
+	cookie := cookieByName(rec.Result().Cookies(), "fileshare_session")
 	if cookie == nil {
-		t.Fatal("expected sharefile_session cookie")
+		t.Fatal("expected fileshare_session cookie")
 	}
 
 	userReq := httptest.NewRequest(http.MethodGet, "/user/dashboard", nil)
@@ -2911,7 +2911,7 @@ func login(t *testing.T, s *Server, actorType, actorID, roles string) *http.Cook
 	if rec.Code != http.StatusNoContent {
 		t.Fatalf("login status = %d, want %d, body=%q", rec.Code, http.StatusNoContent, rec.Body.String())
 	}
-	if c := cookieByName(rec.Result().Cookies(), "sharefile_session"); c != nil {
+	if c := cookieByName(rec.Result().Cookies(), "fileshare_session"); c != nil {
 		return c
 	}
 	t.Fatal("session cookie not set")

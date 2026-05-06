@@ -25,12 +25,12 @@ func TestMailgunSenderSendMagicLink(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	renderer, err := NewHermesRenderer("ShareFile", "https://sharefile.example", "")
+	renderer, err := NewHermesRenderer("FileShare", "https://fileshare.example", "")
 	if err != nil {
 		t.Fatalf("NewHermesRenderer() error: %v", err)
 	}
 
-	sender, err := NewMailgunSender(ts.URL, "mg.example", "key-123", "ShareFile <noreply@example.com>", ts.Client(), renderer)
+	sender, err := NewMailgunSender(ts.URL, "mg.example", "key-123", "FileShare <noreply@example.com>", ts.Client(), renderer)
 	if err != nil {
 		t.Fatalf("NewMailgunSender() error: %v", err)
 	}
@@ -51,7 +51,7 @@ func TestMailgunSenderSendMagicLink(t *testing.T) {
 	if !strings.Contains(gotBody.Get("text"), "tok-1") {
 		t.Fatalf("text = %q, want token", gotBody.Get("text"))
 	}
-	if !strings.Contains(gotBody.Get("html"), "https://sharefile.example/verify-token?client_id=client%40example.com&amp;token=tok-1") {
+	if !strings.Contains(gotBody.Get("html"), "https://fileshare.example/verify-token?client_id=client%40example.com&amp;token=tok-1") {
 		t.Fatalf("html = %q, want verify link with embedded client and token", gotBody.Get("html"))
 	}
 	if gotBody.Get("html") == "" {
@@ -65,7 +65,7 @@ func TestMailgunSenderRejectsNon2xx(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	renderer, err := NewHermesRenderer("ShareFile", "https://sharefile.example", "")
+	renderer, err := NewHermesRenderer("FileShare", "https://fileshare.example", "")
 	if err != nil {
 		t.Fatalf("NewHermesRenderer() error: %v", err)
 	}
@@ -83,7 +83,7 @@ func TestMailgunSenderRejectsNon2xx(t *testing.T) {
 func TestMailgunSenderSendValidation(t *testing.T) {
 	t.Parallel()
 
-	renderer, err := NewHermesRenderer("ShareFile", "https://sharefile.example", "")
+	renderer, err := NewHermesRenderer("FileShare", "https://fileshare.example", "")
 	if err != nil {
 		t.Fatalf("NewHermesRenderer() error: %v", err)
 	}

@@ -89,7 +89,7 @@ func (r *HermesRenderer) RenderMagicLink(data MagicLinkTemplateData) (RenderedTe
 	actions := []hermes.Action{}
 	productName := strings.TrimSpace(r.engine.Product.Name)
 	if productName == "" {
-		productName = "ShareFile"
+		productName = "FileShare"
 	}
 	intro := fmt.Sprintf("Use the secure link below to sign in to %s.", productName)
 	if hasURL {
@@ -116,7 +116,7 @@ func (r *HermesRenderer) RenderMagicLink(data MagicLinkTemplateData) (RenderedTe
 				intro,
 			},
 			Actions: actions,
-			Outros: magicOutro(data.SupportEmail),
+			Outros:  magicOutro(data.SupportEmail),
 		},
 	}
 
@@ -159,7 +159,7 @@ func (r *HermesRenderer) RenderInvitation(data InvitationTemplateData) (Rendered
 	inviter := strings.TrimSpace(data.InviterLabel)
 	productName := strings.TrimSpace(r.engine.Product.Name)
 	if productName == "" {
-		productName = "ShareFile"
+		productName = "FileShare"
 	}
 	if inviter == "" {
 		inviter = fmt.Sprintf("A %s administrator", productName)
@@ -169,7 +169,7 @@ func (r *HermesRenderer) RenderInvitation(data InvitationTemplateData) (Rendered
 		Intros: []string{fmt.Sprintf("%s invited you to access files in %s.", inviter, productName)},
 		Actions: []hermes.Action{{
 			Instructions: "Use the button below to complete your setup:",
-			Button: hermes.Button{Color: "#1A7F64", Text: "Complete setup", Link: data.InviteURL},
+			Button:       hermes.Button{Color: "#1A7F64", Text: "Complete setup", Link: data.InviteURL},
 		}},
 		Outros: []string{"If this was unexpected, you can ignore this message."},
 	}}
@@ -218,7 +218,7 @@ func (r *HermesRenderer) RenderFileShared(data FileSharedTemplateData) (Rendered
 		Intros: intros,
 		Actions: []hermes.Action{{
 			Instructions: "Use the button below to view your shared files:",
-			Button: hermes.Button{Color: "#1A7F64", Text: "View shared files", Link: fileListURL},
+			Button:       hermes.Button{Color: "#1A7F64", Text: "View shared files", Link: fileListURL},
 		}},
 		Outros: []string{"You may be asked to log in before you can view the file."},
 	}}
@@ -256,7 +256,7 @@ func (r *HermesRenderer) RenderPasswordReset(data PasswordResetTemplateData) (Re
 		Intros: []string{fmt.Sprintf("A password reset was requested for your %s.", actorType)},
 		Actions: []hermes.Action{{
 			Instructions: "Use the button below to set a new password:",
-			Button: hermes.Button{Color: "#1A7F64", Text: "Reset password", Link: resetURL},
+			Button:       hermes.Button{Color: "#1A7F64", Text: "Reset password", Link: resetURL},
 		}},
 		Outros: []string{"If you did not request this change, you can safely ignore this email."},
 	}}
@@ -271,7 +271,7 @@ func (r *HermesRenderer) RenderPasswordReset(data PasswordResetTemplateData) (Re
 	}
 	productName := strings.TrimSpace(r.engine.Product.Name)
 	if productName == "" {
-		productName = "ShareFile"
+		productName = "FileShare"
 	}
 	return RenderedTemplate{Subject: fmt.Sprintf("Reset your %s password", productName), HTML: htmlBody, Text: textBody}, nil
 }

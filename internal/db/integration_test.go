@@ -9,9 +9,9 @@ import (
 
 	"github.com/pressly/goose/v3"
 
-	"sharefile/internal/auth"
-	"sharefile/internal/db"
-	"sharefile/migrations"
+	"fileshare/internal/auth"
+	"fileshare/internal/db"
+	"fileshare/migrations"
 
 	_ "modernc.org/sqlite"
 )

@@ -10,7 +10,7 @@ import (
 
 	"github.com/labstack/echo/v4"
 
-	"sharefile/internal/db"
+	"fileshare/internal/db"
 
 	_ "modernc.org/sqlite"
 )

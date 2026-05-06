@@ -1,4 +1,4 @@
-# ShareFile Implementation Plan
+# FileShare Implementation Plan
 
 ## Architecture and Core Stack
 
@@ -120,7 +120,7 @@
 
 ```text
 cmd/
-  sharefile/
+  fileshare/
     main.go
 internal/
   app/

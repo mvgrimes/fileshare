@@ -11,8 +11,8 @@ func TestLoadSuccess(t *testing.T) {
 	t.Setenv("ENVIRONMENT", "test")
 	t.Setenv("LOG_LEVEL", "debug")
 	t.Setenv("SESSION_TTL_HOURS", "10")
-	t.Setenv("SERVER_URL", "https://sharefile.test")
-	t.Setenv("DATABASE_URL", "sharefile.test.db")
+	t.Setenv("SERVER_URL", "https://fileshare.test")
+	t.Setenv("DATABASE_URL", "fileshare.test.db")
 	t.Setenv("SESSION_SECRET", "session-secret")
 	t.Setenv("JWT_SECRET", "jwt-secret")
 	t.Setenv("MAILGUN_DOMAIN", "mg.example")
@@ -21,10 +21,10 @@ func TestLoadSuccess(t *testing.T) {
 	t.Setenv("AWS_REGION", "us-west-2")
 	t.Setenv("S3_BUCKET", "uploads-test")
 	t.Setenv("S3_FORCE_PATH_STYLE", "true")
-	t.Setenv("SHAREFILE_BRANDING", "Company, Inc.")
-	t.Setenv("SHAREFILE_FAVICON", "https://assets.example/favicon.ico")
-	t.Setenv("SHAREFILE_LOGO", "https://assets.example/logo.svg")
-	t.Setenv("SHAREFILE_LOGO_HERO", "https://assets.example/logo-hero.svg")
+	t.Setenv("FILESHARE_BRANDING", "Company, Inc.")
+	t.Setenv("FILESHARE_FAVICON", "https://assets.example/favicon.ico")
+	t.Setenv("FILESHARE_LOGO", "https://assets.example/logo.svg")
+	t.Setenv("FILESHARE_LOGO_HERO", "https://assets.example/logo-hero.svg")
 
 	cfg, err := Load()
 	if err != nil {
@@ -95,8 +95,8 @@ func TestIntEnvOrDefault(t *testing.T) {
 }
 
 func TestLoadRejectsInvalidSessionTTL(t *testing.T) {
-	t.Setenv("DATABASE_URL", "sharefile.test.db")
-	t.Setenv("SERVER_URL", "https://sharefile.test")
+	t.Setenv("DATABASE_URL", "fileshare.test.db")
+	t.Setenv("SERVER_URL", "https://fileshare.test")
 	t.Setenv("SESSION_SECRET", "session-secret")
 	t.Setenv("JWT_SECRET", "jwt-secret")
 	t.Setenv("SESSION_TTL_HOURS", "0")

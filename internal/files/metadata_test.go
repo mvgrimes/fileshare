@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"sharefile/internal/auth"
-	"sharefile/internal/db"
+	"fileshare/internal/auth"
+	"fileshare/internal/db"
 )
 
 type metadataRepoStub struct {

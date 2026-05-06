@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"errors"
 
-	"sharefile/internal/db"
+	"fileshare/internal/db"
 )
 
 type clientFileAccessQuerier interface {

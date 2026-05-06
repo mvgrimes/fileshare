@@ -3,7 +3,7 @@ package repository
 import (
 	"context"
 
-	"sharefile/internal/db"
+	"fileshare/internal/db"
 )
 
 type SessionRepository interface {

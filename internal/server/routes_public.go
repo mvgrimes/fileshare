@@ -11,9 +11,9 @@ import (
 
 	"github.com/labstack/echo/v4"
 
-	"sharefile/internal/auth"
-	"sharefile/internal/db"
-	"sharefile/internal/mail"
+	"fileshare/internal/auth"
+	"fileshare/internal/db"
+	"fileshare/internal/mail"
 )
 
 func (s *Server) registerPublicRoutes(queries *db.Queries, sessionTTL time.Duration) {

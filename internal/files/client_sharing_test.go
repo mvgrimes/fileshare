@@ -6,8 +6,8 @@ import (
 	"errors"
 	"testing"
 
-	"sharefile/internal/auth"
-	"sharefile/internal/db"
+	"fileshare/internal/auth"
+	"fileshare/internal/db"
 )
 
 type clientAuthorizerStub struct {
@@ -98,7 +98,7 @@ func TestClientSharingServiceShareValidationAndAuthorization(t *testing.T) {
 	})
 }
 
-func TestClientSharingServiceShareFileOwnershipAndErrors(t *testing.T) {
+func TestClientSharingServiceFileShareOwnershipAndErrors(t *testing.T) {
 	principal := auth.Principal{ActorType: "client", ActorID: "client-1"}
 
 	t.Run("missing file behaves as forbidden", func(t *testing.T) {

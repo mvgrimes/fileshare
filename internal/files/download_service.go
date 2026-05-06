@@ -6,8 +6,8 @@ import (
 	"errors"
 	"time"
 
-	"sharefile/internal/auth"
-	"sharefile/internal/db"
+	"fileshare/internal/auth"
+	"fileshare/internal/db"
 )
 
 var ErrInvalidDownloadTTL = errors.New("download ttl must be positive")

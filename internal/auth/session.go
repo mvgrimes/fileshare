@@ -11,7 +11,7 @@ import (
 	"sync"
 	"time"
 
-	"sharefile/internal/db"
+	"fileshare/internal/db"
 )
 
 var ErrSessionNotFound = errors.New("session not found")

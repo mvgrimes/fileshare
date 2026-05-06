@@ -22,20 +22,20 @@ func TestOpenMigrationDBRequiresDatabaseURL(t *testing.T) {
 }
 
 func TestMigrationDatabaseURLFromEnvConvertsSQLiteURL(t *testing.T) {
-	t.Setenv("DATABASE_URL", "sqlite:///tmp/sharefile.db")
+	t.Setenv("DATABASE_URL", "sqlite:///tmp/fileshare.db")
 
 	databaseURL, err := migrationDatabaseURLFromEnv()
 	if err != nil {
 		t.Fatalf("migrationDatabaseURLFromEnv() unexpected error: %v", err)
 	}
 
-	if databaseURL != "file:/tmp/sharefile.db" {
-		t.Fatalf("databaseURL = %q, want %q", databaseURL, "file:/tmp/sharefile.db")
+	if databaseURL != "file:/tmp/fileshare.db" {
+		t.Fatalf("databaseURL = %q, want %q", databaseURL, "file:/tmp/fileshare.db")
 	}
 }
 
 func TestMigrationDatabaseURLFromEnvRejectsUnsupportedScheme(t *testing.T) {
-	t.Setenv("DATABASE_URL", "postgres://localhost/sharefile")
+	t.Setenv("DATABASE_URL", "postgres://localhost/fileshare")
 
 	_, err := migrationDatabaseURLFromEnv()
 	if err == nil {

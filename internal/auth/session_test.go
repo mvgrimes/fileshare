@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"sharefile/internal/db"
+	"fileshare/internal/db"
 
 	_ "modernc.org/sqlite"
 )

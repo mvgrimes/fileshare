@@ -17,14 +17,14 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 
-	"sharefile/internal/auth"
-	"sharefile/internal/config"
-	"sharefile/internal/db"
-	"sharefile/internal/files"
-	"sharefile/internal/mail"
-	webassets "sharefile/internal/web/assets"
-	webtemplates "sharefile/internal/web/templates"
-	"sharefile/migrations"
+	"fileshare/internal/auth"
+	"fileshare/internal/config"
+	"fileshare/internal/db"
+	"fileshare/internal/files"
+	"fileshare/internal/mail"
+	webassets "fileshare/internal/web/assets"
+	webtemplates "fileshare/internal/web/templates"
+	"fileshare/migrations"
 
 	_ "modernc.org/sqlite"
 )
@@ -208,7 +208,7 @@ func New(cfg *config.Config, log *slog.Logger) *Server {
 
 	bucket := strings.TrimSpace(cfg.S3Bucket)
 	if bucket == "" {
-		bucket = "sharefile-uploads"
+		bucket = "fileshare-uploads"
 	}
 	var objectStore interface {
 		files.ObjectStore
@@ -495,7 +495,7 @@ func normalizeBrandAsset(raw string) string {
 func brandProductName(raw string) string {
 	base := strings.TrimSpace(raw)
 	if base == "" {
-		base = "ShareFile"
+		base = "FileShare"
 	}
 	if strings.Contains(strings.ToLower(base), "file share") {
 		return base

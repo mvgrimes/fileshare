@@ -9,9 +9,9 @@ import (
 
 	"github.com/google/uuid"
 
-	"sharefile/internal/auth"
-	"sharefile/internal/db"
-	"sharefile/internal/repository"
+	"fileshare/internal/auth"
+	"fileshare/internal/db"
+	"fileshare/internal/repository"
 )
 
 var (

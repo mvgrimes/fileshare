@@ -12,10 +12,10 @@ import (
 	"github.com/labstack/echo/v4"
 	"golang.org/x/crypto/bcrypt"
 
-	"sharefile/internal/auth"
-	"sharefile/internal/db"
-	"sharefile/internal/files"
-	"sharefile/internal/mail"
+	"fileshare/internal/auth"
+	"fileshare/internal/db"
+	"fileshare/internal/files"
+	"fileshare/internal/mail"
 )
 
 func (s *Server) registerClientRoutes(queries *db.Queries) {

@@ -8,7 +8,7 @@ import (
 
 	"golang.org/x/crypto/bcrypt"
 
-	"sharefile/internal/db"
+	"fileshare/internal/db"
 )
 
 var (

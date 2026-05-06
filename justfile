@@ -1,7 +1,8 @@
-APP       := "sharefile"
+APP       := "fileshare"
 VER_FILE  := "./main.go"
 MAIN_FILE := "./main.go"
 VERSION   := shell('perl -nE "m{version\\s*=\\s*\"(\\d+\\.\\d+\\.\\d+)\"}i && print \$1" ' + VER_FILE)
+set shell := ["bash", "-euo", "pipefail", "-c"]
 
 build:
   echo "Building verion {{VERSION}} of {{APP}}"
@@ -30,7 +31,6 @@ test:
 
 generage:
   sqlc generate
-
 
 release:
   go mod tidy
