@@ -200,6 +200,12 @@ func TestAuthPagesContainFormTargets(t *testing.T) {
 	if !strings.Contains(loginBody, "action=\"/auth/password/login\"") {
 		t.Fatalf("/login body = %q, want password login form action", loginBody)
 	}
+	if !strings.Contains(loginBody, "action=\"/auth/magic/request\"") {
+		t.Fatalf("/login body = %q, want magic link request form action", loginBody)
+	}
+	if !strings.Contains(loginBody, "<div class=\"divider\">OR</div>") {
+		t.Fatalf("/login body = %q, want divider between login methods", loginBody)
+	}
 	if !strings.Contains(loginBody, "data-enhance=\"submission\"") || !strings.Contains(loginBody, "data-pending-text=") {
 		t.Fatalf("/login body = %q, want progressive enhancement hooks", loginBody)
 	}
