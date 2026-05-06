@@ -330,10 +330,37 @@ func nullableString(v string) sql.NullString {
 }
 
 func loadTemplates(environment string) (*template.Template, error) {
+	var (
+		templatesFS fs.FS
+		t           *template.Template
+	)
 	if environment == "development" {
-		return template.ParseFS(os.DirFS("internal/web/templates"), "*.html")
+		templatesFS = os.DirFS("internal/web/templates")
+	} else {
+		templatesFS = webtemplates.Files
 	}
-	return template.ParseFS(webtemplates.Files, "*.html")
+
+	funcs := template.FuncMap{
+		"renderContent": func(name string, data any) (template.HTML, error) {
+			name = strings.TrimSpace(name)
+			if name == "" {
+				return "", fmt.Errorf("missing content template name")
+			}
+
+			var b strings.Builder
+			if err := t.ExecuteTemplate(&b, name, data); err != nil {
+				return "", err
+			}
+			return template.HTML(b.String()), nil
+		},
+	}
+
+	parsed, err := template.New("root").Funcs(funcs).ParseFS(templatesFS, "*.html")
+	if err != nil {
+		return nil, err
+	}
+	t = parsed
+	return parsed, nil
 }
 
 func loadAssetsFS(environment string) fs.FS {
