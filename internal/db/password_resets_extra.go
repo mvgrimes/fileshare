@@ -15,14 +15,14 @@ type CreatePasswordResetParams struct {
 }
 
 type PasswordReset struct {
-	ID        string
-	ActorType string
-	ActorID   string
-	Email     string
-	TokenHash string
-	ExpiresAt string
+	ID         string
+	ActorType  string
+	ActorID    string
+	Email      string
+	TokenHash  string
+	ExpiresAt  string
 	ConsumedAt sql.NullString
-	CreatedAt string
+	CreatedAt  string
 }
 
 const createPasswordReset = `

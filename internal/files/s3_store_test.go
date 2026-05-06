@@ -37,10 +37,10 @@ func (s *s3ClientStub) DeleteObject(_ context.Context, params *s3.DeleteObjectIn
 }
 
 type s3PresignStub struct {
-	url         string
-	err         error
-	ttl         time.Duration
-	getInput    *s3.GetObjectInput
+	url      string
+	err      error
+	ttl      time.Duration
+	getInput *s3.GetObjectInput
 }
 
 func (s *s3PresignStub) PresignGetObject(_ context.Context, input *s3.GetObjectInput, optFns ...func(*s3.PresignOptions)) (*v4.PresignedHTTPRequest, error) {
