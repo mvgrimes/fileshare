@@ -30,6 +30,7 @@ Session.vim
 
 # Build artifacts
 /fileshare
+/fileshare-linux-amd64
 
 # Frontend deps
 node_modules/
