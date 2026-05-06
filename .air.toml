@@ -4,15 +4,15 @@ tmp_dir = "_tmp"
 
 [build]
   args_bin = ['server']
-  # bin = "./fileshare"
+  bin = "./fileshare"
   cmd = "just build"
   delay = 1
-  exclude_dir = ["dist", "web", "tmp", "vendor", "testdata", "node_modules"]
+  exclude_dir = ["dist", "tmp", "_tmp", "vendor", "testdata", "node_modules", "data"]
   exclude_file = []
   exclude_regex = ["_test.go"]
   exclude_unchanged = false
   follow_symlink = false
-  full_bin = "SERVER_PORT=8090 ./fileshare"
+  # full_bin = "FILESHARE_SERVER_PORT=8090 ./fileshare"
   include_dir = []
   include_ext = ["go", "tpl", "tmpl"]
   include_file = []
