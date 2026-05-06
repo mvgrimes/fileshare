@@ -43,29 +43,29 @@ type Config struct {
 
 func Load() (*Config, error) {
 	cfg := &Config{
-		ServerAddress:      envOrDefault("SERVER_ADDRESS", "0.0.0.0"),
-		ServerPort:         intEnvOrDefault("SERVER_PORT", 8080),
-		ServerUrl:          os.Getenv("SERVER_URL"),
-		Environment:        envOrDefault("ENVIRONMENT", "development"),
-		LogLevel:           envOrDefault("LOG_LEVEL", "info"),
-		SessionTTL:         intEnvOrDefault("SESSION_TTL_HOURS", 12),
-		DatabaseURL:        os.Getenv("DATABASE_URL"),
-		SessionSecret:      os.Getenv("SESSION_SECRET"),
-		JWTSecret:          os.Getenv("JWT_SECRET"),
-		SSOCookieName:      envOrDefault("SSO_COOKIE_NAME", "sso_jwt"),
-		SSOIssuer:          envOrDefault("SSO_ISSUER", "fileshare-sso"),
-		SSOAudience:        envOrDefault("SSO_AUDIENCE", "fileshare"),
-		MailgunAPIBaseURL:  envOrDefault("MAILGUN_API_BASE_URL", "https://api.mailgun.net"),
-		MailgunDomain:      strings.TrimSpace(os.Getenv("MAILGUN_DOMAIN")),
-		MailgunAPIKey:      strings.TrimSpace(os.Getenv("MAILGUN_API_KEY")),
-		MailgunFromEmail:   strings.TrimSpace(os.Getenv("MAILGUN_FROM_EMAIL")),
-		AWSRegion:          envOrDefault("AWS_REGION", "us-east-1"),
-		AWSAccessKeyID:     strings.TrimSpace(os.Getenv("AWS_ACCESS_KEY_ID")),
-		AWSSecretAccessKey: strings.TrimSpace(os.Getenv("AWS_SECRET_ACCESS_KEY")),
-		AWSSessionToken:    strings.TrimSpace(os.Getenv("AWS_SESSION_TOKEN")),
-		S3Endpoint:         strings.TrimSpace(os.Getenv("S3_ENDPOINT")),
-		S3Bucket:           envOrDefault("S3_BUCKET", "fileshare-uploads"),
-		S3ForcePathStyle:   boolEnvOrDefault("S3_FORCE_PATH_STYLE", false),
+		ServerAddress:      envOrDefault("FILESHARE_SERVER_ADDRESS", "0.0.0.0"),
+		ServerPort:         intEnvOrDefault("FILESHARE_SERVER_PORT", 8080),
+		ServerUrl:          os.Getenv("FILESHARE_SERVER_URL"),
+		Environment:        envOrDefault("FILESHARE_ENVIRONMENT", "development"),
+		LogLevel:           envOrDefault("FILESHARE_LOG_LEVEL", "info"),
+		SessionTTL:         intEnvOrDefault("FILESHARE_SESSION_TTL_HOURS", 12),
+		DatabaseURL:        os.Getenv("FILESHARE_DATABASE_URL"),
+		SessionSecret:      os.Getenv("FILESHARE_SESSION_SECRET"),
+		JWTSecret:          os.Getenv("FILESHARE_JWT_SECRET"),
+		SSOCookieName:      envOrDefault("FILESHARE_SSO_COOKIE_NAME", "sso_jwt"),
+		SSOIssuer:          envOrDefault("FILESHARE_SSO_ISSUER", "fileshare-sso"),
+		SSOAudience:        envOrDefault("FILESHARE_SSO_AUDIENCE", "fileshare"),
+		MailgunAPIBaseURL:  envOrDefault("FILESHARE_MAILGUN_API_BASE_URL", "https://api.mailgun.net"),
+		MailgunDomain:      strings.TrimSpace(os.Getenv("FILESHARE_MAILGUN_DOMAIN")),
+		MailgunAPIKey:      strings.TrimSpace(os.Getenv("FILESHARE_MAILGUN_API_KEY")),
+		MailgunFromEmail:   strings.TrimSpace(os.Getenv("FILESHARE_MAILGUN_FROM_EMAIL")),
+		AWSRegion:          envOrDefault("FILESHARE_AWS_REGION", "us-east-1"),
+		AWSAccessKeyID:     strings.TrimSpace(os.Getenv("FILESHARE_AWS_ACCESS_KEY_ID")),
+		AWSSecretAccessKey: strings.TrimSpace(os.Getenv("FILESHARE_AWS_SECRET_ACCESS_KEY")),
+		AWSSessionToken:    strings.TrimSpace(os.Getenv("FILESHARE_AWS_SESSION_TOKEN")),
+		S3Endpoint:         strings.TrimSpace(os.Getenv("FILESHARE_S3_ENDPOINT")),
+		S3Bucket:           envOrDefault("FILESHARE_S3_BUCKET", "fileshare-uploads"),
+		S3ForcePathStyle:   boolEnvOrDefault("FILESHARE_S3_FORCE_PATH_STYLE", false),
 		Branding:           envOrDefault("FILESHARE_BRANDING", "FileShare"),
 		Favicon:            strings.TrimSpace(os.Getenv("FILESHARE_FAVICON")),
 		Logo:               strings.TrimSpace(os.Getenv("FILESHARE_LOGO")),
@@ -82,23 +82,23 @@ func Load() (*Config, error) {
 func (c *Config) Validate() error {
 	missing := make([]string, 0, 3)
 	if strings.TrimSpace(c.DatabaseURL) == "" {
-		missing = append(missing, "DATABASE_URL")
+		missing = append(missing, "FILESHARE_DATABASE_URL")
 	}
 	if strings.TrimSpace(c.ServerUrl) == "" {
-		missing = append(missing, "SERVER_URL")
+		missing = append(missing, "FILESHARE_SERVER_URL")
 	}
 	if strings.TrimSpace(c.SessionSecret) == "" {
-		missing = append(missing, "SESSION_SECRET")
+		missing = append(missing, "FILESHARE_SESSION_SECRET")
 	}
 	if strings.TrimSpace(c.JWTSecret) == "" {
-		missing = append(missing, "JWT_SECRET")
+		missing = append(missing, "FILESHARE_JWT_SECRET")
 	}
 
 	if len(missing) > 0 {
 		return fmt.Errorf("missing required environment variables: %s", strings.Join(missing, ", "))
 	}
 	if c.SessionTTL <= 0 {
-		return fmt.Errorf("SESSION_TTL_HOURS must be greater than zero")
+		return fmt.Errorf("FILESHARE_SESSION_TTL_HOURS must be greater than zero")
 	}
 
 	return nil

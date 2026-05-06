@@ -6,21 +6,21 @@ import (
 )
 
 func TestLoadSuccess(t *testing.T) {
-	t.Setenv("SERVER_ADDRESS", "127.0.0.1")
-	t.Setenv("SERVER_PORT", "9090")
-	t.Setenv("ENVIRONMENT", "test")
-	t.Setenv("LOG_LEVEL", "debug")
-	t.Setenv("SESSION_TTL_HOURS", "10")
-	t.Setenv("SERVER_URL", "https://fileshare.test")
-	t.Setenv("DATABASE_URL", "fileshare.test.db")
-	t.Setenv("SESSION_SECRET", "session-secret")
-	t.Setenv("JWT_SECRET", "jwt-secret")
-	t.Setenv("MAILGUN_DOMAIN", "mg.example")
-	t.Setenv("MAILGUN_API_KEY", "key-123")
-	t.Setenv("MAILGUN_FROM_EMAIL", "noreply@example.com")
-	t.Setenv("AWS_REGION", "us-west-2")
-	t.Setenv("S3_BUCKET", "uploads-test")
-	t.Setenv("S3_FORCE_PATH_STYLE", "true")
+	t.Setenv("FILESHARE_SERVER_ADDRESS", "127.0.0.1")
+	t.Setenv("FILESHARE_SERVER_PORT", "9090")
+	t.Setenv("FILESHARE_ENVIRONMENT", "test")
+	t.Setenv("FILESHARE_LOG_LEVEL", "debug")
+	t.Setenv("FILESHARE_SESSION_TTL_HOURS", "10")
+	t.Setenv("FILESHARE_SERVER_URL", "https://fileshare.test")
+	t.Setenv("FILESHARE_DATABASE_URL", "fileshare.test.db")
+	t.Setenv("FILESHARE_SESSION_SECRET", "session-secret")
+	t.Setenv("FILESHARE_JWT_SECRET", "jwt-secret")
+	t.Setenv("FILESHARE_MAILGUN_DOMAIN", "mg.example")
+	t.Setenv("FILESHARE_MAILGUN_API_KEY", "key-123")
+	t.Setenv("FILESHARE_MAILGUN_FROM_EMAIL", "noreply@example.com")
+	t.Setenv("FILESHARE_AWS_REGION", "us-west-2")
+	t.Setenv("FILESHARE_S3_BUCKET", "uploads-test")
+	t.Setenv("FILESHARE_S3_FORCE_PATH_STYLE", "true")
 	t.Setenv("FILESHARE_BRANDING", "Company, Inc.")
 	t.Setenv("FILESHARE_FAVICON", "https://assets.example/favicon.ico")
 	t.Setenv("FILESHARE_LOGO", "https://assets.example/logo.svg")
@@ -70,9 +70,9 @@ func TestLoadSuccess(t *testing.T) {
 }
 
 func TestLoadMissingRequiredEnv(t *testing.T) {
-	t.Setenv("DATABASE_URL", "")
-	t.Setenv("SESSION_SECRET", "")
-	t.Setenv("JWT_SECRET", "")
+	t.Setenv("FILESHARE_DATABASE_URL", "")
+	t.Setenv("FILESHARE_SESSION_SECRET", "")
+	t.Setenv("FILESHARE_JWT_SECRET", "")
 
 	_, err := Load()
 	if err == nil {
@@ -80,7 +80,7 @@ func TestLoadMissingRequiredEnv(t *testing.T) {
 	}
 
 	msg := err.Error()
-	for _, key := range []string{"DATABASE_URL", "SERVER_URL", "SESSION_SECRET", "JWT_SECRET"} {
+	for _, key := range []string{"FILESHARE_DATABASE_URL", "FILESHARE_SERVER_URL", "FILESHARE_SESSION_SECRET", "FILESHARE_JWT_SECRET"} {
 		if !strings.Contains(msg, key) {
 			t.Fatalf("error %q does not contain %q", msg, key)
 		}
@@ -88,39 +88,39 @@ func TestLoadMissingRequiredEnv(t *testing.T) {
 }
 
 func TestIntEnvOrDefault(t *testing.T) {
-	t.Setenv("SERVER_PORT", "not-a-number")
-	if got := intEnvOrDefault("SERVER_PORT", 8080); got != 8080 {
+	t.Setenv("FILESHARE_SERVER_PORT", "not-a-number")
+	if got := intEnvOrDefault("FILESHARE_SERVER_PORT", 8080); got != 8080 {
 		t.Fatalf("intEnvOrDefault invalid = %d, want %d", got, 8080)
 	}
 }
 
 func TestLoadRejectsInvalidSessionTTL(t *testing.T) {
-	t.Setenv("DATABASE_URL", "fileshare.test.db")
-	t.Setenv("SERVER_URL", "https://fileshare.test")
-	t.Setenv("SESSION_SECRET", "session-secret")
-	t.Setenv("JWT_SECRET", "jwt-secret")
-	t.Setenv("SESSION_TTL_HOURS", "0")
+	t.Setenv("FILESHARE_DATABASE_URL", "fileshare.test.db")
+	t.Setenv("FILESHARE_SERVER_URL", "https://fileshare.test")
+	t.Setenv("FILESHARE_SESSION_SECRET", "session-secret")
+	t.Setenv("FILESHARE_JWT_SECRET", "jwt-secret")
+	t.Setenv("FILESHARE_SESSION_TTL_HOURS", "0")
 
 	_, err := Load()
 	if err == nil {
 		t.Fatal("Load() error = nil, want invalid session ttl error")
 	}
-	if !strings.Contains(err.Error(), "SESSION_TTL_HOURS") {
-		t.Fatalf("error = %q, want reference to SESSION_TTL_HOURS", err.Error())
+	if !strings.Contains(err.Error(), "FILESHARE_SESSION_TTL_HOURS") {
+		t.Fatalf("error = %q, want reference to FILESHARE_SESSION_TTL_HOURS", err.Error())
 	}
 }
 
 func TestBoolEnvOrDefault(t *testing.T) {
-	t.Setenv("S3_FORCE_PATH_STYLE", "yes")
-	if !boolEnvOrDefault("S3_FORCE_PATH_STYLE", false) {
+	t.Setenv("FILESHARE_S3_FORCE_PATH_STYLE", "yes")
+	if !boolEnvOrDefault("FILESHARE_S3_FORCE_PATH_STYLE", false) {
 		t.Fatal("boolEnvOrDefault should parse yes as true")
 	}
-	t.Setenv("S3_FORCE_PATH_STYLE", "no")
-	if boolEnvOrDefault("S3_FORCE_PATH_STYLE", true) {
+	t.Setenv("FILESHARE_S3_FORCE_PATH_STYLE", "no")
+	if boolEnvOrDefault("FILESHARE_S3_FORCE_PATH_STYLE", true) {
 		t.Fatal("boolEnvOrDefault should parse no as false")
 	}
-	t.Setenv("S3_FORCE_PATH_STYLE", "not-a-bool")
-	if !boolEnvOrDefault("S3_FORCE_PATH_STYLE", true) {
+	t.Setenv("FILESHARE_S3_FORCE_PATH_STYLE", "not-a-bool")
+	if !boolEnvOrDefault("FILESHARE_S3_FORCE_PATH_STYLE", true) {
 		t.Fatal("boolEnvOrDefault should fall back")
 	}
 }

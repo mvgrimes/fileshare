@@ -140,9 +140,9 @@ func openMigrationDB() (*sql.DB, error) {
 }
 
 func migrationDatabaseURLFromEnv() (string, error) {
-	databaseURL := strings.TrimSpace(os.Getenv("DATABASE_URL"))
+	databaseURL := strings.TrimSpace(os.Getenv("FILESHARE_DATABASE_URL"))
 	if databaseURL == "" {
-		return "", fmt.Errorf("DATABASE_URL is required")
+		return "", fmt.Errorf("FILESHARE_DATABASE_URL is required")
 	}
 
 	if strings.HasPrefix(databaseURL, "libsql://") {
@@ -152,11 +152,11 @@ func migrationDatabaseURLFromEnv() (string, error) {
 	if strings.Contains(databaseURL, "://") {
 		u, err := url.Parse(databaseURL)
 		if err != nil {
-			return "", fmt.Errorf("invalid DATABASE_URL %q: %w", databaseURL, err)
+			return "", fmt.Errorf("invalid FILESHARE_DATABASE_URL %q: %w", databaseURL, err)
 		}
 
 		if u.Scheme != "sqlite" {
-			return "", fmt.Errorf("unsupported DATABASE_URL scheme %q; expected sqlite path or sqlite:// URL", u.Scheme)
+			return "", fmt.Errorf("unsupported FILESHARE_DATABASE_URL scheme %q; expected sqlite path or sqlite:// URL", u.Scheme)
 		}
 
 		databaseURL = "file:" + strings.TrimPrefix(databaseURL, "sqlite://")
@@ -168,7 +168,7 @@ func migrationDatabaseURLFromEnv() (string, error) {
 
 	cleanPath := filepath.Clean(databaseURL)
 	if cleanPath == "." {
-		return "", fmt.Errorf("invalid DATABASE_URL %q: expected sqlite file path", databaseURL)
+		return "", fmt.Errorf("invalid FILESHARE_DATABASE_URL %q: expected sqlite file path", databaseURL)
 	}
 
 	return cleanPath, nil

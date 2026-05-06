@@ -10,19 +10,19 @@ import (
 )
 
 func TestOpenMigrationDBRequiresDatabaseURL(t *testing.T) {
-	t.Setenv("DATABASE_URL", "")
+	t.Setenv("FILESHARE_DATABASE_URL", "")
 
 	_, err := openMigrationDB()
 	if err == nil {
-		t.Fatal("openMigrationDB() error = nil, want DATABASE_URL is required")
+		t.Fatal("openMigrationDB() error = nil, want FILESHARE_DATABASE_URL is required")
 	}
-	if !strings.Contains(err.Error(), "DATABASE_URL is required") {
-		t.Fatalf("error = %q, want contains %q", err.Error(), "DATABASE_URL is required")
+	if !strings.Contains(err.Error(), "FILESHARE_DATABASE_URL is required") {
+		t.Fatalf("error = %q, want contains %q", err.Error(), "FILESHARE_DATABASE_URL is required")
 	}
 }
 
 func TestMigrationDatabaseURLFromEnvConvertsSQLiteURL(t *testing.T) {
-	t.Setenv("DATABASE_URL", "sqlite:///tmp/fileshare.db")
+	t.Setenv("FILESHARE_DATABASE_URL", "sqlite:///tmp/fileshare.db")
 
 	databaseURL, err := migrationDatabaseURLFromEnv()
 	if err != nil {
@@ -35,19 +35,19 @@ func TestMigrationDatabaseURLFromEnvConvertsSQLiteURL(t *testing.T) {
 }
 
 func TestMigrationDatabaseURLFromEnvRejectsUnsupportedScheme(t *testing.T) {
-	t.Setenv("DATABASE_URL", "postgres://localhost/fileshare")
+	t.Setenv("FILESHARE_DATABASE_URL", "postgres://localhost/fileshare")
 
 	_, err := migrationDatabaseURLFromEnv()
 	if err == nil {
 		t.Fatal("migrationDatabaseURLFromEnv() error = nil, want unsupported scheme error")
 	}
-	if !strings.Contains(err.Error(), "unsupported DATABASE_URL scheme") {
+	if !strings.Contains(err.Error(), "unsupported FILESHARE_DATABASE_URL scheme") {
 		t.Fatalf("error = %q, want unsupported scheme message", err.Error())
 	}
 }
 
 func TestOpenMigrationDBRejectsLibsql(t *testing.T) {
-	t.Setenv("DATABASE_URL", "libsql://example.turso.io")
+	t.Setenv("FILESHARE_DATABASE_URL", "libsql://example.turso.io")
 
 	_, err := openMigrationDB()
 	if err == nil {
@@ -60,7 +60,7 @@ func TestOpenMigrationDBRejectsLibsql(t *testing.T) {
 
 func TestOpenMigrationDBWithSQLitePath(t *testing.T) {
 	dbPath := filepath.Join(t.TempDir(), "test.db")
-	t.Setenv("DATABASE_URL", dbPath)
+	t.Setenv("FILESHARE_DATABASE_URL", dbPath)
 
 	db, err := openMigrationDB()
 	if err != nil {
@@ -79,7 +79,7 @@ func TestOpenMigrationDBWithSQLitePath(t *testing.T) {
 
 func TestRunMigrateUpStatusDown(t *testing.T) {
 	dbPath := filepath.Join(t.TempDir(), "migrate-test.db")
-	t.Setenv("DATABASE_URL", dbPath)
+	t.Setenv("FILESHARE_DATABASE_URL", dbPath)
 
 	originalDir := migrationsDir
 	migrationsDir = filepath.Join("..", "migrations")
@@ -127,7 +127,7 @@ func TestRunMigrateUpStatusDown(t *testing.T) {
 
 func TestExpandedSchemaRejectsDuplicateShareTarget(t *testing.T) {
 	dbPath := filepath.Join(t.TempDir(), "schema-test.db")
-	t.Setenv("DATABASE_URL", dbPath)
+	t.Setenv("FILESHARE_DATABASE_URL", dbPath)
 
 	originalDir := migrationsDir
 	migrationsDir = filepath.Join("..", "migrations")

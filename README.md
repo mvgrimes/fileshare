@@ -60,15 +60,15 @@ data/                 # local runtime artifacts (for dev)
 
 Copy `.env.example` to `.env` and fill required values:
 
-- `DATABASE_URL`
-- `SESSION_SECRET`
-- `JWT_SECRET`
+- `FILESHARE_DATABASE_URL`
+- `FILESHARE_SESSION_SECRET`
+- `FILESHARE_JWT_SECRET`
 
 SSO settings are optional and default to:
 
-- `SSO_COOKIE_NAME=sso_jwt`
-- `SSO_ISSUER=fileshare-sso`
-- `SSO_AUDIENCE=fileshare`
+- `FILESHARE_SSO_COOKIE_NAME=sso_jwt`
+- `FILESHARE_SSO_ISSUER=fileshare-sso`
+- `FILESHARE_SSO_AUDIENCE=fileshare`
 
 ### 3) Run Migrations
 
@@ -76,7 +76,7 @@ SSO settings are optional and default to:
 go run ./... migrate up
 ```
 
-Note: Goose migrations use the SQLite driver and do not support `libsql://` URLs directly. For migration commands, use a local SQLite path in `DATABASE_URL` (for example `data/fileshare.db`).
+Note: Goose migrations use the SQLite driver and do not support `libsql://` URLs directly. For migration commands, use a local SQLite path in `FILESHARE_DATABASE_URL` (for example `data/fileshare.db`).
 
 ### 4) Bootstrap (Optional but Recommended)
 
@@ -105,7 +105,7 @@ fileshare bootstrap && fileshare server
 go run ./... server
 ```
 
-The app runs on `SERVER_ADDRESS:SERVER_PORT` (defaults: `0.0.0.0:8080`).
+The app runs on `FILESHARE_SERVER_ADDRESS:FILESHARE_SERVER_PORT` (defaults: `0.0.0.0:8080`).
 
 ### 6) Run Tests
 
