@@ -10,6 +10,7 @@ import (
 	"io/fs"
 	"log/slog"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -48,6 +49,7 @@ type Server struct {
 
 type TemplateRenderer struct {
 	templates     *template.Template
+	environment   string
 	brandingLabel string
 	faviconURL    string
 	logoURL       string
@@ -111,7 +113,16 @@ func (r *TemplateRenderer) Render(w io.Writer, name string, data any, c echo.Con
 			viewData["SidebarActions"] = markActiveSidebarActions(withDashboardAction(clientDashboardActions(), "/client/dashboard"), c.Request().URL.Path)
 		}
 	}
-	return r.templates.ExecuteTemplate(w, name, viewData)
+	t := r.templates
+	if r.environment == "development" {
+		devTemplates, err := loadTemplates(r.environment)
+		if err != nil {
+			return err
+		}
+		t = devTemplates
+	}
+
+	return t.ExecuteTemplate(w, name, viewData)
 }
 
 func dashboardPathForPrincipal(principal auth.Principal, requestPath string) string {
@@ -138,10 +149,10 @@ func New(cfg *config.Config, log *slog.Logger) *Server {
 		_ = c.String(http.StatusInternalServerError, "internal server error")
 	}
 
-	t := template.Must(loadTemplates())
+	t := template.Must(loadTemplates(cfg.Environment))
 	brandingLabel := brandProductName(cfg.Branding)
-	e.Renderer = &TemplateRenderer{templates: t, brandingLabel: brandingLabel, faviconURL: normalizeBrandAsset(cfg.Favicon), logoURL: normalizeBrandAsset(cfg.Logo), logoHeroURL: normalizeBrandAsset(cfg.LogoHero)}
-	assetsFS := mustSubFS(webassets.Files, "dist")
+	e.Renderer = &TemplateRenderer{templates: t, environment: cfg.Environment, brandingLabel: brandingLabel, faviconURL: normalizeBrandAsset(cfg.Favicon), logoURL: normalizeBrandAsset(cfg.Logo), logoHeroURL: normalizeBrandAsset(cfg.LogoHero)}
+	assetsFS := loadAssetsFS(cfg.Environment)
 	e.StaticFS("/assets", assetsFS)
 
 	e.Use(middleware.RequestID())
@@ -318,8 +329,18 @@ func nullableString(v string) sql.NullString {
 	return sql.NullString{Valid: true, String: v}
 }
 
-func loadTemplates() (*template.Template, error) {
+func loadTemplates(environment string) (*template.Template, error) {
+	if environment == "development" {
+		return template.ParseFS(os.DirFS("internal/web/templates"), "*.html")
+	}
 	return template.ParseFS(webtemplates.Files, "*.html")
+}
+
+func loadAssetsFS(environment string) fs.FS {
+	if environment == "development" {
+		return os.DirFS("internal/web/assets/dist")
+	}
+	return mustSubFS(webassets.Files, "dist")
 }
 
 func parseRoles(value string) []string {
