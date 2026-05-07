@@ -69,9 +69,23 @@ func (n *Notifier) NotifyFileShared(ctx context.Context, in FileSharedNotificati
 
 	eventID := ""
 	if n.events != nil {
-		eventID, _ = n.events.RecordPending(ctx, "file.shared", in.RecipientEmail, "", map[string]any{"target_type": in.TargetType, "target_id": in.TargetID})
+		eventID, _ = n.events.RecordPending(
+			ctx,
+			"file.shared",
+			in.RecipientEmail,
+			"",
+			map[string]any{"target_type": in.TargetType, "target_id": in.TargetID},
+		)
 	}
-	err = n.sender.Send(ctx, Message{To: in.RecipientEmail, Subject: rendered.Subject, Text: rendered.Text, HTML: rendered.HTML})
+	err = n.sender.Send(
+		ctx,
+		Message{
+			To:      in.RecipientEmail,
+			Subject: rendered.Subject,
+			Text:    rendered.Text,
+			HTML:    rendered.HTML,
+		},
+	)
 	if n.events != nil && eventID != "" {
 		if err != nil {
 			_ = n.events.MarkFailed(ctx, eventID, err.Error(), "")
@@ -101,9 +115,23 @@ func (n *Notifier) NotifyClientUpload(ctx context.Context, in ClientUploadNotifi
 
 	eventID := ""
 	if n.events != nil {
-		eventID, _ = n.events.RecordPending(ctx, "client.upload", in.RecipientEmail, "", map[string]any{"target_type": in.TargetType, "target_id": in.TargetID})
+		eventID, _ = n.events.RecordPending(
+			ctx,
+			"client.upload",
+			in.RecipientEmail,
+			"",
+			map[string]any{"target_type": in.TargetType, "target_id": in.TargetID},
+		)
 	}
-	err = n.sender.Send(ctx, Message{To: in.RecipientEmail, Subject: rendered.Subject, Text: rendered.Text, HTML: rendered.HTML})
+	err = n.sender.Send(
+		ctx,
+		Message{
+			To:      in.RecipientEmail,
+			Subject: rendered.Subject,
+			Text:    rendered.Text,
+			HTML:    rendered.HTML,
+		},
+	)
 	if n.events != nil && eventID != "" {
 		if err != nil {
 			_ = n.events.MarkFailed(ctx, eventID, err.Error(), "")
@@ -126,9 +154,23 @@ func (n *Notifier) NotifyPasswordReset(ctx context.Context, in PasswordResetNoti
 
 	eventID := ""
 	if n.events != nil {
-		eventID, _ = n.events.RecordPending(ctx, "password.reset", in.RecipientEmail, "", map[string]any{"actor_type": in.ActorType})
+		eventID, _ = n.events.RecordPending(
+			ctx,
+			"password.reset",
+			in.RecipientEmail,
+			"",
+			map[string]any{"actor_type": in.ActorType},
+		)
 	}
-	err = n.sender.Send(ctx, Message{To: in.RecipientEmail, Subject: rendered.Subject, Text: rendered.Text, HTML: rendered.HTML})
+	err = n.sender.Send(
+		ctx,
+		Message{
+			To:      in.RecipientEmail,
+			Subject: rendered.Subject,
+			Text:    rendered.Text,
+			HTML:    rendered.HTML,
+		},
+	)
 	if n.events != nil && eventID != "" {
 		if err != nil {
 			_ = n.events.MarkFailed(ctx, eventID, err.Error(), "")

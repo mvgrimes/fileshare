@@ -55,7 +55,11 @@ func TestAuthorizationService(t *testing.T) {
 		downloadSvc := NewAuthorizationService(fileAccess, nil)
 
 		allowed := Principal{ActorType: "client", ActorID: "client-1"}
-		if err := downloadSvc.AuthorizeClientDownload(context.Background(), allowed, "file-1"); err != nil {
+		if err := downloadSvc.AuthorizeClientDownload(
+			context.Background(),
+			allowed,
+			"file-1",
+		); err != nil {
 			t.Fatalf("authorize client download: %v", err)
 		}
 
@@ -77,7 +81,11 @@ func TestAuthorizationService(t *testing.T) {
 		downloadSvc := NewAuthorizationService(fileAccess, nil)
 
 		allowed := Principal{ActorType: "user", ActorID: "user-1"}
-		if err := downloadSvc.AuthorizeUserDownload(context.Background(), allowed, "file-1"); err != nil {
+		if err := downloadSvc.AuthorizeUserDownload(
+			context.Background(),
+			allowed,
+			"file-1",
+		); err != nil {
 			t.Fatalf("authorize user download: %v", err)
 		}
 
@@ -94,7 +102,12 @@ func TestAuthorizationService(t *testing.T) {
 			allowed: true,
 		})
 		principal := Principal{ActorType: "client", ActorID: "client-1"}
-		if err := uploadSvc.AuthorizeClientUpload(context.Background(), principal, "user", "u-1"); err != nil {
+		if err := uploadSvc.AuthorizeClientUpload(
+			context.Background(),
+			principal,
+			"user",
+			"u-1",
+		); err != nil {
 			t.Fatalf("authorize client upload: %v", err)
 		}
 
@@ -123,14 +136,20 @@ type stubClientFileAccess struct {
 	err     error
 }
 
-func (s stubClientFileAccess) ClientCanAccessFile(_ context.Context, _ db.ClientCanAccessFileParams) (bool, error) {
+func (s stubClientFileAccess) ClientCanAccessFile(
+	_ context.Context,
+	_ db.ClientCanAccessFileParams,
+) (bool, error) {
 	if s.err != nil {
 		return false, s.err
 	}
 	return s.allowed, nil
 }
 
-func (s stubClientFileAccess) UserCanAccessFile(_ context.Context, _ db.UserCanAccessFileParams) (bool, error) {
+func (s stubClientFileAccess) UserCanAccessFile(
+	_ context.Context,
+	_ db.UserCanAccessFileParams,
+) (bool, error) {
 	if s.err != nil {
 		return false, s.err
 	}
@@ -150,7 +169,10 @@ func (s stubClientUploadAuth) GetClientByID(_ context.Context, _ string) (db.Cli
 	return s.client, nil
 }
 
-func (s stubClientUploadAuth) ClientCanUploadToTarget(_ context.Context, _ db.ClientCanUploadToTargetParams) (bool, error) {
+func (s stubClientUploadAuth) ClientCanUploadToTarget(
+	_ context.Context,
+	_ db.ClientCanUploadToTargetParams,
+) (bool, error) {
 	if s.err != nil {
 		return false, s.err
 	}

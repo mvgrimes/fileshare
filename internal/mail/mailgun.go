@@ -24,9 +24,17 @@ type Message struct {
 	HTML    string
 }
 
-func NewMailgunSender(apiBaseURL, domain, apiKey, fromEmail string, httpClient *http.Client, renderer TemplateRenderer) (*MailgunSender, error) {
-	if strings.TrimSpace(apiBaseURL) == "" || strings.TrimSpace(domain) == "" || strings.TrimSpace(apiKey) == "" || strings.TrimSpace(fromEmail) == "" {
-		return nil, fmt.Errorf("mailgun sender requires api base url, domain, api key, and from email")
+func NewMailgunSender(
+	apiBaseURL, domain, apiKey, fromEmail string,
+	httpClient *http.Client,
+	renderer TemplateRenderer,
+) (*MailgunSender, error) {
+	if strings.TrimSpace(apiBaseURL) == "" || strings.TrimSpace(domain) == "" ||
+		strings.TrimSpace(apiKey) == "" ||
+		strings.TrimSpace(fromEmail) == "" {
+		return nil, fmt.Errorf(
+			"mailgun sender requires api base url, domain, api key, and from email",
+		)
 	}
 	if httpClient == nil {
 		httpClient = http.DefaultClient
@@ -51,11 +59,20 @@ func (s *MailgunSender) SendMagicLink(ctx context.Context, clientID, token strin
 	verifyParams := url.Values{}
 	verifyParams.Set("client_id", clientID)
 	verifyParams.Set("token", token)
-	rendered, err := s.renderer.RenderMagicLink(MagicLinkTemplateData{ToName: clientID, LoginURL: "/verify-token?" + verifyParams.Encode(), Token: token})
+	rendered, err := s.renderer.RenderMagicLink(
+		MagicLinkTemplateData{
+			ToName:   clientID,
+			LoginURL: "/verify-token?" + verifyParams.Encode(),
+			Token:    token,
+		},
+	)
 	if err != nil {
 		return err
 	}
-	return s.Send(ctx, Message{To: clientID, Subject: rendered.Subject, Text: rendered.Text, HTML: rendered.HTML})
+	return s.Send(
+		ctx,
+		Message{To: clientID, Subject: rendered.Subject, Text: rendered.Text, HTML: rendered.HTML},
+	)
 }
 
 func (s *MailgunSender) Send(ctx context.Context, msg Message) error {
@@ -78,7 +95,12 @@ func (s *MailgunSender) Send(ctx context.Context, msg Message) error {
 	}
 
 	endpoint := fmt.Sprintf("%s/v3/%s/messages", s.apiBaseURL, s.domain)
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, strings.NewReader(v.Encode()))
+	req, err := http.NewRequestWithContext(
+		ctx,
+		http.MethodPost,
+		endpoint,
+		strings.NewReader(v.Encode()),
+	)
 	if err != nil {
 		return err
 	}

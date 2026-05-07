@@ -47,7 +47,11 @@ func TestLoadSuccess(t *testing.T) {
 		t.Fatalf("SessionTTL = %d, want %d", cfg.SessionTTL, 10)
 	}
 	if cfg.MailgunAPIBaseURL != "https://api.mailgun.net" {
-		t.Fatalf("MailgunAPIBaseURL = %q, want %q", cfg.MailgunAPIBaseURL, "https://api.mailgun.net")
+		t.Fatalf(
+			"MailgunAPIBaseURL = %q, want %q",
+			cfg.MailgunAPIBaseURL,
+			"https://api.mailgun.net",
+		)
 	}
 	if cfg.MailgunDomain != "mg.example" {
 		t.Fatalf("MailgunDomain = %q, want %q", cfg.MailgunDomain, "mg.example")

@@ -24,7 +24,13 @@ type objectStoreStub struct {
 	sizeBytes    int64
 }
 
-func (s *objectStoreStub) PutObject(_ context.Context, bucket, key string, body io.Reader, size int64, contentType string) error {
+func (s *objectStoreStub) PutObject(
+	_ context.Context,
+	bucket, key string,
+	body io.Reader,
+	size int64,
+	contentType string,
+) error {
 	s.putCalled = true
 	s.bucket = bucket
 	s.key = key
@@ -96,7 +102,8 @@ func TestUploadServiceUploadSuccess(t *testing.T) {
 	if store.bucket != "phase5-bucket" {
 		t.Fatalf("bucket = %q, want phase5-bucket", store.bucket)
 	}
-	if !strings.HasPrefix(store.key, "uploads/user/u-1/20260502-") || !strings.HasSuffix(store.key, ".pdf") {
+	if !strings.HasPrefix(store.key, "uploads/user/u-1/20260502-") ||
+		!strings.HasSuffix(store.key, ".pdf") {
 		t.Fatalf("key = %q, want uploads/user/u-1/20260502-*.pdf", store.key)
 	}
 	if store.body != "pdf-bytes" {
@@ -110,7 +117,11 @@ func TestUploadServiceUploadSuccess(t *testing.T) {
 func TestUploadServiceUploadPutFailure(t *testing.T) {
 	putErr := errors.New("s3 unavailable")
 	store := &objectStoreStub{putErr: putErr}
-	svc, err := NewUploadService("phase5-bucket", store, NewMetadataService(&metadataRepoInMemory{}))
+	svc, err := NewUploadService(
+		"phase5-bucket",
+		store,
+		NewMetadataService(&metadataRepoInMemory{}),
+	)
 	if err != nil {
 		t.Fatalf("NewUploadService() error = %v", err)
 	}

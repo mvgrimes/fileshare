@@ -35,8 +35,10 @@ func init() {
 	addClientCmd.Flags().StringVar(&addClientDisplayName, "display-name", "", "client display name")
 	addClientCmd.Flags().StringVar(&addClientPassword, "password", "", "client password (optional)")
 	addClientCmd.Flags().BoolVar(&addClientCanUpload, "can-upload", false, "allow client uploads")
-	addClientCmd.Flags().BoolVar(&addClientIfMissing, "if-missing", false, "only create client if it does not already exist")
-	addClientCmd.Flags().BoolVar(&addClientPasswordStdin, "password-stdin", false, "read password from stdin")
+	addClientCmd.Flags().
+		BoolVar(&addClientIfMissing, "if-missing", false, "only create client if it does not already exist")
+	addClientCmd.Flags().
+		BoolVar(&addClientPasswordStdin, "password-stdin", false, "read password from stdin")
 	addClientCmd.Flags().Lookup("can-upload").NoOptDefVal = "true"
 	rootCmd.AddCommand(addClientCmd)
 }
@@ -55,14 +57,24 @@ func runAddClient(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("client email is required via --email or FILESHARE_CLIENT_EMAIL")
 	}
 
-	displayName := strings.TrimSpace(firstNonEmpty(addClientDisplayName, os.Getenv("FILESHARE_CLIENT_DISPLAY_NAME"), email))
+	displayName := strings.TrimSpace(
+		firstNonEmpty(addClientDisplayName, os.Getenv("FILESHARE_CLIENT_DISPLAY_NAME"), email),
+	)
 
-	canUpload, hasCanUpload, err := resolveBool(addClientCanUploadSet, addClientCanUpload, "FILESHARE_CLIENT_CAN_UPLOAD")
+	canUpload, hasCanUpload, err := resolveBool(
+		addClientCanUploadSet,
+		addClientCanUpload,
+		"FILESHARE_CLIENT_CAN_UPLOAD",
+	)
 	if err != nil {
 		return err
 	}
 
-	password, hasPassword, err := resolveOptionalPassword(addClientPasswordStdin, addClientPassword, "FILESHARE_CLIENT_PASSWORD")
+	password, hasPassword, err := resolveOptionalPassword(
+		addClientPasswordStdin,
+		addClientPassword,
+		"FILESHARE_CLIENT_PASSWORD",
+	)
 	if err != nil {
 		return err
 	}
@@ -109,19 +121,39 @@ func runAddClient(cmd *cobra.Command, args []string) error {
 		}
 
 		if hasPassword && hasCanUpload {
-			if _, err := tx.Exec("UPDATE clients SET display_name = ?, password_hash = ?, can_upload = ?, is_active = 1, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?", displayName, passwordHash, boolToInt64(canUpload), existingID); err != nil {
+			if _, err := tx.Exec(
+				"UPDATE clients SET display_name = ?, password_hash = ?, can_upload = ?, is_active = 1, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?",
+				displayName,
+				passwordHash,
+				boolToInt64(canUpload),
+				existingID,
+			); err != nil {
 				return fmt.Errorf("update client: %w", err)
 			}
 		} else if hasPassword {
-			if _, err := tx.Exec("UPDATE clients SET display_name = ?, password_hash = ?, is_active = 1, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?", displayName, passwordHash, existingID); err != nil {
+			if _, err := tx.Exec(
+				"UPDATE clients SET display_name = ?, password_hash = ?, is_active = 1, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?",
+				displayName,
+				passwordHash,
+				existingID,
+			); err != nil {
 				return fmt.Errorf("update client: %w", err)
 			}
 		} else if hasCanUpload {
-			if _, err := tx.Exec("UPDATE clients SET display_name = ?, can_upload = ?, is_active = 1, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?", displayName, boolToInt64(canUpload), existingID); err != nil {
+			if _, err := tx.Exec(
+				"UPDATE clients SET display_name = ?, can_upload = ?, is_active = 1, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?",
+				displayName,
+				boolToInt64(canUpload),
+				existingID,
+			); err != nil {
 				return fmt.Errorf("update client: %w", err)
 			}
 		} else {
-			if _, err := tx.Exec("UPDATE clients SET display_name = ?, is_active = 1, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?", displayName, existingID); err != nil {
+			if _, err := tx.Exec(
+				"UPDATE clients SET display_name = ?, is_active = 1, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?",
+				displayName,
+				existingID,
+			); err != nil {
 				return fmt.Errorf("update client: %w", err)
 			}
 		}
@@ -146,7 +178,7 @@ func boolToInt64(v bool) int64 {
 	return 0
 }
 
-func resolveBool(flagSet bool, flagValue bool, envKey string) (bool, bool, error) {
+func resolveBool(flagSet, flagValue bool, envKey string) (bool, bool, error) {
 	if flagSet {
 		return flagValue, true, nil
 	}

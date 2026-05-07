@@ -9,15 +9,21 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
-
 	"fileshare/internal/auth"
+
+	"github.com/google/uuid"
 )
 
 var ErrBucketRequired = errors.New("bucket is required")
 
 type ObjectStore interface {
-	PutObject(ctx context.Context, bucket, key string, body io.Reader, size int64, contentType string) error
+	PutObject(
+		ctx context.Context,
+		bucket, key string,
+		body io.Reader,
+		size int64,
+		contentType string,
+	) error
 }
 
 type ObjectDeleteStore interface {
@@ -40,7 +46,11 @@ type UploadInput struct {
 	Body             io.Reader
 }
 
-func NewUploadService(bucket string, store ObjectStore, metadata *MetadataService) (*UploadService, error) {
+func NewUploadService(
+	bucket string,
+	store ObjectStore,
+	metadata *MetadataService,
+) (*UploadService, error) {
 	if strings.TrimSpace(bucket) == "" {
 		return nil, ErrBucketRequired
 	}
@@ -58,7 +68,14 @@ func (s *UploadService) Upload(ctx context.Context, input UploadInput) (string, 
 	}
 	objectKey := s.buildObjectKey(input.Uploader, input.OriginalFilename)
 
-	if err := s.store.PutObject(ctx, s.bucket, objectKey, input.Body, input.SizeBytes, input.ContentType); err != nil {
+	if err := s.store.PutObject(
+		ctx,
+		s.bucket,
+		objectKey,
+		input.Body,
+		input.SizeBytes,
+		input.ContentType,
+	); err != nil {
 		return "", "", fmt.Errorf("put object: %w", err)
 	}
 
@@ -83,5 +100,11 @@ func (s *UploadService) Upload(ctx context.Context, input UploadInput) (string, 
 func (s *UploadService) buildObjectKey(uploader auth.Principal, filename string) string {
 	ext := path.Ext(strings.TrimSpace(filename))
 	date := s.now().UTC().Format("20060102")
-	return fmt.Sprintf("uploads/%s/%s/%s%s", uploader.ActorType, uploader.ActorID, date+"-"+uuid.NewString(), ext)
+	return fmt.Sprintf(
+		"uploads/%s/%s/%s%s",
+		uploader.ActorType,
+		uploader.ActorID,
+		date+"-"+uuid.NewString(),
+		ext,
+	)
 }

@@ -40,7 +40,10 @@ func resolvePassword(fromStdin bool, flagValue, envKey string) (string, error) {
 		return "", err
 	}
 	if !hasPassword {
-		return "", fmt.Errorf("password is required via --password, %s, or --password-stdin", envKey)
+		return "", fmt.Errorf(
+			"password is required via --password, %s, or --password-stdin",
+			envKey,
+		)
 	}
 	return password, nil
 }

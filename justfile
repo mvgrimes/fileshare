@@ -24,7 +24,8 @@ run-watch: migrate
   air
 
 fmt:
-  go fmt ./...
+  # go fmt ./...
+  golangci-lint fmt
 
 test:
   # go test ./...

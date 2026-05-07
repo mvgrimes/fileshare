@@ -54,7 +54,11 @@ func TestCreateFileMetadataPersistsAllFields(t *testing.T) {
 		t.Fatalf("stored ID = %q, want %q", repo.lastCreate.ID, fileID)
 	}
 	if repo.lastCreate.UploaderType != "user" || repo.lastCreate.UploaderID != "user-1" {
-		t.Fatalf("uploader = (%q,%q), want (user,user-1)", repo.lastCreate.UploaderType, repo.lastCreate.UploaderID)
+		t.Fatalf(
+			"uploader = (%q,%q), want (user,user-1)",
+			repo.lastCreate.UploaderType,
+			repo.lastCreate.UploaderID,
+		)
 	}
 	if repo.lastCreate.OriginalFilename != "q2-report.pdf" {
 		t.Fatalf("filename = %q, want q2-report.pdf", repo.lastCreate.OriginalFilename)
@@ -101,12 +105,64 @@ func TestCreateFileMetadataValidation(t *testing.T) {
 		input CreateMetadataInput
 		want  error
 	}{
-		{name: "invalid actor type", input: CreateMetadataInput{Uploader: auth.Principal{ActorType: "admin", ActorID: "a1"}, OriginalFilename: "f", StorageKey: "k", ContentType: "text/plain"}, want: ErrInvalidUploader},
-		{name: "missing actor id", input: CreateMetadataInput{Uploader: auth.Principal{ActorType: "user", ActorID: ""}, OriginalFilename: "f", StorageKey: "k", ContentType: "text/plain"}, want: ErrInvalidUploader},
-		{name: "missing filename", input: CreateMetadataInput{Uploader: auth.Principal{ActorType: "user", ActorID: "u1"}, StorageKey: "k", ContentType: "text/plain"}, want: ErrFilenameRequired},
-		{name: "missing key", input: CreateMetadataInput{Uploader: auth.Principal{ActorType: "user", ActorID: "u1"}, OriginalFilename: "f", ContentType: "text/plain"}, want: ErrStorageKeyMissing},
-		{name: "missing content type", input: CreateMetadataInput{Uploader: auth.Principal{ActorType: "user", ActorID: "u1"}, OriginalFilename: "f", StorageKey: "k"}, want: ErrContentTypeMissing},
-		{name: "negative size", input: CreateMetadataInput{Uploader: auth.Principal{ActorType: "user", ActorID: "u1"}, OriginalFilename: "f", StorageKey: "k", ContentType: "text/plain", SizeBytes: -1}, want: ErrInvalidSize},
+		{
+			name: "invalid actor type",
+			input: CreateMetadataInput{
+				Uploader:         auth.Principal{ActorType: "admin", ActorID: "a1"},
+				OriginalFilename: "f",
+				StorageKey:       "k",
+				ContentType:      "text/plain",
+			},
+			want: ErrInvalidUploader,
+		},
+		{
+			name: "missing actor id",
+			input: CreateMetadataInput{
+				Uploader:         auth.Principal{ActorType: "user", ActorID: ""},
+				OriginalFilename: "f",
+				StorageKey:       "k",
+				ContentType:      "text/plain",
+			},
+			want: ErrInvalidUploader,
+		},
+		{
+			name: "missing filename",
+			input: CreateMetadataInput{
+				Uploader:    auth.Principal{ActorType: "user", ActorID: "u1"},
+				StorageKey:  "k",
+				ContentType: "text/plain",
+			},
+			want: ErrFilenameRequired,
+		},
+		{
+			name: "missing key",
+			input: CreateMetadataInput{
+				Uploader:         auth.Principal{ActorType: "user", ActorID: "u1"},
+				OriginalFilename: "f",
+				ContentType:      "text/plain",
+			},
+			want: ErrStorageKeyMissing,
+		},
+		{
+			name: "missing content type",
+			input: CreateMetadataInput{
+				Uploader:         auth.Principal{ActorType: "user", ActorID: "u1"},
+				OriginalFilename: "f",
+				StorageKey:       "k",
+			},
+			want: ErrContentTypeMissing,
+		},
+		{
+			name: "negative size",
+			input: CreateMetadataInput{
+				Uploader:         auth.Principal{ActorType: "user", ActorID: "u1"},
+				OriginalFilename: "f",
+				StorageKey:       "k",
+				ContentType:      "text/plain",
+				SizeBytes:        -1,
+			},
+			want: ErrInvalidSize,
+		},
 	}
 
 	for _, tc := range tests {

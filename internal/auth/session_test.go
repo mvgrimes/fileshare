@@ -15,7 +15,10 @@ import (
 func TestSessionLifecycle(t *testing.T) {
 	q := setupSessionQueries(t)
 	m := NewManager(q, time.Hour)
-	token, s, err := m.CreateSession(context.Background(), Principal{ActorType: "user", ActorID: "u1"})
+	token, s, err := m.CreateSession(
+		context.Background(),
+		Principal{ActorType: "user", ActorID: "u1"},
+	)
 	if err != nil {
 		t.Fatalf("CreateSession() unexpected error: %v", err)
 	}
@@ -49,7 +52,10 @@ func TestSessionExpiration(t *testing.T) {
 	now := time.Now()
 	m.now = func() time.Time { return now }
 
-	token, _, err := m.CreateSession(context.Background(), Principal{ActorType: "client", ActorID: "c1"})
+	token, _, err := m.CreateSession(
+		context.Background(),
+		Principal{ActorType: "client", ActorID: "c1"},
+	)
 	if err != nil {
 		t.Fatalf("CreateSession() unexpected error: %v", err)
 	}
@@ -64,7 +70,10 @@ func TestSessionPersistsAcrossManagerInstances(t *testing.T) {
 	q := setupSessionQueries(t)
 	managerA := NewManager(q, time.Hour)
 
-	token, created, err := managerA.CreateSession(context.Background(), Principal{ActorType: "user", ActorID: "u2"})
+	token, created, err := managerA.CreateSession(
+		context.Background(),
+		Principal{ActorType: "user", ActorID: "u2"},
+	)
 	if err != nil {
 		t.Fatalf("CreateSession() unexpected error: %v", err)
 	}
@@ -87,7 +96,10 @@ func TestSessionRolesLoadFromDBAcrossManagerInstances(t *testing.T) {
 	}
 
 	managerA := NewManager(q, time.Hour)
-	token, _, err := managerA.CreateSession(ctx, Principal{ActorType: "user", ActorID: "u3", Roles: []string{"admin"}})
+	token, _, err := managerA.CreateSession(
+		ctx,
+		Principal{ActorType: "user", ActorID: "u3", Roles: []string{"admin"}},
+	)
 	if err != nil {
 		t.Fatalf("CreateSession() unexpected error: %v", err)
 	}

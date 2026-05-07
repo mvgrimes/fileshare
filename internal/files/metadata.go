@@ -7,11 +7,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
-
 	"fileshare/internal/auth"
 	"fileshare/internal/db"
 	"fileshare/internal/repository"
+
+	"github.com/google/uuid"
 )
 
 var (
@@ -39,7 +39,10 @@ func NewMetadataService(repo repository.SharingRepository) *MetadataService {
 	return &MetadataService{repo: repo}
 }
 
-func (s *MetadataService) CreateFileMetadata(ctx context.Context, input CreateMetadataInput) (string, error) {
+func (s *MetadataService) CreateFileMetadata(
+	ctx context.Context,
+	input CreateMetadataInput,
+) (string, error) {
 	if input.Uploader.ActorType != "user" && input.Uploader.ActorType != "client" {
 		return "", ErrInvalidUploader
 	}

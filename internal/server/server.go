@@ -14,18 +14,19 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
-	"github.com/labstack/echo/v4"
-	"github.com/labstack/echo/v4/middleware"
-
 	"fileshare/internal/auth"
 	"fileshare/internal/config"
 	"fileshare/internal/db"
 	"fileshare/internal/files"
 	"fileshare/internal/mail"
+	"fileshare/migrations"
+
+	"github.com/google/uuid"
+	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
+
 	webassets "fileshare/internal/web/assets"
 	webtemplates "fileshare/internal/web/templates"
-	"fileshare/migrations"
 
 	_ "modernc.org/sqlite"
 )
@@ -107,10 +108,16 @@ func (r *TemplateRenderer) Render(w io.Writer, name string, data any, c echo.Con
 		switch principal.ActorType {
 		case "user":
 			viewData["UseAppDrawer"] = true
-			viewData["SidebarActions"] = markActiveSidebarActions(withDashboardAction(dashboardActions(principal), "/user/dashboard"), c.Request().URL.Path)
+			viewData["SidebarActions"] = markActiveSidebarActions(
+				withDashboardAction(dashboardActions(principal), "/user/dashboard"),
+				c.Request().URL.Path,
+			)
 		case "client":
 			viewData["UseAppDrawer"] = true
-			viewData["SidebarActions"] = markActiveSidebarActions(withDashboardAction(clientDashboardActions(), "/client/dashboard"), c.Request().URL.Path)
+			viewData["SidebarActions"] = markActiveSidebarActions(
+				withDashboardAction(clientDashboardActions(), "/client/dashboard"),
+				c.Request().URL.Path,
+			)
 		}
 	}
 	t := r.templates
@@ -151,7 +158,14 @@ func New(cfg *config.Config, log *slog.Logger) *Server {
 
 	t := template.Must(loadTemplates(cfg.Environment))
 	brandingLabel := brandProductName(cfg.Branding)
-	e.Renderer = &TemplateRenderer{templates: t, environment: cfg.Environment, brandingLabel: brandingLabel, faviconURL: normalizeBrandAsset(cfg.Favicon), logoURL: normalizeBrandAsset(cfg.Logo), logoHeroURL: normalizeBrandAsset(cfg.LogoHero)}
+	e.Renderer = &TemplateRenderer{
+		templates:     t,
+		environment:   cfg.Environment,
+		brandingLabel: brandingLabel,
+		faviconURL:    normalizeBrandAsset(cfg.Favicon),
+		logoURL:       normalizeBrandAsset(cfg.Logo),
+		logoHeroURL:   normalizeBrandAsset(cfg.LogoHero),
+	}
 	assetsFS := loadAssetsFS(cfg.Environment)
 	e.StaticFS("/assets", assetsFS)
 
@@ -179,7 +193,33 @@ func New(cfg *config.Config, log *slog.Logger) *Server {
 	e.Use(middleware.Secure())
 	e.Use(middleware.CSRFWithConfig(middleware.CSRFConfig{
 		Skipper: func(c echo.Context) bool {
-			return c.Path() == "/auth/session" || c.Path() == "/auth/logout" || c.Path() == "/auth/sso/login" || c.Path() == "/auth/magic/request" || c.Path() == "/auth/magic/verify" || c.Path() == "/auth/password/login" || c.Path() == "/auth/password/reset/request" || c.Path() == "/auth/password/reset/confirm" || c.Path() == "/client/uploads" || c.Path() == "/client/profile" || c.Path() == "/user/uploads" || c.Path() == "/user/profile" || c.Path() == "/user/clients" || c.Path() == "/user/clients/:clientID" || c.Path() == "/user/clients/:clientID/reset-password" || c.Path() == "/user/client-groups" || c.Path() == "/user/client-groups/memberships" || c.Path() == "/user/client-groups/update" || c.Path() == "/user/client-groups/memberships/add" || c.Path() == "/user/client-groups/memberships/remove" || c.Path() == "/user/file/:fileID/rename" || c.Path() == "/user/file/:fileID/delete" || c.Path() == "/user/file/:fileID/shares" || c.Path() == "/user/file/:fileID/shares/:shareID/delete" || c.Path() == "/user/sent/:shareID/delete" || c.Path() == "/admin/users" || c.Path() == "/admin/users/:userID" || c.Path() == "/admin/users/:userID/reset-password"
+			return c.Path() == "/auth/session" || c.Path() == "/auth/logout" ||
+				c.Path() == "/auth/sso/login" ||
+				c.Path() == "/auth/magic/request" ||
+				c.Path() == "/auth/magic/verify" ||
+				c.Path() == "/auth/password/login" ||
+				c.Path() == "/auth/password/reset/request" ||
+				c.Path() == "/auth/password/reset/confirm" ||
+				c.Path() == "/client/uploads" ||
+				c.Path() == "/client/profile" ||
+				c.Path() == "/user/uploads" ||
+				c.Path() == "/user/profile" ||
+				c.Path() == "/user/clients" ||
+				c.Path() == "/user/clients/:clientID" ||
+				c.Path() == "/user/clients/:clientID/reset-password" ||
+				c.Path() == "/user/client-groups" ||
+				c.Path() == "/user/client-groups/memberships" ||
+				c.Path() == "/user/client-groups/update" ||
+				c.Path() == "/user/client-groups/memberships/add" ||
+				c.Path() == "/user/client-groups/memberships/remove" ||
+				c.Path() == "/user/file/:fileID/rename" ||
+				c.Path() == "/user/file/:fileID/delete" ||
+				c.Path() == "/user/file/:fileID/shares" ||
+				c.Path() == "/user/file/:fileID/shares/:shareID/delete" ||
+				c.Path() == "/user/sent/:shareID/delete" ||
+				c.Path() == "/admin/users" ||
+				c.Path() == "/admin/users/:userID" ||
+				c.Path() == "/admin/users/:userID/reset-password"
 		},
 	}))
 	e.Use(middleware.RateLimiter(middleware.NewRateLimiterMemoryStore(20)))
@@ -209,7 +249,14 @@ func New(cfg *config.Config, log *slog.Logger) *Server {
 	eventStore := mail.NewEventStore(queries)
 	notifier := mail.NewNotifier(renderer, mail.NoopMessageSender{}, eventStore)
 	if cfg.MailgunDomain != "" && cfg.MailgunAPIKey != "" && cfg.MailgunFromEmail != "" {
-		sender, senderErr := mail.NewMailgunSender(cfg.MailgunAPIBaseURL, cfg.MailgunDomain, cfg.MailgunAPIKey, cfg.MailgunFromEmail, nil, renderer)
+		sender, senderErr := mail.NewMailgunSender(
+			cfg.MailgunAPIBaseURL,
+			cfg.MailgunDomain,
+			cfg.MailgunAPIKey,
+			cfg.MailgunFromEmail,
+			nil,
+			renderer,
+		)
 		if senderErr != nil {
 			panic(senderErr)
 		}
@@ -252,7 +299,22 @@ func New(cfg *config.Config, log *slog.Logger) *Server {
 		panic(downErr)
 	}
 
-	srv := &Server{e: e, cfg: cfg, log: log, sessions: sessions, authz: authz, userSync: userSync, userPwd: userPwd, clientPwd: clientPwd, magic: magic, resetPwd: resetPwd, magicSend: magicSend, notifier: notifier, uploadSvc: uploadSvc, downSvc: downSvc}
+	srv := &Server{
+		e:         e,
+		cfg:       cfg,
+		log:       log,
+		sessions:  sessions,
+		authz:     authz,
+		userSync:  userSync,
+		userPwd:   userPwd,
+		clientPwd: clientPwd,
+		magic:     magic,
+		resetPwd:  resetPwd,
+		magicSend: magicSend,
+		notifier:  notifier,
+		uploadSvc: uploadSvc,
+		downSvc:   downSvc,
+	}
 	e.Use(auth.LoadSession(sessions))
 
 	srv.registerSystemRoutes()
@@ -286,7 +348,11 @@ LIMIT 1;
 	}
 
 	if current < latest {
-		return fmt.Errorf("database schema is out of date (current=%d, latest=%d): run `go run . migrate up`", current, latest)
+		return fmt.Errorf(
+			"database schema is out of date (current=%d, latest=%d): run `go run . migrate up`",
+			current,
+			latest,
+		)
 	}
 
 	return nil
@@ -308,7 +374,12 @@ func setSessionCookie(c echo.Context, environment, token string, ttl time.Durati
 	})
 }
 
-func auditAuthEvent(c echo.Context, queries *db.Queries, eventType, actorType, actorID, entityType, entityID string, metadata map[string]any) {
+func auditAuthEvent(
+	c echo.Context,
+	queries *db.Queries,
+	eventType, actorType, actorID, entityType, entityID string,
+	metadata map[string]any,
+) {
 	metadataJSON, _ := json.Marshal(metadata)
 	_ = queries.CreateAuditLog(c.Request().Context(), db.CreateAuditLogParams{
 		ID:           uuid.NewString(),
@@ -385,7 +456,11 @@ func parseRoles(value string) []string {
 	return roles
 }
 
-func resolveShareRecipientEmails(ctx context.Context, queries *db.Queries, targetType, targetID string) ([]string, error) {
+func resolveShareRecipientEmails(
+	ctx context.Context,
+	queries *db.Queries,
+	targetType, targetID string,
+) ([]string, error) {
 	switch targetType {
 	case "client":
 		client, err := queries.GetClientByID(ctx, targetID)
@@ -417,7 +492,11 @@ func resolveShareRecipientEmails(ctx context.Context, queries *db.Queries, targe
 	}
 }
 
-func resolveClientUploadRecipients(ctx context.Context, queries *db.Queries, targetType, targetID string) ([]string, error) {
+func resolveClientUploadRecipients(
+	ctx context.Context,
+	queries *db.Queries,
+	targetType, targetID string,
+) ([]string, error) {
 	switch targetType {
 	case "user":
 		user, err := queries.GetUserByID(ctx, targetID)
@@ -504,16 +583,44 @@ func dashboardActions(principal auth.Principal) []dashboardAction {
 
 func clientDashboardActions() []dashboardAction {
 	return []dashboardAction{
-		{Label: "Received Files", Description: "Browse files sent to your account.", Path: "/client/received", Icon: "inbox"},
-		{Label: "Sent Files", Description: "Review files sent from your client account.", Path: "/client/sent", Icon: "paper-airplane"},
-		{Label: "Upload Files", Description: "Submit files for review.", Path: "/client/uploads", Icon: "arrow-up-tray"},
-		{Label: "Profile", Description: "Manage your display name and password.", Path: "/client/profile", Icon: "user-circle"},
+		{
+			Label:       "Received Files",
+			Description: "Browse files sent to your account.",
+			Path:        "/client/received",
+			Icon:        "inbox",
+		},
+		{
+			Label:       "Sent Files",
+			Description: "Review files sent from your client account.",
+			Path:        "/client/sent",
+			Icon:        "paper-airplane",
+		},
+		{
+			Label:       "Upload Files",
+			Description: "Submit files for review.",
+			Path:        "/client/uploads",
+			Icon:        "arrow-up-tray",
+		},
+		{
+			Label:       "Profile",
+			Description: "Manage your display name and password.",
+			Path:        "/client/profile",
+			Icon:        "user-circle",
+		},
 	}
 }
 
 func withDashboardAction(actions []dashboardAction, dashboardPath string) []dashboardAction {
 	withDashboard := make([]dashboardAction, 0, len(actions)+1)
-	withDashboard = append(withDashboard, dashboardAction{Label: "Dashboard", Description: "Overview and recent file activity.", Path: dashboardPath, Icon: "home"})
+	withDashboard = append(
+		withDashboard,
+		dashboardAction{
+			Label:       "Dashboard",
+			Description: "Overview and recent file activity.",
+			Path:        dashboardPath,
+			Icon:        "home",
+		},
+	)
 	withDashboard = append(withDashboard, actions...)
 	return withDashboard
 }
@@ -534,7 +641,9 @@ func normalizeBrandAsset(raw string) string {
 		return ""
 	}
 	lower := strings.ToLower(v)
-	if strings.HasPrefix(lower, "http://") || strings.HasPrefix(lower, "https://") || strings.HasPrefix(lower, "data:") || strings.HasPrefix(v, "/") {
+	if strings.HasPrefix(lower, "http://") || strings.HasPrefix(lower, "https://") ||
+		strings.HasPrefix(lower, "data:") ||
+		strings.HasPrefix(v, "/") {
 		return v
 	}
 	return "data:image/png;base64," + v

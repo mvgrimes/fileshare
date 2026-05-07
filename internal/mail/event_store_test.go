@@ -15,12 +15,18 @@ type stubEmailEventQuerier struct {
 	updateErr error
 }
 
-func (s *stubEmailEventQuerier) CreateEmailEvent(_ context.Context, arg db.CreateEmailEventParams) error {
+func (s *stubEmailEventQuerier) CreateEmailEvent(
+	_ context.Context,
+	arg db.CreateEmailEventParams,
+) error {
 	s.createArg = arg
 	return s.createErr
 }
 
-func (s *stubEmailEventQuerier) UpdateEmailEventStatus(_ context.Context, arg db.UpdateEmailEventStatusParams) error {
+func (s *stubEmailEventQuerier) UpdateEmailEventStatus(
+	_ context.Context,
+	arg db.UpdateEmailEventStatusParams,
+) error {
 	s.updateArg = arg
 	return s.updateErr
 }
@@ -31,7 +37,13 @@ func TestEventStoreRecordPending(t *testing.T) {
 	q := &stubEmailEventQuerier{}
 	store := NewEventStore(q)
 
-	id, err := store.RecordPending(t.Context(), "auth.magic.request", "client@example.com", "corr-1", map[string]any{"flow": "magic"})
+	id, err := store.RecordPending(
+		t.Context(),
+		"auth.magic.request",
+		"client@example.com",
+		"corr-1",
+		map[string]any{"flow": "magic"},
+	)
 	if err != nil {
 		t.Fatalf("RecordPending() error: %v", err)
 	}
@@ -106,5 +118,4 @@ func TestEventStoreValidationAndErrors(t *testing.T) {
 	if ns := nullString("ok"); !ns.Valid || ns.String != "ok" {
 		t.Fatalf("nullString() unexpected value: %+v", ns)
 	}
-
 }

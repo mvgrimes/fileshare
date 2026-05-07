@@ -22,7 +22,11 @@ type downloadAuthorizer interface {
 }
 
 type URLSigner interface {
-	SignGetURL(ctx context.Context, bucket, objectKey, downloadFilename string, ttl time.Duration) (string, error)
+	SignGetURL(
+		ctx context.Context,
+		bucket, objectKey, downloadFilename string,
+		ttl time.Duration,
+	) (string, error)
 }
 
 type DownloadService struct {
@@ -33,7 +37,13 @@ type DownloadService struct {
 	signer URLSigner
 }
 
-func NewDownloadService(bucket string, ttl time.Duration, repo downloadFileRepository, authz downloadAuthorizer, signer URLSigner) (*DownloadService, error) {
+func NewDownloadService(
+	bucket string,
+	ttl time.Duration,
+	repo downloadFileRepository,
+	authz downloadAuthorizer,
+	signer URLSigner,
+) (*DownloadService, error) {
 	if ttl <= 0 {
 		return nil, ErrInvalidDownloadTTL
 	}
@@ -43,7 +53,11 @@ func NewDownloadService(bucket string, ttl time.Duration, repo downloadFileRepos
 	return &DownloadService{bucket: bucket, ttl: ttl, repo: repo, authz: authz, signer: signer}, nil
 }
 
-func (s *DownloadService) SignedDownloadURL(ctx context.Context, principal auth.Principal, fileID string) (string, error) {
+func (s *DownloadService) SignedDownloadURL(
+	ctx context.Context,
+	principal auth.Principal,
+	fileID string,
+) (string, error) {
 	file, err := s.repo.GetFileByID(ctx, fileID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {

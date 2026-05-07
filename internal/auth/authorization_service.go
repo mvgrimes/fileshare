@@ -23,7 +23,10 @@ type AuthorizationService struct {
 	uploads    clientUploadQuerier
 }
 
-func NewAuthorizationService(fileAccess clientFileAccessQuerier, uploads clientUploadQuerier) *AuthorizationService {
+func NewAuthorizationService(
+	fileAccess clientFileAccessQuerier,
+	uploads clientUploadQuerier,
+) *AuthorizationService {
 	return &AuthorizationService{fileAccess: fileAccess, uploads: uploads}
 }
 
@@ -39,14 +42,21 @@ func (s *AuthorizationService) AuthorizeUploadFiles(p Principal) error {
 	return AuthorizeCapability(p, CapabilityUploadFiles)
 }
 
-func (s *AuthorizationService) AuthorizeClientDownload(ctx context.Context, p Principal, fileID string) error {
+func (s *AuthorizationService) AuthorizeClientDownload(
+	ctx context.Context,
+	p Principal,
+	fileID string,
+) error {
 	if p.ActorType != "client" || p.ActorID == "" || fileID == "" {
 		return ErrForbidden
 	}
 	if s.fileAccess == nil {
 		return ErrForbidden
 	}
-	allowed, err := s.fileAccess.ClientCanAccessFile(ctx, db.ClientCanAccessFileParams{FileID: fileID, ClientID: p.ActorID})
+	allowed, err := s.fileAccess.ClientCanAccessFile(
+		ctx,
+		db.ClientCanAccessFileParams{FileID: fileID, ClientID: p.ActorID},
+	)
 	if err != nil {
 		return err
 	}
@@ -56,14 +66,21 @@ func (s *AuthorizationService) AuthorizeClientDownload(ctx context.Context, p Pr
 	return nil
 }
 
-func (s *AuthorizationService) AuthorizeUserDownload(ctx context.Context, p Principal, fileID string) error {
+func (s *AuthorizationService) AuthorizeUserDownload(
+	ctx context.Context,
+	p Principal,
+	fileID string,
+) error {
 	if p.ActorType != "user" || p.ActorID == "" || fileID == "" {
 		return ErrForbidden
 	}
 	if s.fileAccess == nil {
 		return ErrForbidden
 	}
-	allowed, err := s.fileAccess.UserCanAccessFile(ctx, db.UserCanAccessFileParams{FileID: fileID, UserID: p.ActorID})
+	allowed, err := s.fileAccess.UserCanAccessFile(
+		ctx,
+		db.UserCanAccessFileParams{FileID: fileID, UserID: p.ActorID},
+	)
 	if err != nil {
 		return err
 	}
@@ -73,7 +90,11 @@ func (s *AuthorizationService) AuthorizeUserDownload(ctx context.Context, p Prin
 	return nil
 }
 
-func (s *AuthorizationService) AuthorizeClientUpload(ctx context.Context, p Principal, targetType, targetID string) error {
+func (s *AuthorizationService) AuthorizeClientUpload(
+	ctx context.Context,
+	p Principal,
+	targetType, targetID string,
+) error {
 	if p.ActorType != "client" || p.ActorID == "" || targetType == "" || targetID == "" {
 		return ErrForbidden
 	}

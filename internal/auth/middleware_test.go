@@ -8,16 +8,19 @@ import (
 	"testing"
 	"time"
 
-	"github.com/labstack/echo/v4"
-
 	"fileshare/internal/db"
+
+	"github.com/labstack/echo/v4"
 
 	_ "modernc.org/sqlite"
 )
 
 func TestLoadSessionSetsPrincipal(t *testing.T) {
 	manager := setupSessionManager(t)
-	token, _, err := manager.CreateSession(context.Background(), Principal{ActorType: "user", ActorID: "user-1"})
+	token, _, err := manager.CreateSession(
+		context.Background(),
+		Principal{ActorType: "user", ActorID: "user-1"},
+	)
 	if err != nil {
 		t.Fatalf("CreateSession() unexpected error: %v", err)
 	}
@@ -73,7 +76,10 @@ func TestRequireCapability(t *testing.T) {
 		return func(c echo.Context) error {
 			role := c.Request().Header.Get("X-Test-Role")
 			if role != "" {
-				c.Set(principalKey, Principal{ActorType: "user", ActorID: "u-1", Roles: []string{role}})
+				c.Set(
+					principalKey,
+					Principal{ActorType: "user", ActorID: "u-1", Roles: []string{role}},
+				)
 			}
 			return next(c)
 		}

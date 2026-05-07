@@ -6,9 +6,9 @@ import (
 	"errors"
 	"testing"
 
-	"golang.org/x/crypto/bcrypt"
-
 	"fileshare/internal/db"
+
+	"golang.org/x/crypto/bcrypt"
 )
 
 func TestUserPasswordAuthenticateSuccess(t *testing.T) {
@@ -61,10 +61,40 @@ func TestUserPasswordAuthenticateInvalidCredentials(t *testing.T) {
 		passwd string
 	}{
 		{name: "missing email", query: stubUserPasswordQuerier{}, email: "", passwd: "x"},
-		{name: "missing password", query: stubUserPasswordQuerier{}, email: "a@example.com", passwd: " "},
-		{name: "user not found", query: stubUserPasswordQuerier{err: sql.ErrNoRows}, email: "a@example.com", passwd: "x"},
-		{name: "inactive user", query: stubUserPasswordQuerier{user: db.User{IsActive: 0, PasswordHash: sql.NullString{Valid: true, String: string(hash)}}}, email: "a@example.com", passwd: "x"},
-		{name: "wrong password", query: stubUserPasswordQuerier{user: db.User{IsActive: 1, PasswordHash: sql.NullString{Valid: true, String: string(hash)}}}, email: "a@example.com", passwd: "bad"},
+		{
+			name:   "missing password",
+			query:  stubUserPasswordQuerier{},
+			email:  "a@example.com",
+			passwd: " ",
+		},
+		{
+			name:   "user not found",
+			query:  stubUserPasswordQuerier{err: sql.ErrNoRows},
+			email:  "a@example.com",
+			passwd: "x",
+		},
+		{
+			name: "inactive user",
+			query: stubUserPasswordQuerier{
+				user: db.User{
+					IsActive:     0,
+					PasswordHash: sql.NullString{Valid: true, String: string(hash)},
+				},
+			},
+			email:  "a@example.com",
+			passwd: "x",
+		},
+		{
+			name: "wrong password",
+			query: stubUserPasswordQuerier{
+				user: db.User{
+					IsActive:     1,
+					PasswordHash: sql.NullString{Valid: true, String: string(hash)},
+				},
+			},
+			email:  "a@example.com",
+			passwd: "bad",
+		},
 	}
 
 	for _, tc := range tests {
@@ -91,7 +121,10 @@ func (s stubUserPasswordQuerier) GetUserByEmail(_ context.Context, _ string) (db
 	return s.user, nil
 }
 
-func (s stubUserPasswordQuerier) ListRoleNamesByUserID(_ context.Context, _ string) ([]string, error) {
+func (s stubUserPasswordQuerier) ListRoleNamesByUserID(
+	_ context.Context,
+	_ string,
+) ([]string, error) {
 	if s.err != nil {
 		return nil, s.err
 	}

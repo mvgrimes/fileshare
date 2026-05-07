@@ -27,7 +27,10 @@ type ClientCanAccessFileParams struct {
 	ClientID string
 }
 
-func (q *Queries) ClientCanAccessFile(ctx context.Context, arg ClientCanAccessFileParams) (bool, error) {
+func (q *Queries) ClientCanAccessFile(
+	ctx context.Context,
+	arg ClientCanAccessFileParams,
+) (bool, error) {
 	row := q.db.QueryRowContext(ctx, clientCanAccessFile, arg.FileID, arg.ClientID, arg.ClientID)
 	var allowed bool
 	if err := row.Scan(&allowed); err != nil {
@@ -61,7 +64,10 @@ type UserCanAccessFileParams struct {
 	UserID string
 }
 
-func (q *Queries) UserCanAccessFile(ctx context.Context, arg UserCanAccessFileParams) (bool, error) {
+func (q *Queries) UserCanAccessFile(
+	ctx context.Context,
+	arg UserCanAccessFileParams,
+) (bool, error) {
 	row := q.db.QueryRowContext(ctx, userCanAccessFile, arg.FileID, arg.UserID, arg.UserID)
 	var allowed bool
 	if err := row.Scan(&allowed); err != nil {
@@ -93,8 +99,18 @@ type ListClientAccessibleSharesParams struct {
 	Offset   int64
 }
 
-func (q *Queries) ListClientAccessibleShares(ctx context.Context, arg ListClientAccessibleSharesParams) ([]Share, error) {
-	rows, err := q.db.QueryContext(ctx, listClientAccessibleShares, arg.ClientID, arg.ClientID, arg.Limit, arg.Offset)
+func (q *Queries) ListClientAccessibleShares(
+	ctx context.Context,
+	arg ListClientAccessibleSharesParams,
+) ([]Share, error) {
+	rows, err := q.db.QueryContext(
+		ctx,
+		listClientAccessibleShares,
+		arg.ClientID,
+		arg.ClientID,
+		arg.Limit,
+		arg.Offset,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -103,7 +119,16 @@ func (q *Queries) ListClientAccessibleShares(ctx context.Context, arg ListClient
 	items := make([]Share, 0)
 	for rows.Next() {
 		var s Share
-		if err := rows.Scan(&s.ID, &s.FileID, &s.SharedByType, &s.SharedByID, &s.TargetType, &s.TargetID, &s.Message, &s.CreatedAt); err != nil {
+		if err := rows.Scan(
+			&s.ID,
+			&s.FileID,
+			&s.SharedByType,
+			&s.SharedByID,
+			&s.TargetType,
+			&s.TargetID,
+			&s.Message,
+			&s.CreatedAt,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, s)
@@ -137,8 +162,18 @@ type ListUserAccessibleSharesParams struct {
 	Offset int64
 }
 
-func (q *Queries) ListUserAccessibleShares(ctx context.Context, arg ListUserAccessibleSharesParams) ([]Share, error) {
-	rows, err := q.db.QueryContext(ctx, listUserAccessibleShares, arg.UserID, arg.UserID, arg.Limit, arg.Offset)
+func (q *Queries) ListUserAccessibleShares(
+	ctx context.Context,
+	arg ListUserAccessibleSharesParams,
+) ([]Share, error) {
+	rows, err := q.db.QueryContext(
+		ctx,
+		listUserAccessibleShares,
+		arg.UserID,
+		arg.UserID,
+		arg.Limit,
+		arg.Offset,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -147,7 +182,16 @@ func (q *Queries) ListUserAccessibleShares(ctx context.Context, arg ListUserAcce
 	items := make([]Share, 0)
 	for rows.Next() {
 		var s Share
-		if err := rows.Scan(&s.ID, &s.FileID, &s.SharedByType, &s.SharedByID, &s.TargetType, &s.TargetID, &s.Message, &s.CreatedAt); err != nil {
+		if err := rows.Scan(
+			&s.ID,
+			&s.FileID,
+			&s.SharedByType,
+			&s.SharedByID,
+			&s.TargetType,
+			&s.TargetID,
+			&s.Message,
+			&s.CreatedAt,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, s)
@@ -175,7 +219,16 @@ func (q *Queries) ListSharesByFileID(ctx context.Context, fileID string) ([]Shar
 	items := make([]Share, 0)
 	for rows.Next() {
 		var s Share
-		if err := rows.Scan(&s.ID, &s.FileID, &s.SharedByType, &s.SharedByID, &s.TargetType, &s.TargetID, &s.Message, &s.CreatedAt); err != nil {
+		if err := rows.Scan(
+			&s.ID,
+			&s.FileID,
+			&s.SharedByType,
+			&s.SharedByID,
+			&s.TargetType,
+			&s.TargetID,
+			&s.Message,
+			&s.CreatedAt,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, s)

@@ -28,7 +28,8 @@ func NewSSOValidator(secret, issuer, audience string) *SSOValidator {
 }
 
 func (v *SSOValidator) Validate(tokenString string) (SSOClaims, error) {
-	if len(v.secret) == 0 || strings.TrimSpace(v.issuer) == "" || strings.TrimSpace(v.audience) == "" {
+	if len(v.secret) == 0 || strings.TrimSpace(v.issuer) == "" ||
+		strings.TrimSpace(v.audience) == "" {
 		return SSOClaims{}, ErrInvalidSSOToken
 	}
 	if strings.TrimSpace(tokenString) == "" {

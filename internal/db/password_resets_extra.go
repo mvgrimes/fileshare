@@ -31,7 +31,17 @@ VALUES (?, ?, ?, ?, ?, ?, ?)
 `
 
 func (q *Queries) CreatePasswordReset(ctx context.Context, arg CreatePasswordResetParams) error {
-	_, err := q.db.ExecContext(ctx, createPasswordReset, arg.ID, arg.ActorType, arg.ActorID, arg.Email, arg.TokenHash, arg.ExpiresAt, sql.NullString{})
+	_, err := q.db.ExecContext(
+		ctx,
+		createPasswordReset,
+		arg.ID,
+		arg.ActorType,
+		arg.ActorID,
+		arg.Email,
+		arg.TokenHash,
+		arg.ExpiresAt,
+		sql.NullString{},
+	)
 	return err
 }
 
@@ -41,10 +51,22 @@ FROM password_resets
 WHERE token_hash = ?
 `
 
-func (q *Queries) GetPasswordResetByTokenHash(ctx context.Context, tokenHash string) (PasswordReset, error) {
+func (q *Queries) GetPasswordResetByTokenHash(
+	ctx context.Context,
+	tokenHash string,
+) (PasswordReset, error) {
 	row := q.db.QueryRowContext(ctx, getPasswordResetByTokenHash, tokenHash)
 	var i PasswordReset
-	err := row.Scan(&i.ID, &i.ActorType, &i.ActorID, &i.Email, &i.TokenHash, &i.ExpiresAt, &i.ConsumedAt, &i.CreatedAt)
+	err := row.Scan(
+		&i.ID,
+		&i.ActorType,
+		&i.ActorID,
+		&i.Email,
+		&i.TokenHash,
+		&i.ExpiresAt,
+		&i.ConsumedAt,
+		&i.CreatedAt,
+	)
 	return i, err
 }
 
@@ -55,7 +77,10 @@ WHERE actor_type = ? AND actor_id = ?
 ORDER BY created_at DESC
 `
 
-func (q *Queries) ListPasswordResetsByActor(ctx context.Context, actorType, actorID string) ([]PasswordReset, error) {
+func (q *Queries) ListPasswordResetsByActor(
+	ctx context.Context,
+	actorType, actorID string,
+) ([]PasswordReset, error) {
 	rows, err := q.db.QueryContext(ctx, listPasswordResetsByActor, actorType, actorID)
 	if err != nil {
 		return nil, err
@@ -64,7 +89,16 @@ func (q *Queries) ListPasswordResetsByActor(ctx context.Context, actorType, acto
 	items := []PasswordReset{}
 	for rows.Next() {
 		var i PasswordReset
-		if err := rows.Scan(&i.ID, &i.ActorType, &i.ActorID, &i.Email, &i.TokenHash, &i.ExpiresAt, &i.ConsumedAt, &i.CreatedAt); err != nil {
+		if err := rows.Scan(
+			&i.ID,
+			&i.ActorType,
+			&i.ActorID,
+			&i.Email,
+			&i.TokenHash,
+			&i.ExpiresAt,
+			&i.ConsumedAt,
+			&i.CreatedAt,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -100,7 +134,11 @@ SET password_hash = ?,
 WHERE id = ?
 `
 
-func (q *Queries) UpdateUserPasswordHashByID(ctx context.Context, id string, passwordHash sql.NullString) error {
+func (q *Queries) UpdateUserPasswordHashByID(
+	ctx context.Context,
+	id string,
+	passwordHash sql.NullString,
+) error {
 	_, err := q.db.ExecContext(ctx, updateUserPasswordHashByID, passwordHash, id)
 	return err
 }
@@ -112,7 +150,11 @@ SET password_hash = ?,
 WHERE id = ?
 `
 
-func (q *Queries) UpdateClientPasswordHashByID(ctx context.Context, id string, passwordHash sql.NullString) error {
+func (q *Queries) UpdateClientPasswordHashByID(
+	ctx context.Context,
+	id string,
+	passwordHash sql.NullString,
+) error {
 	_, err := q.db.ExecContext(ctx, updateClientPasswordHashByID, passwordHash, id)
 	return err
 }

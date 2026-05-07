@@ -13,7 +13,8 @@ var bootstrapCmd = &cobra.Command{
 var bootstrapIfMissing bool
 
 func init() {
-	bootstrapCmd.Flags().BoolVar(&bootstrapIfMissing, "if-missing", true, "only create bootstrap admin when it does not exist")
+	bootstrapCmd.Flags().
+		BoolVar(&bootstrapIfMissing, "if-missing", true, "only create bootstrap admin when it does not exist")
 	rootCmd.AddCommand(bootstrapCmd)
 }
 

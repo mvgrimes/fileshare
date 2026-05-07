@@ -54,7 +54,11 @@ func TestNotifierNotifyFileShared(t *testing.T) {
 	t.Parallel()
 
 	sender := &stubMessageSender{}
-	n := NewNotifier(stubRenderer{rendered: RenderedTemplate{Subject: "base", Text: "text", HTML: "<p>ok</p>"}}, sender, nil)
+	n := NewNotifier(
+		stubRenderer{rendered: RenderedTemplate{Subject: "base", Text: "text", HTML: "<p>ok</p>"}},
+		sender,
+		nil,
+	)
 	err := n.NotifyFileShared(t.Context(), FileSharedNotification{
 		RecipientEmail: "client@example.com",
 		ActorLabel:     "user-1",
@@ -72,8 +76,19 @@ func TestNotifierNotifyClientUploadError(t *testing.T) {
 	t.Parallel()
 
 	sender := &stubMessageSender{err: errors.New("send fail")}
-	n := NewNotifier(stubRenderer{rendered: RenderedTemplate{Subject: "base", Text: "text", HTML: "<p>ok</p>"}}, sender, nil)
-	err := n.NotifyClientUpload(t.Context(), ClientUploadNotification{RecipientEmail: "user@example.com", ClientLabel: "client-1", TargetType: "user"})
+	n := NewNotifier(
+		stubRenderer{rendered: RenderedTemplate{Subject: "base", Text: "text", HTML: "<p>ok</p>"}},
+		sender,
+		nil,
+	)
+	err := n.NotifyClientUpload(
+		t.Context(),
+		ClientUploadNotification{
+			RecipientEmail: "user@example.com",
+			ClientLabel:    "client-1",
+			TargetType:     "user",
+		},
+	)
 	if err == nil {
 		t.Fatal("NotifyClientUpload() error=nil, want error")
 	}
@@ -83,8 +98,23 @@ func TestNotifierNotifyClientUploadUsesClientUploadContent(t *testing.T) {
 	t.Parallel()
 
 	sender := &stubMessageSender{}
-	n := NewNotifier(stubRenderer{rendered: RenderedTemplate{Subject: "base", Text: "template text", HTML: "<p>ok</p>"}}, sender, nil)
-	err := n.NotifyClientUpload(t.Context(), ClientUploadNotification{RecipientEmail: "user@example.com", ClientLabel: "Acme Corp", FileName: "report.pdf", Message: "please review", TargetType: "user"})
+	n := NewNotifier(
+		stubRenderer{
+			rendered: RenderedTemplate{Subject: "base", Text: "template text", HTML: "<p>ok</p>"},
+		},
+		sender,
+		nil,
+	)
+	err := n.NotifyClientUpload(
+		t.Context(),
+		ClientUploadNotification{
+			RecipientEmail: "user@example.com",
+			ClientLabel:    "Acme Corp",
+			FileName:       "report.pdf",
+			Message:        "please review",
+			TargetType:     "user",
+		},
+	)
 	if err != nil {
 		t.Fatalf("NotifyClientUpload() error: %v", err)
 	}
@@ -103,8 +133,20 @@ func TestNotifierNotifyPasswordReset(t *testing.T) {
 	t.Parallel()
 
 	sender := &stubMessageSender{}
-	n := NewNotifier(stubRenderer{rendered: RenderedTemplate{Subject: "reset", Text: "text", HTML: "<p>ok</p>"}}, sender, nil)
-	err := n.NotifyPasswordReset(t.Context(), PasswordResetNotification{RecipientEmail: "u@example.com", RecipientName: "U", ActorType: "user", Token: "tok-1"})
+	n := NewNotifier(
+		stubRenderer{rendered: RenderedTemplate{Subject: "reset", Text: "text", HTML: "<p>ok</p>"}},
+		sender,
+		nil,
+	)
+	err := n.NotifyPasswordReset(
+		t.Context(),
+		PasswordResetNotification{
+			RecipientEmail: "u@example.com",
+			RecipientName:  "U",
+			ActorType:      "user",
+			Token:          "tok-1",
+		},
+	)
 	if err != nil {
 		t.Fatalf("NotifyPasswordReset() error: %v", err)
 	}

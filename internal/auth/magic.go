@@ -118,7 +118,12 @@ func (m *MagicManager) Consume(ctx context.Context, clientID, token string) (Mag
 		return MagicLink{}, err
 	}
 
-	link := MagicLink{ClientID: row.ClientID, TokenHash: row.TokenHash, CreatedAt: createdAt, ExpiresAt: expiresAt}
+	link := MagicLink{
+		ClientID:  row.ClientID,
+		TokenHash: row.TokenHash,
+		CreatedAt: createdAt,
+		ExpiresAt: expiresAt,
+	}
 	if row.ConsumedAt.Valid {
 		consumedAt, parseErr := time.Parse(time.RFC3339Nano, row.ConsumedAt.String)
 		if parseErr != nil {
@@ -152,6 +157,6 @@ type MagicSender interface {
 
 type NoopSender struct{}
 
-func (NoopSender) SendMagicLink(_ context.Context, _ string, _ string) error {
+func (NoopSender) SendMagicLink(_ context.Context, _, _ string) error {
 	return nil
 }

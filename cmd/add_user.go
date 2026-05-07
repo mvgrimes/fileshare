@@ -31,10 +31,14 @@ var (
 func init() {
 	addUserCmd.Flags().StringVar(&addUserEmail, "email", "", "user email")
 	addUserCmd.Flags().StringVar(&addUserPassword, "password", "", "user password")
-	addUserCmd.Flags().StringVar(&addUserRole, "role", "", "user role (admin, account_manager, uploader)")
-	addUserCmd.Flags().StringVar(&addUserFullName, "full-name", "", "user full name (defaults to email)")
-	addUserCmd.Flags().BoolVar(&addUserIfMissing, "if-missing", false, "only create user if it does not already exist")
-	addUserCmd.Flags().BoolVar(&addUserPasswordStdin, "password-stdin", false, "read password from stdin")
+	addUserCmd.Flags().
+		StringVar(&addUserRole, "role", "", "user role (admin, account_manager, uploader)")
+	addUserCmd.Flags().
+		StringVar(&addUserFullName, "full-name", "", "user full name (defaults to email)")
+	addUserCmd.Flags().
+		BoolVar(&addUserIfMissing, "if-missing", false, "only create user if it does not already exist")
+	addUserCmd.Flags().
+		BoolVar(&addUserPasswordStdin, "password-stdin", false, "read password from stdin")
 	rootCmd.AddCommand(addUserCmd)
 }
 
@@ -57,7 +61,11 @@ func runAddUser(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	password, err := resolvePassword(addUserPasswordStdin, addUserPassword, "FILESHARE_USER_PASSWORD")
+	password, err := resolvePassword(
+		addUserPasswordStdin,
+		addUserPassword,
+		"FILESHARE_USER_PASSWORD",
+	)
 	if err != nil {
 		return err
 	}
@@ -66,7 +74,9 @@ func runAddUser(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("hash password: %w", err)
 	}
 
-	fullName := strings.TrimSpace(firstNonEmpty(addUserFullName, os.Getenv("FILESHARE_USER_FULL_NAME"), email))
+	fullName := strings.TrimSpace(
+		firstNonEmpty(addUserFullName, os.Getenv("FILESHARE_USER_FULL_NAME"), email),
+	)
 
 	tx, err := dbConn.Begin()
 	if err != nil {

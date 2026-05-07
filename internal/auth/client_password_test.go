@@ -6,9 +6,9 @@ import (
 	"errors"
 	"testing"
 
-	"golang.org/x/crypto/bcrypt"
-
 	"fileshare/internal/db"
+
+	"golang.org/x/crypto/bcrypt"
 )
 
 func TestClientPasswordAuthenticateSuccess(t *testing.T) {
@@ -58,10 +58,40 @@ func TestClientPasswordAuthenticateInvalidCredentials(t *testing.T) {
 		passwd string
 	}{
 		{name: "missing email", query: stubClientPasswordQuerier{}, email: "", passwd: "x"},
-		{name: "missing password", query: stubClientPasswordQuerier{}, email: "a@example.com", passwd: " "},
-		{name: "client not found", query: stubClientPasswordQuerier{err: sql.ErrNoRows}, email: "a@example.com", passwd: "x"},
-		{name: "inactive client", query: stubClientPasswordQuerier{client: db.Client{IsActive: 0, PasswordHash: sql.NullString{Valid: true, String: string(hash)}}}, email: "a@example.com", passwd: "x"},
-		{name: "wrong password", query: stubClientPasswordQuerier{client: db.Client{IsActive: 1, PasswordHash: sql.NullString{Valid: true, String: string(hash)}}}, email: "a@example.com", passwd: "bad"},
+		{
+			name:   "missing password",
+			query:  stubClientPasswordQuerier{},
+			email:  "a@example.com",
+			passwd: " ",
+		},
+		{
+			name:   "client not found",
+			query:  stubClientPasswordQuerier{err: sql.ErrNoRows},
+			email:  "a@example.com",
+			passwd: "x",
+		},
+		{
+			name: "inactive client",
+			query: stubClientPasswordQuerier{
+				client: db.Client{
+					IsActive:     0,
+					PasswordHash: sql.NullString{Valid: true, String: string(hash)},
+				},
+			},
+			email:  "a@example.com",
+			passwd: "x",
+		},
+		{
+			name: "wrong password",
+			query: stubClientPasswordQuerier{
+				client: db.Client{
+					IsActive:     1,
+					PasswordHash: sql.NullString{Valid: true, String: string(hash)},
+				},
+			},
+			email:  "a@example.com",
+			passwd: "bad",
+		},
 	}
 
 	for _, tc := range tests {
@@ -80,7 +110,10 @@ type stubClientPasswordQuerier struct {
 	err    error
 }
 
-func (s stubClientPasswordQuerier) GetClientByEmail(_ context.Context, _ string) (db.Client, error) {
+func (s stubClientPasswordQuerier) GetClientByEmail(
+	_ context.Context,
+	_ string,
+) (db.Client, error) {
 	if s.err != nil {
 		return db.Client{}, s.err
 	}

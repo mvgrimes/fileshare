@@ -38,7 +38,10 @@ func (s *UserSyncer) UpsertFromSSOClaims(ctx context.Context, claims SSOClaims) 
 		fullName = email
 	}
 
-	err := s.queries.UpsertUserByID(ctx, db.UpsertUserByIDParams{ID: userID, Email: email, FullName: fullName, IsActive: 1})
+	err := s.queries.UpsertUserByID(
+		ctx,
+		db.UpsertUserByIDParams{ID: userID, Email: email, FullName: fullName, IsActive: 1},
+	)
 	if err != nil {
 		return "", err
 	}

@@ -106,10 +106,24 @@ func TestMagicLinkConsumeRejectsInvalidInput(t *testing.T) {
 	q := setupMagicQueries(t)
 	m := NewMagicManager(q, 15*time.Minute, 30*time.Second)
 
-	if _, err := m.Consume(context.Background(), "", "token"); !errors.Is(err, ErrMagicLinkInvalid) {
+	if _, err := m.Consume(
+		context.Background(),
+		"",
+		"token",
+	); !errors.Is(
+		err,
+		ErrMagicLinkInvalid,
+	) {
 		t.Fatalf("Consume() empty client error = %v, want %v", err, ErrMagicLinkInvalid)
 	}
-	if _, err := m.Consume(context.Background(), "client-1", " "); !errors.Is(err, ErrMagicLinkInvalid) {
+	if _, err := m.Consume(
+		context.Background(),
+		"client-1",
+		" ",
+	); !errors.Is(
+		err,
+		ErrMagicLinkInvalid,
+	) {
 		t.Fatalf("Consume() empty token error = %v, want %v", err, ErrMagicLinkInvalid)
 	}
 }
@@ -126,7 +140,13 @@ func TestMagicLinkStoresOnlyTokenHash(t *testing.T) {
 		t.Fatal("token should not match stored hash")
 	}
 
-	if _, err := q.GetMagicLinkByTokenHash(context.Background(), token); !errors.Is(err, sql.ErrNoRows) {
+	if _, err := q.GetMagicLinkByTokenHash(
+		context.Background(),
+		token,
+	); !errors.Is(
+		err,
+		sql.ErrNoRows,
+	) {
 		t.Fatalf("GetMagicLinkByTokenHash(plaintext token) error = %v, want %v", err, sql.ErrNoRows)
 	}
 
@@ -174,11 +194,17 @@ func (s stubMagicQuerier) CreateMagicLink(_ context.Context, _ db.CreateMagicLin
 	return nil
 }
 
-func (s stubMagicQuerier) GetMagicLinkByTokenHash(_ context.Context, _ string) (db.MagicLink, error) {
+func (s stubMagicQuerier) GetMagicLinkByTokenHash(
+	_ context.Context,
+	_ string,
+) (db.MagicLink, error) {
 	return s.row, nil
 }
 
-func (s stubMagicQuerier) ListMagicLinksByClient(_ context.Context, _ string) ([]db.MagicLink, error) {
+func (s stubMagicQuerier) ListMagicLinksByClient(
+	_ context.Context,
+	_ string,
+) ([]db.MagicLink, error) {
 	return nil, nil
 }
 

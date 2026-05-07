@@ -92,7 +92,13 @@ func TestHermesRendererRenderInvitation(t *testing.T) {
 		t.Fatalf("NewHermesRenderer() error: %v", err)
 	}
 
-	out, err := renderer.RenderInvitation(InvitationTemplateData{ToName: "Sam", InviteURL: "https://fileshare.example/invite/abc", InviterLabel: "Admin"})
+	out, err := renderer.RenderInvitation(
+		InvitationTemplateData{
+			ToName:       "Sam",
+			InviteURL:    "https://fileshare.example/invite/abc",
+			InviterLabel: "Admin",
+		},
+	)
 	if err != nil {
 		t.Fatalf("RenderInvitation() error: %v", err)
 	}
@@ -150,7 +156,13 @@ func TestHermesRendererRenderPasswordReset(t *testing.T) {
 		t.Fatalf("NewHermesRenderer() error: %v", err)
 	}
 
-	out, err := renderer.RenderPasswordReset(PasswordResetTemplateData{ToName: "Casey", ResetURL: "/reset-password/confirm?token=abc", ActorType: "user"})
+	out, err := renderer.RenderPasswordReset(
+		PasswordResetTemplateData{
+			ToName:    "Casey",
+			ResetURL:  "/reset-password/confirm?token=abc",
+			ActorType: "user",
+		},
+	)
 	if err != nil {
 		t.Fatalf("RenderPasswordReset() error: %v", err)
 	}

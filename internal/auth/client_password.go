@@ -6,9 +6,9 @@ import (
 	"errors"
 	"strings"
 
-	"golang.org/x/crypto/bcrypt"
-
 	"fileshare/internal/db"
+
+	"golang.org/x/crypto/bcrypt"
 )
 
 var (
@@ -28,7 +28,10 @@ func NewClientPasswordAuthenticator(queries clientPasswordQuerier) *ClientPasswo
 	return &ClientPasswordAuthenticator{queries: queries}
 }
 
-func (a *ClientPasswordAuthenticator) Authenticate(ctx context.Context, email, password string) (db.Client, error) {
+func (a *ClientPasswordAuthenticator) Authenticate(
+	ctx context.Context,
+	email, password string,
+) (db.Client, error) {
 	email = strings.TrimSpace(email)
 	if email == "" || strings.TrimSpace(password) == "" {
 		return db.Client{}, ErrInvalidClientCredentials
@@ -47,7 +50,10 @@ func (a *ClientPasswordAuthenticator) Authenticate(ctx context.Context, email, p
 	if !client.PasswordHash.Valid || strings.TrimSpace(client.PasswordHash.String) == "" {
 		return db.Client{}, ErrClientPasswordDisabled
 	}
-	if err := bcrypt.CompareHashAndPassword([]byte(client.PasswordHash.String), []byte(password)); err != nil {
+	if err := bcrypt.CompareHashAndPassword(
+		[]byte(client.PasswordHash.String),
+		[]byte(password),
+	); err != nil {
 		return db.Client{}, ErrInvalidClientCredentials
 	}
 

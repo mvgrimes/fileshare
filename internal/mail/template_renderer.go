@@ -165,12 +165,20 @@ func (r *HermesRenderer) RenderInvitation(data InvitationTemplateData) (Rendered
 		inviter = fmt.Sprintf("A %s administrator", productName)
 	}
 	body := hermes.Email{Body: hermes.Body{
-		Name:   name,
-		Intros: []string{fmt.Sprintf("%s invited you to access files in %s.", inviter, productName)},
-		Actions: []hermes.Action{{
-			Instructions: "Use the button below to complete your setup:",
-			Button:       hermes.Button{Color: "#1A7F64", Text: "Complete setup", Link: data.InviteURL},
-		}},
+		Name: name,
+		Intros: []string{
+			fmt.Sprintf("%s invited you to access files in %s.", inviter, productName),
+		},
+		Actions: []hermes.Action{
+			{
+				Instructions: "Use the button below to complete your setup:",
+				Button: hermes.Button{
+					Color: "#1A7F64",
+					Text:  "Complete setup",
+					Link:  data.InviteURL,
+				},
+			},
+		},
 		Outros: []string{"If this was unexpected, you can ignore this message."},
 	}}
 
@@ -182,7 +190,11 @@ func (r *HermesRenderer) RenderInvitation(data InvitationTemplateData) (Rendered
 	if err != nil {
 		return RenderedTemplate{}, err
 	}
-	return RenderedTemplate{Subject: fmt.Sprintf("You are invited to %s", productName), HTML: htmlBody, Text: textBody}, nil
+	return RenderedTemplate{
+		Subject: fmt.Sprintf("You are invited to %s", productName),
+		HTML:    htmlBody,
+		Text:    textBody,
+	}, nil
 }
 
 func (r *HermesRenderer) RenderFileShared(data FileSharedTemplateData) (RenderedTemplate, error) {
@@ -216,10 +228,16 @@ func (r *HermesRenderer) RenderFileShared(data FileSharedTemplateData) (Rendered
 	body := hermes.Email{Body: hermes.Body{
 		Name:   name,
 		Intros: intros,
-		Actions: []hermes.Action{{
-			Instructions: "Use the button below to view your shared files:",
-			Button:       hermes.Button{Color: "#1A7F64", Text: "View shared files", Link: fileListURL},
-		}},
+		Actions: []hermes.Action{
+			{
+				Instructions: "Use the button below to view your shared files:",
+				Button: hermes.Button{
+					Color: "#1A7F64",
+					Text:  "View shared files",
+					Link:  fileListURL,
+				},
+			},
+		},
 		Outros: []string{"You may be asked to log in before you can view the file."},
 	}}
 
@@ -232,10 +250,16 @@ func (r *HermesRenderer) RenderFileShared(data FileSharedTemplateData) (Rendered
 		return RenderedTemplate{}, err
 	}
 
-	return RenderedTemplate{Subject: "A file was shared with you", HTML: htmlBody, Text: textBody}, nil
+	return RenderedTemplate{
+		Subject: "A file was shared with you",
+		HTML:    htmlBody,
+		Text:    textBody,
+	}, nil
 }
 
-func (r *HermesRenderer) RenderPasswordReset(data PasswordResetTemplateData) (RenderedTemplate, error) {
+func (r *HermesRenderer) RenderPasswordReset(
+	data PasswordResetTemplateData,
+) (RenderedTemplate, error) {
 	if strings.TrimSpace(data.ResetURL) == "" {
 		return RenderedTemplate{}, fmt.Errorf("reset url is required")
 	}
@@ -273,5 +297,9 @@ func (r *HermesRenderer) RenderPasswordReset(data PasswordResetTemplateData) (Re
 	if productName == "" {
 		productName = "FileShare"
 	}
-	return RenderedTemplate{Subject: fmt.Sprintf("Reset your %s password", productName), HTML: htmlBody, Text: textBody}, nil
+	return RenderedTemplate{
+		Subject: fmt.Sprintf("Reset your %s password", productName),
+		HTML:    htmlBody,
+		Text:    textBody,
+	}, nil
 }

@@ -6,10 +6,10 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/google/uuid"
-
 	"fileshare/internal/auth"
 	"fileshare/internal/db"
+
+	"github.com/google/uuid"
 )
 
 var (
@@ -39,7 +39,10 @@ type ClientShareInput struct {
 	Note       string
 }
 
-func NewClientSharingService(authz clientShareAuthorizer, repo clientShareRepository) *ClientSharingService {
+func NewClientSharingService(
+	authz clientShareAuthorizer,
+	repo clientShareRepository,
+) *ClientSharingService {
 	return &ClientSharingService{authz: authz, repo: repo}
 }
 
@@ -50,7 +53,12 @@ func (s *ClientSharingService) Share(ctx context.Context, input ClientShareInput
 	if strings.TrimSpace(input.TargetID) == "" || strings.TrimSpace(input.FileID) == "" {
 		return "", auth.ErrForbidden
 	}
-	if err := s.authz.AuthorizeClientUpload(ctx, input.Actor, input.TargetType, strings.TrimSpace(input.TargetID)); err != nil {
+	if err := s.authz.AuthorizeClientUpload(
+		ctx,
+		input.Actor,
+		input.TargetType,
+		strings.TrimSpace(input.TargetID),
+	); err != nil {
 		return "", err
 	}
 

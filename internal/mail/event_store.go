@@ -8,9 +8,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
-
 	"fileshare/internal/db"
+
+	"github.com/google/uuid"
 )
 
 const (
@@ -40,7 +40,11 @@ func NewEventStore(queries emailEventQuerier) *EventStore {
 	return &EventStore{queries: queries, now: time.Now}
 }
 
-func (s *EventStore) RecordPending(ctx context.Context, eventType, recipientEmail, correlationID string, payload map[string]any) (string, error) {
+func (s *EventStore) RecordPending(
+	ctx context.Context,
+	eventType, recipientEmail, correlationID string,
+	payload map[string]any,
+) (string, error) {
 	if strings.TrimSpace(eventType) == "" || strings.TrimSpace(recipientEmail) == "" {
 		return "", fmt.Errorf("event type and recipient email are required")
 	}
@@ -78,7 +82,10 @@ func (s *EventStore) MarkDelivered(ctx context.Context, id, providerMessageID st
 	})
 }
 
-func (s *EventStore) MarkFailed(ctx context.Context, id, errorText, providerMessageID string) error {
+func (s *EventStore) MarkFailed(
+	ctx context.Context,
+	id, errorText, providerMessageID string,
+) error {
 	if strings.TrimSpace(id) == "" {
 		return fmt.Errorf("id is required")
 	}

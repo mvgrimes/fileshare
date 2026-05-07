@@ -9,11 +9,11 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/spf13/cobra"
-
 	"fileshare/internal/config"
 	"fileshare/internal/logger"
 	"fileshare/internal/server"
+
+	"github.com/spf13/cobra"
 )
 
 var serverCmd = &cobra.Command{

@@ -9,10 +9,10 @@ import (
 	"path/filepath"
 	"strings"
 
+	"fileshare/migrations"
+
 	"github.com/pressly/goose/v3"
 	"github.com/spf13/cobra"
-
-	"fileshare/migrations"
 
 	_ "modernc.org/sqlite"
 )
@@ -43,7 +43,8 @@ var migrateStatusCmd = &cobra.Command{
 }
 
 func init() {
-	migrateCmd.PersistentFlags().StringVar(&migrationsDir, "dir", "migrations", "path to migration files")
+	migrateCmd.PersistentFlags().
+		StringVar(&migrationsDir, "dir", "migrations", "path to migration files")
 
 	migrateCmd.AddCommand(migrateUpCmd)
 	migrateCmd.AddCommand(migrateDownCmd)
@@ -146,7 +147,9 @@ func migrationDatabaseURLFromEnv() (string, error) {
 	}
 
 	if strings.HasPrefix(databaseURL, "libsql://") {
-		return "", fmt.Errorf("libsql:// URLs are not supported by goose sqlite driver; use a local sqlite path for migrations")
+		return "", fmt.Errorf(
+			"libsql:// URLs are not supported by goose sqlite driver; use a local sqlite path for migrations",
+		)
 	}
 
 	if strings.Contains(databaseURL, "://") {
@@ -156,7 +159,10 @@ func migrationDatabaseURLFromEnv() (string, error) {
 		}
 
 		if u.Scheme != "sqlite" {
-			return "", fmt.Errorf("unsupported FILESHARE_DATABASE_URL scheme %q; expected sqlite path or sqlite:// URL", u.Scheme)
+			return "", fmt.Errorf(
+				"unsupported FILESHARE_DATABASE_URL scheme %q; expected sqlite path or sqlite:// URL",
+				u.Scheme,
+			)
 		}
 
 		databaseURL = "file:" + strings.TrimPrefix(databaseURL, "sqlite://")
@@ -168,7 +174,10 @@ func migrationDatabaseURLFromEnv() (string, error) {
 
 	cleanPath := filepath.Clean(databaseURL)
 	if cleanPath == "." {
-		return "", fmt.Errorf("invalid FILESHARE_DATABASE_URL %q: expected sqlite file path", databaseURL)
+		return "", fmt.Errorf(
+			"invalid FILESHARE_DATABASE_URL %q: expected sqlite file path",
+			databaseURL,
+		)
 	}
 
 	return cleanPath, nil

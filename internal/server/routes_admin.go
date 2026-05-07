@@ -6,12 +6,12 @@ import (
 	"net/url"
 	"strings"
 
+	"fileshare/internal/auth"
+	"fileshare/internal/db"
+
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	"golang.org/x/crypto/bcrypt"
-
-	"fileshare/internal/auth"
-	"fileshare/internal/db"
 )
 
 func (s *Server) registerAdminRoutes(queries *db.Queries) {
@@ -19,15 +19,36 @@ func (s *Server) registerAdminRoutes(queries *db.Queries) {
 	admin.Use(auth.RequireAuth(), auth.RequireActorType("user"), auth.RequireRole("admin"))
 	admin.GET("/dashboard", func(c echo.Context) error {
 		principal, _ := auth.PrincipalFromContext(c)
-		return c.Render(http.StatusOK, "dashboard", map[string]any{"Title": "Admin Dashboard", "Role": principal.ActorType, "ActorID": principal.ActorID, "ContentTemplate": "dashboard_content"})
+		return c.Render(
+			http.StatusOK,
+			"dashboard",
+			map[string]any{
+				"Title":           "Admin Dashboard",
+				"Role":            principal.ActorType,
+				"ActorID":         principal.ActorID,
+				"ContentTemplate": "dashboard_content",
+			},
+		)
 	})
 	admin.GET("/users", func(c echo.Context) error {
 		principal, _ := auth.PrincipalFromContext(c)
 		if err := s.authz.AuthorizeManageUsers(principal); err != nil {
-			auditAuthEvent(c, queries, "admin.users.view", principal.ActorType, principal.ActorID, "user", "", map[string]any{"outcome": "failure", "reason": "forbidden"})
+			auditAuthEvent(
+				c,
+				queries,
+				"admin.users.view",
+				principal.ActorType,
+				principal.ActorID,
+				"user",
+				"",
+				map[string]any{"outcome": "failure", "reason": "forbidden"},
+			)
 			return c.String(http.StatusForbidden, "forbidden")
 		}
-		users, err := queries.ListUsers(c.Request().Context(), db.ListUsersParams{Limit: 200, Offset: 0})
+		users, err := queries.ListUsers(
+			c.Request().Context(),
+			db.ListUsersParams{Limit: 200, Offset: 0},
+		)
 		if err != nil {
 			return c.String(http.StatusInternalServerError, "failed to load users")
 		}
@@ -41,10 +62,40 @@ func (s *Server) registerAdminRoutes(queries *db.Queries) {
 			if roleErr != nil {
 				return c.String(http.StatusInternalServerError, "failed to load user roles")
 			}
-			items = append(items, map[string]any{"ID": u.ID, "Email": u.Email, "FullName": u.FullName, "IsActive": u.IsActive == 1, "RoleNames": strings.Join(roleNames, ", ")})
+			items = append(
+				items,
+				map[string]any{
+					"ID":        u.ID,
+					"Email":     u.Email,
+					"FullName":  u.FullName,
+					"IsActive":  u.IsActive == 1,
+					"RoleNames": strings.Join(roleNames, ", "),
+				},
+			)
 		}
-		auditAuthEvent(c, queries, "admin.users.view", principal.ActorType, principal.ActorID, "user", "", map[string]any{"outcome": "success"})
-		return c.Render(http.StatusOK, "admin_users", map[string]any{"Title": "Manage Users", "Subtitle": "Create users, update profile data, and reset passwords.", "ContentTemplate": "admin_users_content", "Users": items, "Roles": roles, "FlashError": c.QueryParam("error"), "FlashSuccess": c.QueryParam("success")})
+		auditAuthEvent(
+			c,
+			queries,
+			"admin.users.view",
+			principal.ActorType,
+			principal.ActorID,
+			"user",
+			"",
+			map[string]any{"outcome": "success"},
+		)
+		return c.Render(
+			http.StatusOK,
+			"admin_users",
+			map[string]any{
+				"Title":           "Manage Users",
+				"Subtitle":        "Create users, update profile data, and reset passwords.",
+				"ContentTemplate": "admin_users_content",
+				"Users":           items,
+				"Roles":           roles,
+				"FlashError":      c.QueryParam("error"),
+				"FlashSuccess":    c.QueryParam("success"),
+			},
+		)
 	}, auth.RequireCapability(auth.CapabilityManageUsers))
 	admin.POST("/users", func(c echo.Context) error {
 		principal, _ := auth.PrincipalFromContext(c)
@@ -56,7 +107,12 @@ func (s *Server) registerAdminRoutes(queries *db.Queries) {
 		roleID := strings.TrimSpace(c.FormValue("role_id"))
 		if email == "" || fullName == "" || roleID == "" {
 			if isHTMLRequest(c) {
-				return c.Redirect(http.StatusSeeOther, "/admin/users?error="+url.QueryEscape("email, full_name, and role_id are required"))
+				return c.Redirect(
+					http.StatusSeeOther,
+					"/admin/users?error="+url.QueryEscape(
+						"email, full_name, and role_id are required",
+					),
+				)
 			}
 			return c.String(http.StatusBadRequest, "email, full_name, and role_id are required")
 		}
@@ -81,14 +137,29 @@ func (s *Server) registerAdminRoutes(queries *db.Queries) {
 			passwordHash = sql.NullString{Valid: true, String: string(hash)}
 		}
 		userID := uuid.NewString()
-		if err := queries.CreateUser(c.Request().Context(), db.CreateUserParams{ID: userID, Email: email, FullName: fullName, PasswordHash: passwordHash, IsActive: isActive}); err != nil {
+		if err := queries.CreateUser(
+			c.Request().Context(),
+			db.CreateUserParams{
+				ID:           userID,
+				Email:        email,
+				FullName:     fullName,
+				PasswordHash: passwordHash,
+				IsActive:     isActive,
+			},
+		); err != nil {
 			return c.String(http.StatusInternalServerError, "failed to create user")
 		}
-		if err := queries.AddUserRole(c.Request().Context(), db.AddUserRoleParams{UserID: userID, RoleID: roleIDInt}); err != nil {
+		if err := queries.AddUserRole(
+			c.Request().Context(),
+			db.AddUserRoleParams{UserID: userID, RoleID: roleIDInt},
+		); err != nil {
 			return c.String(http.StatusInternalServerError, "failed to assign role")
 		}
 		if isHTMLRequest(c) {
-			return c.Redirect(http.StatusSeeOther, "/admin/users?success="+url.QueryEscape("User created"))
+			return c.Redirect(
+				http.StatusSeeOther,
+				"/admin/users?success="+url.QueryEscape("User created"),
+			)
 		}
 		return c.NoContent(http.StatusCreated)
 	}, auth.RequireCapability(auth.CapabilityManageUsers))
@@ -118,7 +189,15 @@ func (s *Server) registerAdminRoutes(queries *db.Queries) {
 		if c.FormValue("is_active") == "1" {
 			isActive = 1
 		}
-		if err := queries.UpdateUser(c.Request().Context(), db.UpdateUserParams{ID: user.ID, FullName: fullName, PasswordHash: user.PasswordHash, IsActive: isActive}); err != nil {
+		if err := queries.UpdateUser(
+			c.Request().Context(),
+			db.UpdateUserParams{
+				ID:           user.ID,
+				FullName:     fullName,
+				PasswordHash: user.PasswordHash,
+				IsActive:     isActive,
+			},
+		); err != nil {
 			return c.String(http.StatusInternalServerError, "failed to update user")
 		}
 		roles, err := queries.ListUserRoles(c.Request().Context(), user.ID)
@@ -126,15 +205,24 @@ func (s *Server) registerAdminRoutes(queries *db.Queries) {
 			return c.String(http.StatusInternalServerError, "failed to load roles")
 		}
 		for _, ur := range roles {
-			if err := queries.RemoveUserRole(c.Request().Context(), db.RemoveUserRoleParams{UserID: user.ID, RoleID: ur.RoleID}); err != nil {
+			if err := queries.RemoveUserRole(
+				c.Request().Context(),
+				db.RemoveUserRoleParams{UserID: user.ID, RoleID: ur.RoleID},
+			); err != nil {
 				return c.String(http.StatusInternalServerError, "failed to clear roles")
 			}
 		}
-		if err := queries.AddUserRole(c.Request().Context(), db.AddUserRoleParams{UserID: user.ID, RoleID: roleIDInt}); err != nil {
+		if err := queries.AddUserRole(
+			c.Request().Context(),
+			db.AddUserRoleParams{UserID: user.ID, RoleID: roleIDInt},
+		); err != nil {
 			return c.String(http.StatusInternalServerError, "failed to assign role")
 		}
 		if isHTMLRequest(c) {
-			return c.Redirect(http.StatusSeeOther, "/admin/users?success="+url.QueryEscape("User updated"))
+			return c.Redirect(
+				http.StatusSeeOther,
+				"/admin/users?success="+url.QueryEscape("User updated"),
+			)
 		}
 		return c.NoContent(http.StatusNoContent)
 	}, auth.RequireCapability(auth.CapabilityManageUsers))
@@ -152,11 +240,18 @@ func (s *Server) registerAdminRoutes(queries *db.Queries) {
 		if err != nil {
 			return c.String(http.StatusInternalServerError, "failed to hash password")
 		}
-		if err := queries.UpdateUserPasswordHashByID(c.Request().Context(), userID, sql.NullString{Valid: true, String: string(hash)}); err != nil {
+		if err := queries.UpdateUserPasswordHashByID(
+			c.Request().Context(),
+			userID,
+			sql.NullString{Valid: true, String: string(hash)},
+		); err != nil {
 			return c.String(http.StatusInternalServerError, "failed to reset password")
 		}
 		if isHTMLRequest(c) {
-			return c.Redirect(http.StatusSeeOther, "/admin/users?success="+url.QueryEscape("Password reset"))
+			return c.Redirect(
+				http.StatusSeeOther,
+				"/admin/users?success="+url.QueryEscape("Password reset"),
+			)
 		}
 		return c.NoContent(http.StatusNoContent)
 	}, auth.RequireCapability(auth.CapabilityManageUsers))

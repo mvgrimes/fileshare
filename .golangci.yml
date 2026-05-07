@@ -1,0 +1,32 @@
+version: "2"
+linters:
+  enable:
+    - sqlclosecheck
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    paths:
+      - tmp
+      - web
+      - third_party$
+      - builtin$
+      - examples$
+formatters:
+  enable:
+    - goimports
+    - gofumpt
+    - golines
+  settings:
+    goimports:
+      local-prefixes:
+        - fileshare
+  # exclusions:
+  #   generated: lax
+  #   paths:
+  #     - third_party$
+  #     - builtin$
+  #     - examples$

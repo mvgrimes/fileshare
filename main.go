@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/joho/godotenv"
-
 	"fileshare/cmd"
+
+	"github.com/joho/godotenv"
 )
 
 var version = "0.1.1"

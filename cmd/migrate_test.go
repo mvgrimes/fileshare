@@ -158,11 +158,16 @@ func TestExpandedSchemaRejectsDuplicateShareTarget(t *testing.T) {
 		}
 	}
 
-	_, err = db.Exec("INSERT INTO shares (id, file_id, shared_by_type, shared_by_id, target_type, target_id) VALUES ('s2', 'f1', 'user', 'u1', 'client', 'c1')")
+	_, err = db.Exec(
+		"INSERT INTO shares (id, file_id, shared_by_type, shared_by_id, target_type, target_id) VALUES ('s2', 'f1', 'user', 'u1', 'client', 'c1')",
+	)
 	if err == nil {
 		t.Fatal("expected duplicate share insert to fail on unique index")
 	}
-	if !strings.Contains(err.Error(), "UNIQUE constraint failed: shares.file_id, shares.target_type, shares.target_id") {
+	if !strings.Contains(
+		err.Error(),
+		"UNIQUE constraint failed: shares.file_id, shares.target_type, shares.target_id",
+	) {
 		t.Fatalf("error = %q, want unique constraint violation", err.Error())
 	}
 }

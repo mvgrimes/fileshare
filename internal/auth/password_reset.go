@@ -7,9 +7,9 @@ import (
 	"strings"
 	"time"
 
-	"golang.org/x/crypto/bcrypt"
-
 	"fileshare/internal/db"
+
+	"golang.org/x/crypto/bcrypt"
 )
 
 var (
@@ -42,21 +42,37 @@ type passwordResetQuerier interface {
 	GetUserByEmail(ctx context.Context, email string) (db.User, error)
 	GetClientByEmail(ctx context.Context, email string) (db.Client, error)
 	CreatePasswordReset(ctx context.Context, arg db.CreatePasswordResetParams) error
-	ListPasswordResetsByActor(ctx context.Context, actorType, actorID string) ([]db.PasswordReset, error)
+	ListPasswordResetsByActor(
+		ctx context.Context,
+		actorType, actorID string,
+	) ([]db.PasswordReset, error)
 	GetPasswordResetByTokenHash(ctx context.Context, tokenHash string) (db.PasswordReset, error)
 	ConsumePasswordResetIfActive(ctx context.Context, id string) (bool, error)
 	UpdateUserPasswordHashByID(ctx context.Context, id string, passwordHash sql.NullString) error
 	UpdateClientPasswordHashByID(ctx context.Context, id string, passwordHash sql.NullString) error
 }
 
-func NewPasswordResetManager(queries passwordResetQuerier, ttl, throttle time.Duration, minPasswordLen int) *PasswordResetManager {
+func NewPasswordResetManager(
+	queries passwordResetQuerier,
+	ttl, throttle time.Duration,
+	minPasswordLen int,
+) *PasswordResetManager {
 	if minPasswordLen <= 0 {
 		minPasswordLen = 12
 	}
-	return &PasswordResetManager{queries: queries, now: time.Now, ttl: ttl, throttle: throttle, minLen: minPasswordLen}
+	return &PasswordResetManager{
+		queries:  queries,
+		now:      time.Now,
+		ttl:      ttl,
+		throttle: throttle,
+		minLen:   minPasswordLen,
+	}
 }
 
-func (m *PasswordResetManager) Request(ctx context.Context, email string) (PasswordResetRequestResult, error) {
+func (m *PasswordResetManager) Request(
+	ctx context.Context,
+	email string,
+) (PasswordResetRequestResult, error) {
 	email = strings.TrimSpace(strings.ToLower(email))
 	if email == "" {
 		return PasswordResetRequestResult{}, ErrPasswordResetInvalid
@@ -117,10 +133,19 @@ func (m *PasswordResetManager) Request(ctx context.Context, email string) (Passw
 		return PasswordResetRequestResult{}, err
 	}
 
-	return PasswordResetRequestResult{Token: token, ActorType: actorType, ActorID: actorID, Email: email, Created: true}, nil
+	return PasswordResetRequestResult{
+		Token:     token,
+		ActorType: actorType,
+		ActorID:   actorID,
+		Email:     email,
+		Created:   true,
+	}, nil
 }
 
-func (m *PasswordResetManager) Confirm(ctx context.Context, token, newPassword string) (string, string, error) {
+func (m *PasswordResetManager) Confirm(
+	ctx context.Context,
+	token, newPassword string,
+) (string, string, error) {
 	if strings.TrimSpace(token) == "" || strings.TrimSpace(newPassword) == "" {
 		return "", "", ErrPasswordResetInvalid
 	}

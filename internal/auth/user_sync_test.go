@@ -5,18 +5,30 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/golang-jwt/jwt/v5"
-
 	"fileshare/internal/db"
+
+	"github.com/golang-jwt/jwt/v5"
 )
 
 func TestUserSyncerRejectsMissingIdentityOrEmail(t *testing.T) {
 	s := NewUserSyncer(&stubUserSyncQuerier{})
 
-	if _, err := s.UpsertFromSSOClaims(context.Background(), SSOClaims{UserID: "u1"}); !errors.Is(err, ErrInvalidSSOToken) {
+	if _, err := s.UpsertFromSSOClaims(
+		context.Background(),
+		SSOClaims{UserID: "u1"},
+	); !errors.Is(
+		err,
+		ErrInvalidSSOToken,
+	) {
 		t.Fatalf("missing email err = %v, want %v", err, ErrInvalidSSOToken)
 	}
-	if _, err := s.UpsertFromSSOClaims(context.Background(), SSOClaims{Email: "u@example.com"}); !errors.Is(err, ErrInvalidSSOToken) {
+	if _, err := s.UpsertFromSSOClaims(
+		context.Background(),
+		SSOClaims{Email: "u@example.com"},
+	); !errors.Is(
+		err,
+		ErrInvalidSSOToken,
+	) {
 		t.Fatalf("missing identity err = %v, want %v", err, ErrInvalidSSOToken)
 	}
 }
@@ -25,14 +37,18 @@ func TestUserSyncerUsesSubjectFallbackAndDefaultName(t *testing.T) {
 	q := &stubUserSyncQuerier{}
 	s := NewUserSyncer(q)
 
-	userID, err := s.UpsertFromSSOClaims(context.Background(), SSOClaims{Email: "a@example.com", RegisteredClaims: jwt.RegisteredClaims{Subject: "sub-1"}})
+	userID, err := s.UpsertFromSSOClaims(
+		context.Background(),
+		SSOClaims{Email: "a@example.com", RegisteredClaims: jwt.RegisteredClaims{Subject: "sub-1"}},
+	)
 	if err != nil {
 		t.Fatalf("UpsertFromSSOClaims() unexpected error: %v", err)
 	}
 	if userID != "sub-1" {
 		t.Fatalf("userID = %q, want %q", userID, "sub-1")
 	}
-	if q.last.ID != "sub-1" || q.last.Email != "a@example.com" || q.last.FullName != "a@example.com" {
+	if q.last.ID != "sub-1" || q.last.Email != "a@example.com" ||
+		q.last.FullName != "a@example.com" {
 		t.Fatalf("upsert params = %+v", q.last)
 	}
 }

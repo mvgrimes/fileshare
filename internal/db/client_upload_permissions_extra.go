@@ -19,8 +19,17 @@ type ClientCanUploadToTargetParams struct {
 	TargetID   string
 }
 
-func (q *Queries) ClientCanUploadToTarget(ctx context.Context, arg ClientCanUploadToTargetParams) (bool, error) {
-	row := q.db.QueryRowContext(ctx, clientCanUploadToTarget, arg.ClientID, arg.TargetType, arg.TargetID)
+func (q *Queries) ClientCanUploadToTarget(
+	ctx context.Context,
+	arg ClientCanUploadToTargetParams,
+) (bool, error) {
+	row := q.db.QueryRowContext(
+		ctx,
+		clientCanUploadToTarget,
+		arg.ClientID,
+		arg.TargetType,
+		arg.TargetID,
+	)
 	var allowed bool
 	if err := row.Scan(&allowed); err != nil {
 		return false, err

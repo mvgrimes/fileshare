@@ -19,14 +19,14 @@ import (
 	"testing"
 	"time"
 
+	"fileshare/internal/config"
+	"fileshare/internal/db"
+	"fileshare/migrations"
+
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/labstack/echo/v4"
 	"github.com/pressly/goose/v3"
 	"golang.org/x/crypto/bcrypt"
-
-	"fileshare/internal/config"
-	"fileshare/internal/db"
-	"fileshare/migrations"
 
 	_ "modernc.org/sqlite"
 )
@@ -101,10 +101,25 @@ func TestRouteGroupsRender(t *testing.T) {
 		wantStatus int
 		wantBody   string
 	}{
-		{name: "public home", path: "/", wantStatus: http.StatusOK, wantBody: "FileShare File Share"},
+		{
+			name:       "public home",
+			path:       "/",
+			wantStatus: http.StatusOK,
+			wantBody:   "FileShare File Share",
+		},
 		{name: "login page", path: "/login", wantStatus: http.StatusOK, wantBody: "Password Login"},
-		{name: "request link page", path: "/request-link", wantStatus: http.StatusOK, wantBody: "Send Magic Link"},
-		{name: "verify token page", path: "/verify-token", wantStatus: http.StatusOK, wantBody: "Verify and Sign In"},
+		{
+			name:       "request link page",
+			path:       "/request-link",
+			wantStatus: http.StatusOK,
+			wantBody:   "Send Magic Link",
+		},
+		{
+			name:       "verify token page",
+			path:       "/verify-token",
+			wantStatus: http.StatusOK,
+			wantBody:   "Verify and Sign In",
+		},
 	}
 
 	for _, tc := range publicTests {
@@ -164,7 +179,8 @@ func TestHomeShowsLoginButtonWhenAnonymous(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
 	}
-	if !strings.Contains(rec.Body.String(), "href=\"/login\"") || !strings.Contains(rec.Body.String(), ">Login<") {
+	if !strings.Contains(rec.Body.String(), "href=\"/login\"") ||
+		!strings.Contains(rec.Body.String(), ">Login<") {
 		t.Fatalf("body = %q, want login button", rec.Body.String())
 	}
 }
@@ -206,35 +222,51 @@ func TestAuthPagesContainFormTargets(t *testing.T) {
 	if !strings.Contains(loginBody, "<div class=\"divider\">OR</div>") {
 		t.Fatalf("/login body = %q, want divider between login methods", loginBody)
 	}
-	if !strings.Contains(loginBody, "data-enhance=\"submission\"") || !strings.Contains(loginBody, "data-pending-text=") {
+	if !strings.Contains(loginBody, "data-enhance=\"submission\"") ||
+		!strings.Contains(loginBody, "data-pending-text=") {
 		t.Fatalf("/login body = %q, want progressive enhancement hooks", loginBody)
 	}
 
-	requestReq := httptest.NewRequest(http.MethodGet, "/request-link?client_id=client%40example.com", nil)
+	requestReq := httptest.NewRequest(
+		http.MethodGet,
+		"/request-link?client_id=client%40example.com",
+		nil,
+	)
 	requestRec := httptest.NewRecorder()
 	s.e.ServeHTTP(requestRec, requestReq)
 	if requestRec.Code != http.StatusOK {
 		t.Fatalf("/request-link status = %d, want %d", requestRec.Code, http.StatusOK)
 	}
 	requestBody := requestRec.Body.String()
-	if !strings.Contains(requestBody, "action=\"/auth/magic/request\"") || strings.Contains(requestBody, "action=\"/auth/magic/verify\"") {
+	if !strings.Contains(requestBody, "action=\"/auth/magic/request\"") ||
+		strings.Contains(requestBody, "action=\"/auth/magic/verify\"") {
 		t.Fatalf("/request-link body = %q, want request form only", requestBody)
 	}
-	if !strings.Contains(requestBody, "Email Address") || !strings.Contains(requestBody, "name=\"client_id\" required value=\"client@example.com\"") {
-		t.Fatalf("/request-link body = %q, want email-address label and prefilled email", requestBody)
+	if !strings.Contains(requestBody, "Email Address") ||
+		!strings.Contains(requestBody, "name=\"client_id\" required value=\"client@example.com\"") {
+		t.Fatalf(
+			"/request-link body = %q, want email-address label and prefilled email",
+			requestBody,
+		)
 	}
 
-	verifyReq := httptest.NewRequest(http.MethodGet, "/verify-token?client_id=client%40example.com&token=tok-abc", nil)
+	verifyReq := httptest.NewRequest(
+		http.MethodGet,
+		"/verify-token?client_id=client%40example.com&token=tok-abc",
+		nil,
+	)
 	verifyRec := httptest.NewRecorder()
 	s.e.ServeHTTP(verifyRec, verifyReq)
 	if verifyRec.Code != http.StatusOK {
 		t.Fatalf("/verify-token status = %d, want %d", verifyRec.Code, http.StatusOK)
 	}
 	verifyBody := verifyRec.Body.String()
-	if !strings.Contains(verifyBody, "action=\"/auth/magic/verify\"") || strings.Contains(verifyBody, "action=\"/auth/magic/request\"") {
+	if !strings.Contains(verifyBody, "action=\"/auth/magic/verify\"") ||
+		strings.Contains(verifyBody, "action=\"/auth/magic/request\"") {
 		t.Fatalf("/verify-token body = %q, want verify form only", verifyBody)
 	}
-	if !strings.Contains(verifyBody, "name=\"client_id\" required value=\"client@example.com\"") || !strings.Contains(verifyBody, "name=\"token\" required value=\"tok-abc\"") {
+	if !strings.Contains(verifyBody, "name=\"client_id\" required value=\"client@example.com\"") ||
+		!strings.Contains(verifyBody, "name=\"token\" required value=\"tok-abc\"") {
 		t.Fatalf("/verify-token body = %q, want prefilled verify values", verifyBody)
 	}
 }
@@ -261,13 +293,21 @@ func TestNavLogoutButtonVisibility(t *testing.T) {
 		t.Fatalf("authenticated page status = %d, want %d", authedRec.Code, http.StatusOK)
 	}
 	authedBody := authedRec.Body.String()
-	if !strings.Contains(authedBody, "action=\"/auth/logout\"") || !strings.Contains(authedBody, ">Logout<") {
+	if !strings.Contains(authedBody, "action=\"/auth/logout\"") ||
+		!strings.Contains(authedBody, ">Logout<") {
 		t.Fatalf("authenticated nav should render logout button: %q", authedBody)
 	}
-	if !strings.Contains(authedBody, "href=\"/user/dashboard\"") || !strings.Contains(authedBody, ">Dashboard<") {
+	if !strings.Contains(authedBody, "href=\"/user/dashboard\"") ||
+		!strings.Contains(authedBody, ">Dashboard<") {
 		t.Fatalf("authenticated nav should render dashboard link: %q", authedBody)
 	}
-	if strings.Index(authedBody, "href=\"/user/dashboard\"") > strings.Index(authedBody, "action=\"/auth/logout\"") {
+	if strings.Index(
+		authedBody,
+		"href=\"/user/dashboard\"",
+	) > strings.Index(
+		authedBody,
+		"action=\"/auth/logout\"",
+	) {
 		t.Fatalf("dashboard link should be before logout button: %q", authedBody)
 	}
 }
@@ -281,9 +321,24 @@ func TestNavDashboardLinkTargetsRelevantDashboard(t *testing.T) {
 		path     string
 		wantHref string
 	}{
-		{name: "user dashboard link", cookie: login(t, s, "user", "u-nav-user", ""), path: "/user/dashboard", wantHref: "href=\"/user/dashboard\""},
-		{name: "client dashboard link", cookie: login(t, s, "client", "c-nav-client", ""), path: "/client/dashboard", wantHref: "href=\"/client/dashboard\""},
-		{name: "admin dashboard link", cookie: login(t, s, "user", "u-nav-admin", "admin"), path: "/admin/dashboard", wantHref: "href=\"/admin/dashboard\""},
+		{
+			name:     "user dashboard link",
+			cookie:   login(t, s, "user", "u-nav-user", ""),
+			path:     "/user/dashboard",
+			wantHref: "href=\"/user/dashboard\"",
+		},
+		{
+			name:     "client dashboard link",
+			cookie:   login(t, s, "client", "c-nav-client", ""),
+			path:     "/client/dashboard",
+			wantHref: "href=\"/client/dashboard\"",
+		},
+		{
+			name:     "admin dashboard link",
+			cookie:   login(t, s, "user", "u-nav-admin", "admin"),
+			path:     "/admin/dashboard",
+			wantHref: "href=\"/admin/dashboard\"",
+		},
 	}
 
 	for _, tc := range tests {
@@ -420,10 +475,34 @@ func TestSessionLoginAndActorAuthorization(t *testing.T) {
 		wantStatus int
 		wantBody   string
 	}{
-		{name: "user to user dashboard", path: "/user/dashboard", cookie: userCookie, wantStatus: http.StatusOK, wantBody: "actor: u-123"},
-		{name: "client to client dashboard", path: "/client/dashboard", cookie: clientCookie, wantStatus: http.StatusOK, wantBody: "actor: c-123"},
-		{name: "client forbidden from user dashboard", path: "/user/dashboard", cookie: clientCookie, wantStatus: http.StatusForbidden, wantBody: "forbidden"},
-		{name: "user forbidden from client dashboard", path: "/client/dashboard", cookie: userCookie, wantStatus: http.StatusForbidden, wantBody: "forbidden"},
+		{
+			name:       "user to user dashboard",
+			path:       "/user/dashboard",
+			cookie:     userCookie,
+			wantStatus: http.StatusOK,
+			wantBody:   "actor: u-123",
+		},
+		{
+			name:       "client to client dashboard",
+			path:       "/client/dashboard",
+			cookie:     clientCookie,
+			wantStatus: http.StatusOK,
+			wantBody:   "actor: c-123",
+		},
+		{
+			name:       "client forbidden from user dashboard",
+			path:       "/user/dashboard",
+			cookie:     clientCookie,
+			wantStatus: http.StatusForbidden,
+			wantBody:   "forbidden",
+		},
+		{
+			name:       "user forbidden from client dashboard",
+			path:       "/client/dashboard",
+			cookie:     userCookie,
+			wantStatus: http.StatusForbidden,
+			wantBody:   "forbidden",
+		},
 	}
 
 	for _, tc := range tests {
@@ -505,10 +584,12 @@ func TestClientDashboardShowsMagicLinkAction(t *testing.T) {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
 	}
 	body := rec.Body.String()
-	if !strings.Contains(body, "Upload Files") || !strings.Contains(body, "href=\"/client/uploads\"") {
+	if !strings.Contains(body, "Upload Files") ||
+		!strings.Contains(body, "href=\"/client/uploads\"") {
 		t.Fatalf("body = %q, want upload dashboard action", body)
 	}
-	if !strings.Contains(body, "Received Files") || !strings.Contains(body, "href=\"/client/received\"") {
+	if !strings.Contains(body, "Received Files") ||
+		!strings.Contains(body, "href=\"/client/received\"") {
 		t.Fatalf("body = %q, want shared files dashboard action", body)
 	}
 	if !strings.Contains(body, "Profile") || !strings.Contains(body, "href=\"/client/profile\"") {
@@ -533,10 +614,34 @@ func TestUserDashboardShowsStatsAndPrioritizesUnviewedSentFiles(t *testing.T) {
 	createFileWithUploader(t, "file-dashboard-unviewed", "u-dashboard")
 	createFileWithUploader(t, "file-dashboard-viewed", "u-dashboard")
 	createFileWithUploader(t, "file-dashboard-received", "c-dashboard")
-	createShareForTests(t, "share-dashboard-unviewed", "file-dashboard-unviewed", "client", "c-dashboard")
-	createShareForTests(t, "share-dashboard-viewed", "file-dashboard-viewed", "client", "c-dashboard")
-	createShareForTests(t, "share-dashboard-group", "file-dashboard-unviewed", "client_group", "cg-dashboard")
-	createShareForTests(t, "share-dashboard-received", "file-dashboard-received", "user", "u-dashboard")
+	createShareForTests(
+		t,
+		"share-dashboard-unviewed",
+		"file-dashboard-unviewed",
+		"client",
+		"c-dashboard",
+	)
+	createShareForTests(
+		t,
+		"share-dashboard-viewed",
+		"file-dashboard-viewed",
+		"client",
+		"c-dashboard",
+	)
+	createShareForTests(
+		t,
+		"share-dashboard-group",
+		"file-dashboard-unviewed",
+		"client_group",
+		"cg-dashboard",
+	)
+	createShareForTests(
+		t,
+		"share-dashboard-received",
+		"file-dashboard-received",
+		"user",
+		"u-dashboard",
+	)
 
 	sqlDB, err := sql.Open("sqlite", testConfig().DatabaseURL)
 	if err != nil {
@@ -544,7 +649,14 @@ func TestUserDashboardShowsStatsAndPrioritizesUnviewedSentFiles(t *testing.T) {
 	}
 	defer sqlDB.Close()
 	queries := db.New(sqlDB)
-	if err := queries.RecordShareDownload(context.Background(), db.RecordShareDownloadParams{ID: "sd-dashboard", ShareID: "share-dashboard-viewed", ClientID: "c-dashboard"}); err != nil {
+	if err := queries.RecordShareDownload(
+		context.Background(),
+		db.RecordShareDownloadParams{
+			ID:       "sd-dashboard",
+			ShareID:  "share-dashboard-viewed",
+			ClientID: "c-dashboard",
+		},
+	); err != nil {
 		t.Fatalf("RecordShareDownload() error: %v", err)
 	}
 
@@ -561,16 +673,19 @@ func TestUserDashboardShowsStatsAndPrioritizesUnviewedSentFiles(t *testing.T) {
 	if !strings.Contains(body, "Your Sent Files") || !strings.Contains(body, "Client Sent Files") {
 		t.Fatalf("body = %q, want dashboard stats labels", body)
 	}
-	if !strings.Contains(body, "file-dashboard-unviewed.dat") || !strings.Contains(body, "file-dashboard-viewed.dat") {
+	if !strings.Contains(body, "file-dashboard-unviewed.dat") ||
+		!strings.Contains(body, "file-dashboard-viewed.dat") {
 		t.Fatalf("body = %q, want sent files table", body)
 	}
-	if !strings.Contains(body, "href=\"/user/sent/share-dashboard-unviewed\"") || !strings.Contains(body, "href=\"/user/sent/share-dashboard-viewed\"") {
+	if !strings.Contains(body, "href=\"/user/sent/share-dashboard-unviewed\"") ||
+		!strings.Contains(body, "href=\"/user/sent/share-dashboard-viewed\"") {
 		t.Fatalf("body = %q, want sent file detail links", body)
 	}
 	if !strings.Contains(body, "href=\"/user/received/") {
 		t.Fatalf("body = %q, want received file detail links", body)
 	}
-	if !strings.Contains(body, "Client: c-dashboard@example.com") || !strings.Contains(body, "Client Group: Download Group cg-dashboard") {
+	if !strings.Contains(body, "Client: c-dashboard@example.com") ||
+		!strings.Contains(body, "Client Group: Download Group cg-dashboard") {
 		t.Fatalf("body = %q, want dashboard share labels", body)
 	}
 	if strings.Count(body, "<td>viewed</td>") != 1 {
@@ -579,7 +694,13 @@ func TestUserDashboardShowsStatsAndPrioritizesUnviewedSentFiles(t *testing.T) {
 	if strings.Count(body, "<td>unviewed</td>") < 2 {
 		t.Fatalf("body = %q, want unviewed badges for non-viewed sent shares", body)
 	}
-	if strings.Index(body, "file-dashboard-unviewed.dat") > strings.Index(body, "file-dashboard-viewed.dat") {
+	if strings.Index(
+		body,
+		"file-dashboard-unviewed.dat",
+	) > strings.Index(
+		body,
+		"file-dashboard-viewed.dat",
+	) {
 		t.Fatalf("body = %q, want unviewed file listed before viewed file", body)
 	}
 }
@@ -589,7 +710,13 @@ func TestClientDashboardShowsReceivedFilesAndUploadButton(t *testing.T) {
 	createClientWithoutPassword(t, "c-dashboard-files", "c-dashboard-files@example.com", true)
 	createUserWithoutPassword(t, "u-dashboard-sender", "u-dashboard-sender@example.com", true, 1)
 	createFileWithUploader(t, "file-client-dashboard", "u-dashboard-sender")
-	createShareForTests(t, "share-client-dashboard", "file-client-dashboard", "client", "c-dashboard-files")
+	createShareForTests(
+		t,
+		"share-client-dashboard",
+		"file-client-dashboard",
+		"client",
+		"c-dashboard-files",
+	)
 
 	cookie := login(t, s, "client", "c-dashboard-files", "")
 	req := httptest.NewRequest(http.MethodGet, "/client/dashboard", nil)
@@ -601,7 +728,8 @@ func TestClientDashboardShowsReceivedFilesAndUploadButton(t *testing.T) {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
 	}
 	body := rec.Body.String()
-	if !strings.Contains(body, "Upload a file") || !strings.Contains(body, "href=\"/client/uploads\"") {
+	if !strings.Contains(body, "Upload a file") ||
+		!strings.Contains(body, "href=\"/client/uploads\"") {
 		t.Fatalf("body = %q, want upload button", body)
 	}
 	if !strings.Contains(body, "file-client-dashboard.dat") {
@@ -637,7 +765,9 @@ func TestUserProfileUpdateNameAndPassword(t *testing.T) {
 		t.Fatalf("profile body = %q, want display_name field", getRec.Body.String())
 	}
 
-	body := bytes.NewBufferString("display_name=Updated+User&new_password=new-password-123&confirm_password=new-password-123")
+	body := bytes.NewBufferString(
+		"display_name=Updated+User&new_password=new-password-123&confirm_password=new-password-123",
+	)
 	postReq := httptest.NewRequest(http.MethodPost, "/user/profile", body)
 	postReq.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
 	postReq.Header.Set(echo.HeaderAccept, echo.MIMETextHTML)
@@ -661,7 +791,13 @@ func TestUserProfileUpdateNameAndPassword(t *testing.T) {
 		t.Fatalf("full_name = %q, want %q", updatedUser.FullName, "Updated User")
 	}
 
-	loginReq := httptest.NewRequest(http.MethodPost, "/auth/password/login", bytes.NewBufferString("actor_type=user&email=u-profile@example.com&password=new-password-123"))
+	loginReq := httptest.NewRequest(
+		http.MethodPost,
+		"/auth/password/login",
+		bytes.NewBufferString(
+			"actor_type=user&email=u-profile@example.com&password=new-password-123",
+		),
+	)
 	loginReq.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
 	loginRec := httptest.NewRecorder()
 	s.e.ServeHTTP(loginRec, loginReq)
@@ -683,7 +819,9 @@ func TestClientProfileUpdateNameAndPassword(t *testing.T) {
 		t.Fatalf("profile get status = %d, want %d", getRec.Code, http.StatusOK)
 	}
 
-	body := bytes.NewBufferString("display_name=Updated+Client&new_password=new-password-123&confirm_password=new-password-123")
+	body := bytes.NewBufferString(
+		"display_name=Updated+Client&new_password=new-password-123&confirm_password=new-password-123",
+	)
 	postReq := httptest.NewRequest(http.MethodPost, "/client/profile", body)
 	postReq.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
 	postReq.Header.Set(echo.HeaderAccept, echo.MIMETextHTML)
@@ -707,7 +845,13 @@ func TestClientProfileUpdateNameAndPassword(t *testing.T) {
 		t.Fatalf("display_name = %q, want %q", updatedClient.DisplayName, "Updated Client")
 	}
 
-	loginReq := httptest.NewRequest(http.MethodPost, "/auth/password/login", bytes.NewBufferString("actor_type=client&email=c-profile@example.com&password=new-password-123"))
+	loginReq := httptest.NewRequest(
+		http.MethodPost,
+		"/auth/password/login",
+		bytes.NewBufferString(
+			"actor_type=client&email=c-profile@example.com&password=new-password-123",
+		),
+	)
 	loginReq.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
 	loginRec := httptest.NewRecorder()
 	s.e.ServeHTTP(loginRec, loginReq)
@@ -718,10 +862,19 @@ func TestClientProfileUpdateNameAndPassword(t *testing.T) {
 
 func TestUserProfileRejectsMismatchedConfirmPassword(t *testing.T) {
 	s := New(testConfig(), slog.Default())
-	createUserWithPassword(t, "u-profile-mismatch", "u-profile-mismatch@example.com", "old-password-123", true, 3)
+	createUserWithPassword(
+		t,
+		"u-profile-mismatch",
+		"u-profile-mismatch@example.com",
+		"old-password-123",
+		true,
+		3,
+	)
 	cookie := login(t, s, "user", "u-profile-mismatch", "uploader")
 
-	body := bytes.NewBufferString("display_name=Updated+User&new_password=new-password-123&confirm_password=different-password-123")
+	body := bytes.NewBufferString(
+		"display_name=Updated+User&new_password=new-password-123&confirm_password=different-password-123",
+	)
 	postReq := httptest.NewRequest(http.MethodPost, "/user/profile", body)
 	postReq.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
 	postReq.AddCookie(cookie)
@@ -738,10 +891,18 @@ func TestUserProfileRejectsMismatchedConfirmPassword(t *testing.T) {
 
 func TestClientProfileRejectsMismatchedConfirmPassword(t *testing.T) {
 	s := New(testConfig(), slog.Default())
-	createClientWithPassword(t, "c-profile-mismatch", "c-profile-mismatch@example.com", "old-password-123", true)
+	createClientWithPassword(
+		t,
+		"c-profile-mismatch",
+		"c-profile-mismatch@example.com",
+		"old-password-123",
+		true,
+	)
 	cookie := login(t, s, "client", "c-profile-mismatch", "")
 
-	body := bytes.NewBufferString("display_name=Updated+Client&new_password=new-password-123&confirm_password=different-password-123")
+	body := bytes.NewBufferString(
+		"display_name=Updated+Client&new_password=new-password-123&confirm_password=different-password-123",
+	)
 	postReq := httptest.NewRequest(http.MethodPost, "/client/profile", body)
 	postReq.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
 	postReq.AddCookie(cookie)
@@ -758,8 +919,18 @@ func TestClientProfileRejectsMismatchedConfirmPassword(t *testing.T) {
 
 func TestClientUploadedFilesListAndDetail(t *testing.T) {
 	s := New(testConfig(), slog.Default())
-	createClientWithoutPassword(t, "client-uploader-files", "client-uploader-files@example.com", true)
-	createClientWithoutPassword(t, "client-uploader-other", "client-uploader-other@example.com", true)
+	createClientWithoutPassword(
+		t,
+		"client-uploader-files",
+		"client-uploader-files@example.com",
+		true,
+	)
+	createClientWithoutPassword(
+		t,
+		"client-uploader-other",
+		"client-uploader-other@example.com",
+		true,
+	)
 
 	createFileWithUploaderType(t, "file-client-own", "client", "client-uploader-files")
 	createFileWithUploaderType(t, "file-client-other", "client", "client-uploader-other")
@@ -817,7 +988,13 @@ func TestClientSharedFilesListAndDetail(t *testing.T) {
 	createShareForTests(t, "share-list-direct", "file-list-direct", "client", "client-files-direct")
 	createClientGroupForTests(t, "cg-files-direct")
 	addClientToGroupForTests(t, "cg-files-direct", "client-files-direct")
-	createShareForTests(t, "share-list-direct-group", "file-list-direct", "client_group", "cg-files-direct")
+	createShareForTests(
+		t,
+		"share-list-direct-group",
+		"file-list-direct",
+		"client_group",
+		"cg-files-direct",
+	)
 	createFileForTests(t, "file-list-group")
 	createClientGroupForTests(t, "cg-files")
 	addClientToGroupForTests(t, "cg-files", "client-files-group")
@@ -844,7 +1021,10 @@ func TestClientSharedFilesListAndDetail(t *testing.T) {
 		t.Fatalf("list body = %q, want download link", listRec.Body.String())
 	}
 	if strings.Count(listRec.Body.String(), "file-list-direct.txt") != 2 {
-		t.Fatalf("list body = %q, want direct shared file listed for both shares", listRec.Body.String())
+		t.Fatalf(
+			"list body = %q, want direct shared file listed for both shares",
+			listRec.Body.String(),
+		)
 	}
 	if strings.Contains(listRec.Body.String(), "<th>Shared Via</th>") {
 		t.Fatalf("list body = %q, should not show shared via column", listRec.Body.String())
@@ -877,7 +1057,10 @@ func TestClientSharedFilesListAndDetail(t *testing.T) {
 	if !strings.Contains(detailRec.Body.String(), "Shared At") {
 		t.Fatalf("detail body = %q, want shared timestamp label", detailRec.Body.String())
 	}
-	if !strings.Contains(detailRec.Body.String(), "href=\"/client/file/file-list-direct/download\"") {
+	if !strings.Contains(
+		detailRec.Body.String(),
+		"href=\"/client/file/file-list-direct/download\"",
+	) {
 		t.Fatalf("detail body = %q, want detail download link", detailRec.Body.String())
 	}
 	if !strings.Contains(detailRec.Body.String(), "Client: client-files-direct@example.com") {
@@ -916,7 +1099,8 @@ func TestUserSharedFilesListAndDetail(t *testing.T) {
 		t.Fatalf("sql.Open() unexpected error: %v", err)
 	}
 	defer sqlDB.Close()
-	if err := db.New(sqlDB).RecordShareDownload(context.Background(), db.RecordShareDownloadParams{ID: "download-owned-view", ShareID: "share-owned-view", ClientID: "c-viewer-owned"}); err != nil {
+	if err := db.New(sqlDB).
+		RecordShareDownload(context.Background(), db.RecordShareDownloadParams{ID: "download-owned-view", ShareID: "share-owned-view", ClientID: "c-viewer-owned"}); err != nil {
 		t.Fatalf("RecordShareDownload() error: %v", err)
 	}
 	createShareForTests(t, "share-owned-client", "file-owned", "client", "c-shared-target")
@@ -939,7 +1123,8 @@ func TestUserSharedFilesListAndDetail(t *testing.T) {
 	if !strings.Contains(body, "href=\"/user/file/file-owned/download\"") {
 		t.Fatalf("list body = %q, want download link", body)
 	}
-	if !strings.Contains(body, "Client: c-shared-target@example.com") || !strings.Contains(body, "Client Group: Download Group cg-shared-target") {
+	if !strings.Contains(body, "Client: c-shared-target@example.com") ||
+		!strings.Contains(body, "Client Group: Download Group cg-shared-target") {
 		t.Fatalf("list body = %q, want share target labels", body)
 	}
 	if strings.Count(body, "badge badge-success badge-outline\">Viewed</span>") != 1 {
@@ -963,19 +1148,28 @@ func TestUserSharedFilesListAndDetail(t *testing.T) {
 		t.Fatalf("owner detail status = %d, want %d", ownerDetailRec.Code, http.StatusOK)
 	}
 	if !strings.Contains(ownerDetailRec.Body.String(), "Uploaded At") {
-		t.Fatalf("owner detail body = %q, want uploaded timestamp label", ownerDetailRec.Body.String())
+		t.Fatalf(
+			"owner detail body = %q, want uploaded timestamp label",
+			ownerDetailRec.Body.String(),
+		)
 	}
 	if !strings.Contains(ownerDetailRec.Body.String(), "href=\"/user/file/file-owned/download\"") {
 		t.Fatalf("owner detail body = %q, want detail download link", ownerDetailRec.Body.String())
 	}
-	if !strings.Contains(ownerDetailRec.Body.String(), "Open File Detail") || !strings.Contains(ownerDetailRec.Body.String(), "Unshare") {
+	if !strings.Contains(ownerDetailRec.Body.String(), "Open File Detail") ||
+		!strings.Contains(ownerDetailRec.Body.String(), "Unshare") {
 		t.Fatalf("owner detail body = %q, want share detail actions", ownerDetailRec.Body.String())
 	}
 	if !strings.Contains(ownerDetailRec.Body.String(), "Back to Sent Files") {
 		t.Fatalf("owner detail body = %q, want back link near title", ownerDetailRec.Body.String())
 	}
-	if !strings.Contains(ownerDetailRec.Body.String(), "First Viewed") || !strings.Contains(ownerDetailRec.Body.String(), "Last Viewed") || !strings.Contains(ownerDetailRec.Body.String(), "View Count") {
-		t.Fatalf("owner detail body = %q, want expanded viewing history columns", ownerDetailRec.Body.String())
+	if !strings.Contains(ownerDetailRec.Body.String(), "First Viewed") ||
+		!strings.Contains(ownerDetailRec.Body.String(), "Last Viewed") ||
+		!strings.Contains(ownerDetailRec.Body.String(), "View Count") {
+		t.Fatalf(
+			"owner detail body = %q, want expanded viewing history columns",
+			ownerDetailRec.Body.String(),
+		)
 	}
 
 	forbiddenReq := httptest.NewRequest(http.MethodGet, "/user/sent/share-owned-client", nil)
@@ -998,12 +1192,20 @@ func TestUserSharedFilesListAndDetail(t *testing.T) {
 		t.Fatalf("owner download redirect missing location")
 	}
 
-	forbiddenDownloadReq := httptest.NewRequest(http.MethodGet, "/user/file/file-owned/download", nil)
+	forbiddenDownloadReq := httptest.NewRequest(
+		http.MethodGet,
+		"/user/file/file-owned/download",
+		nil,
+	)
 	forbiddenDownloadReq.AddCookie(otherCookie)
 	forbiddenDownloadRec := httptest.NewRecorder()
 	s.e.ServeHTTP(forbiddenDownloadRec, forbiddenDownloadReq)
 	if forbiddenDownloadRec.Code != http.StatusForbidden {
-		t.Fatalf("forbidden download status = %d, want %d", forbiddenDownloadRec.Code, http.StatusForbidden)
+		t.Fatalf(
+			"forbidden download status = %d, want %d",
+			forbiddenDownloadRec.Code,
+			http.StatusForbidden,
+		)
 	}
 }
 
@@ -1023,10 +1225,20 @@ func TestUserReceivedFilesListAndDetail(t *testing.T) {
 	}
 	defer sqlDB.Close()
 	queries := db.New(sqlDB)
-	if err := queries.CreateUserGroup(context.Background(), db.CreateUserGroupParams{ID: "ug-received", Name: "Received Group", CreatedByUserID: sql.NullString{}}); err != nil {
+	if err := queries.CreateUserGroup(
+		context.Background(),
+		db.CreateUserGroupParams{
+			ID:              "ug-received",
+			Name:            "Received Group",
+			CreatedByUserID: sql.NullString{},
+		},
+	); err != nil {
 		t.Fatalf("CreateUserGroup() error: %v", err)
 	}
-	if err := queries.AddUserToGroup(context.Background(), db.AddUserToGroupParams{UserGroupID: "ug-received", UserID: "u-received"}); err != nil {
+	if err := queries.AddUserToGroup(
+		context.Background(),
+		db.AddUserToGroupParams{UserGroupID: "ug-received", UserID: "u-received"},
+	); err != nil {
 		t.Fatalf("AddUserToGroup() error: %v", err)
 	}
 	createShareForTests(t, "share-user-group", "file-received-group", "user_group", "ug-received")
@@ -1041,7 +1253,8 @@ func TestUserReceivedFilesListAndDetail(t *testing.T) {
 		t.Fatalf("list status = %d, want %d", listRec.Code, http.StatusOK)
 	}
 	body := listRec.Body.String()
-	if !strings.Contains(body, "file-received-direct.dat") || !strings.Contains(body, "file-received-group.dat") {
+	if !strings.Contains(body, "file-received-direct.dat") ||
+		!strings.Contains(body, "file-received-group.dat") {
 		t.Fatalf("list body = %q, missing received files", body)
 	}
 	if !strings.Contains(body, "u-seed") {
@@ -1073,7 +1286,11 @@ func TestUserReceivedFilesListAndDetail(t *testing.T) {
 		t.Fatalf("forbidden detail status = %d, want %d", forbiddenRec.Code, http.StatusForbidden)
 	}
 
-	downloadReq := httptest.NewRequest(http.MethodGet, "/user/received/share-user-direct/download", nil)
+	downloadReq := httptest.NewRequest(
+		http.MethodGet,
+		"/user/received/share-user-direct/download",
+		nil,
+	)
 	downloadReq.Header.Set(echo.HeaderAccept, echo.MIMETextHTML)
 	downloadReq.AddCookie(cookie)
 	downloadRec := httptest.NewRecorder()
@@ -1100,7 +1317,14 @@ func TestUserFileDetailManageShareRenameDeleteFlow(t *testing.T) {
 	}
 	defer sqlDB.Close()
 	queries := db.New(sqlDB)
-	if err := queries.CreateUserGroup(context.Background(), db.CreateUserGroupParams{ID: "ug-manage", Name: "Manage Group", CreatedByUserID: sql.NullString{}}); err != nil {
+	if err := queries.CreateUserGroup(
+		context.Background(),
+		db.CreateUserGroupParams{
+			ID:              "ug-manage",
+			Name:            "Manage Group",
+			CreatedByUserID: sql.NullString{},
+		},
+	); err != nil {
 		t.Fatalf("CreateUserGroup() error: %v", err)
 	}
 
@@ -1112,11 +1336,16 @@ func TestUserFileDetailManageShareRenameDeleteFlow(t *testing.T) {
 		t.Fatalf("detail status = %d, want %d", detailRec.Code, http.StatusOK)
 	}
 	body := detailRec.Body.String()
-	if !strings.Contains(body, "Rename File") || !strings.Contains(body, "Current Shares") || !strings.Contains(body, "Delete File") {
+	if !strings.Contains(body, "Rename File") || !strings.Contains(body, "Current Shares") ||
+		!strings.Contains(body, "Delete File") {
 		t.Fatalf("detail body = %q, want file management controls", body)
 	}
 
-	renameReq := httptest.NewRequest(http.MethodPost, "/user/file/file-manage/rename", bytes.NewBufferString("filename=renamed-file.pdf"))
+	renameReq := httptest.NewRequest(
+		http.MethodPost,
+		"/user/file/file-manage/rename",
+		bytes.NewBufferString("filename=renamed-file.pdf"),
+	)
 	renameReq.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
 	renameReq.AddCookie(ownerCookie)
 	renameRec := httptest.NewRecorder()
@@ -1132,7 +1361,11 @@ func TestUserFileDetailManageShareRenameDeleteFlow(t *testing.T) {
 		t.Fatalf("filename = %q, want %q", fileAfterRename.OriginalFilename, "renamed-file.pdf")
 	}
 
-	shareReq := httptest.NewRequest(http.MethodPost, "/user/file/file-manage/shares", bytes.NewBufferString("target_type=client&target_id=c-manage-target"))
+	shareReq := httptest.NewRequest(
+		http.MethodPost,
+		"/user/file/file-manage/shares",
+		bytes.NewBufferString("target_type=client&target_id=c-manage-target"),
+	)
 	shareReq.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
 	shareReq.AddCookie(ownerCookie)
 	shareRec := httptest.NewRecorder()
@@ -1141,7 +1374,11 @@ func TestUserFileDetailManageShareRenameDeleteFlow(t *testing.T) {
 		t.Fatalf("share status = %d, want %d", shareRec.Code, http.StatusCreated)
 	}
 
-	shareReq2 := httptest.NewRequest(http.MethodPost, "/user/file/file-manage/shares", bytes.NewBufferString("target_type=user_group&target_id=ug-manage"))
+	shareReq2 := httptest.NewRequest(
+		http.MethodPost,
+		"/user/file/file-manage/shares",
+		bytes.NewBufferString("target_type=user_group&target_id=ug-manage"),
+	)
 	shareReq2.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
 	shareReq2.AddCookie(ownerCookie)
 	shareRec2 := httptest.NewRecorder()
@@ -1158,7 +1395,11 @@ func TestUserFileDetailManageShareRenameDeleteFlow(t *testing.T) {
 		t.Fatalf("share count = %d, want %d", len(shares), 2)
 	}
 
-	unshareReq := httptest.NewRequest(http.MethodPost, "/user/file/file-manage/shares/"+shares[0].ID+"/delete", nil)
+	unshareReq := httptest.NewRequest(
+		http.MethodPost,
+		"/user/file/file-manage/shares/"+shares[0].ID+"/delete",
+		nil,
+	)
 	unshareReq.AddCookie(ownerCookie)
 	unshareRec := httptest.NewRecorder()
 	s.e.ServeHTTP(unshareRec, unshareReq)
@@ -1200,20 +1441,31 @@ func TestUploadFormsRenderForAuthorizedActors(t *testing.T) {
 		t.Fatalf("user upload form status = %d, want %d", userRec.Code, http.StatusOK)
 	}
 	userBody := userRec.Body.String()
-	if !strings.Contains(userBody, "action=\"/user/uploads\"") || !strings.Contains(userBody, "name=\"filename\"") {
+	if !strings.Contains(userBody, "action=\"/user/uploads\"") ||
+		!strings.Contains(userBody, "name=\"filename\"") {
 		t.Fatalf("user upload form body = %q, want user form fields", userBody)
 	}
-	if !strings.Contains(userBody, "name=\"target_type\"") || !strings.Contains(userBody, "<option value=\"client\" selected>Client</option>") {
+	if !strings.Contains(userBody, "name=\"target_type\"") ||
+		!strings.Contains(userBody, "<option value=\"client\" selected>Client</option>") {
 		t.Fatalf("user upload form body = %q, want target type defaulting to client", userBody)
 	}
-	if !strings.Contains(userBody, "name=\"target_id\"") || !strings.Contains(userBody, "c-form-client") || !strings.Contains(userBody, "cg-form-group") {
-		t.Fatalf("user upload form body = %q, want target_id select options from clients and groups", userBody)
+	if !strings.Contains(userBody, "name=\"target_id\"") ||
+		!strings.Contains(userBody, "c-form-client") ||
+		!strings.Contains(userBody, "cg-form-group") {
+		t.Fatalf(
+			"user upload form body = %q, want target_id select options from clients and groups",
+			userBody,
+		)
 	}
 	if !strings.Contains(userBody, "enctype=\"multipart/form-data\"") {
 		t.Fatalf("user upload form body = %q, want multipart form encoding", userBody)
 	}
-	if !strings.Contains(userBody, "<span class=\"label-text\">Message...</span>") || !strings.Contains(userBody, "textarea textarea-bordered w-full") {
-		t.Fatalf("user upload form body = %q, want full-width message field with standard header", userBody)
+	if !strings.Contains(userBody, "<span class=\"label-text\">Message...</span>") ||
+		!strings.Contains(userBody, "textarea textarea-bordered w-full") {
+		t.Fatalf(
+			"user upload form body = %q, want full-width message field with standard header",
+			userBody,
+		)
 	}
 
 	clientCookie := login(t, s, "client", "c-form", "")
@@ -1225,16 +1477,23 @@ func TestUploadFormsRenderForAuthorizedActors(t *testing.T) {
 		t.Fatalf("client upload form status = %d, want %d", clientRec.Code, http.StatusOK)
 	}
 	clientBody := clientRec.Body.String()
-	if !strings.Contains(clientBody, "action=\"/client/uploads\"") || !strings.Contains(clientBody, "name=\"filename\"") {
+	if !strings.Contains(clientBody, "action=\"/client/uploads\"") ||
+		!strings.Contains(clientBody, "name=\"filename\"") {
 		t.Fatalf("client upload form body = %q, want client form with filename field", clientBody)
 	}
-	if !strings.Contains(clientBody, "name=\"upload_file\"") || !strings.Contains(clientBody, "data-upload-dropzone") {
-		t.Fatalf("client upload form body = %q, want file input and drag-drop upload area", clientBody)
+	if !strings.Contains(clientBody, "name=\"upload_file\"") ||
+		!strings.Contains(clientBody, "data-upload-dropzone") {
+		t.Fatalf(
+			"client upload form body = %q, want file input and drag-drop upload area",
+			clientBody,
+		)
 	}
-	if !strings.Contains(clientBody, "<option value=\"user\" selected>User</option>") || !strings.Contains(clientBody, "<option value=\"user_group\">User Group</option>") {
+	if !strings.Contains(clientBody, "<option value=\"user\" selected>User</option>") ||
+		!strings.Contains(clientBody, "<option value=\"user_group\">User Group</option>") {
 		t.Fatalf("client upload form body = %q, want user and user_group target types", clientBody)
 	}
-	if strings.Contains(clientBody, "<option value=\"client\" selected>Client</option>") || strings.Contains(clientBody, "<option value=\"client_group\">Client Group</option>") {
+	if strings.Contains(clientBody, "<option value=\"client\" selected>Client</option>") ||
+		strings.Contains(clientBody, "<option value=\"client_group\">Client Group</option>") {
 		t.Fatalf("client upload form body = %q, should not offer client target types", clientBody)
 	}
 }
@@ -1244,7 +1503,11 @@ func TestUserUploadSubmissionValidationAndSuccess(t *testing.T) {
 	cookie := login(t, s, "user", "u-submit", "uploader")
 	createClientWithoutPassword(t, "c-submit-target", "c-submit-target@example.com", true)
 
-	badReq := httptest.NewRequest(http.MethodPost, "/user/uploads", bytes.NewBufferString("filename=&target_type=client&target_id="))
+	badReq := httptest.NewRequest(
+		http.MethodPost,
+		"/user/uploads",
+		bytes.NewBufferString("filename=&target_type=client&target_id="),
+	)
 	badReq.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
 	badReq.AddCookie(cookie)
 	badRec := httptest.NewRecorder()
@@ -1253,13 +1516,22 @@ func TestUserUploadSubmissionValidationAndSuccess(t *testing.T) {
 		t.Fatalf("bad submit status = %d, want %d", badRec.Code, http.StatusBadRequest)
 	}
 
-	okReq := httptest.NewRequest(http.MethodPost, "/user/uploads", bytes.NewBufferString("filename=report.pdf&target_type=client&target_id=c-submit-target"))
+	okReq := httptest.NewRequest(
+		http.MethodPost,
+		"/user/uploads",
+		bytes.NewBufferString("filename=report.pdf&target_type=client&target_id=c-submit-target"),
+	)
 	okReq.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
 	okReq.AddCookie(cookie)
 	okRec := httptest.NewRecorder()
 	s.e.ServeHTTP(okRec, okReq)
 	if okRec.Code != http.StatusCreated {
-		t.Fatalf("ok submit status = %d, want %d, body=%q", okRec.Code, http.StatusCreated, okRec.Body.String())
+		t.Fatalf(
+			"ok submit status = %d, want %d, body=%q",
+			okRec.Code,
+			http.StatusCreated,
+			okRec.Body.String(),
+		)
 	}
 	if !strings.Contains(okRec.Body.String(), "file shared") {
 		t.Fatalf("ok submit body = %q, want file shared message", okRec.Body.String())
@@ -1294,7 +1566,12 @@ func TestUserUploadSubmissionValidationAndSuccess(t *testing.T) {
 	multipartRec := httptest.NewRecorder()
 	s.e.ServeHTTP(multipartRec, multipartReq)
 	if multipartRec.Code != http.StatusCreated {
-		t.Fatalf("multipart submit status = %d, want %d, body=%q", multipartRec.Code, http.StatusCreated, multipartRec.Body.String())
+		t.Fatalf(
+			"multipart submit status = %d, want %d, body=%q",
+			multipartRec.Code,
+			http.StatusCreated,
+			multipartRec.Body.String(),
+		)
 	}
 
 	sqlDB, err := sql.Open("sqlite", testConfig().DatabaseURL)
@@ -1302,7 +1579,8 @@ func TestUserUploadSubmissionValidationAndSuccess(t *testing.T) {
 		t.Fatalf("sql.Open() unexpected error: %v", err)
 	}
 	defer sqlDB.Close()
-	filesForUploader, err := db.New(sqlDB).ListFilesByUploader(context.Background(), db.ListFilesByUploaderParams{UploaderType: "user", UploaderID: "u-submit", Limit: 50, Offset: 0})
+	filesForUploader, err := db.New(sqlDB).
+		ListFilesByUploader(context.Background(), db.ListFilesByUploaderParams{UploaderType: "user", UploaderID: "u-submit", Limit: 50, Offset: 0})
 	if err != nil {
 		t.Fatalf("ListFilesByUploader() error: %v", err)
 	}
@@ -1331,13 +1609,24 @@ func TestUserShareToClientAndClientGroup(t *testing.T) {
 	createClientGroupForTests(t, "cg-share-target")
 
 	// Share to a direct client
-	clientReq := httptest.NewRequest(http.MethodPost, "/user/uploads", bytes.NewBufferString("filename=report.pdf&target_type=client&target_id=c-share-target&message=Here+is+your+file"))
+	clientReq := httptest.NewRequest(
+		http.MethodPost,
+		"/user/uploads",
+		bytes.NewBufferString(
+			"filename=report.pdf&target_type=client&target_id=c-share-target&message=Here+is+your+file",
+		),
+	)
 	clientReq.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
 	clientReq.AddCookie(uploaderCookie)
 	clientRec := httptest.NewRecorder()
 	s.e.ServeHTTP(clientRec, clientReq)
 	if clientRec.Code != http.StatusCreated {
-		t.Fatalf("client share status = %d, want %d, body=%q", clientRec.Code, http.StatusCreated, clientRec.Body.String())
+		t.Fatalf(
+			"client share status = %d, want %d, body=%q",
+			clientRec.Code,
+			http.StatusCreated,
+			clientRec.Body.String(),
+		)
 	}
 	body := clientRec.Body.String()
 	if !strings.Contains(body, "file shared") {
@@ -1358,13 +1647,24 @@ func TestUserShareToClientAndClientGroup(t *testing.T) {
 	}
 
 	// Share to a client group
-	groupReq := httptest.NewRequest(http.MethodPost, "/user/uploads", bytes.NewBufferString("filename=summary.docx&target_type=client_group&target_id=cg-share-target"))
+	groupReq := httptest.NewRequest(
+		http.MethodPost,
+		"/user/uploads",
+		bytes.NewBufferString(
+			"filename=summary.docx&target_type=client_group&target_id=cg-share-target",
+		),
+	)
 	groupReq.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
 	groupReq.AddCookie(uploaderCookie)
 	groupRec := httptest.NewRecorder()
 	s.e.ServeHTTP(groupRec, groupReq)
 	if groupRec.Code != http.StatusCreated {
-		t.Fatalf("group share status = %d, want %d, body=%q", groupRec.Code, http.StatusCreated, groupRec.Body.String())
+		t.Fatalf(
+			"group share status = %d, want %d, body=%q",
+			groupRec.Code,
+			http.StatusCreated,
+			groupRec.Body.String(),
+		)
 	}
 	if !strings.Contains(groupRec.Body.String(), "file shared") {
 		t.Fatalf("group share body = %q, want file shared", groupRec.Body.String())
@@ -1382,7 +1682,11 @@ func TestUserShareInvalidTargetReturnsError(t *testing.T) {
 	cookie := login(t, s, "user", "u-invalid-target", "uploader")
 
 	// Non-existent client
-	req := httptest.NewRequest(http.MethodPost, "/user/uploads", bytes.NewBufferString("filename=test.pdf&target_type=client&target_id=nonexistent-client"))
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/user/uploads",
+		bytes.NewBufferString("filename=test.pdf&target_type=client&target_id=nonexistent-client"),
+	)
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
 	req.AddCookie(cookie)
 	rec := httptest.NewRecorder()
@@ -1392,7 +1696,13 @@ func TestUserShareInvalidTargetReturnsError(t *testing.T) {
 	}
 
 	// Non-existent client group
-	req2 := httptest.NewRequest(http.MethodPost, "/user/uploads", bytes.NewBufferString("filename=test.pdf&target_type=client_group&target_id=nonexistent-group"))
+	req2 := httptest.NewRequest(
+		http.MethodPost,
+		"/user/uploads",
+		bytes.NewBufferString(
+			"filename=test.pdf&target_type=client_group&target_id=nonexistent-group",
+		),
+	)
 	req2.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
 	req2.AddCookie(cookie)
 	rec2 := httptest.NewRecorder()
@@ -1402,7 +1712,11 @@ func TestUserShareInvalidTargetReturnsError(t *testing.T) {
 	}
 
 	// Invalid target type
-	req3 := httptest.NewRequest(http.MethodPost, "/user/uploads", bytes.NewBufferString("filename=test.pdf&target_type=invalid&target_id=something"))
+	req3 := httptest.NewRequest(
+		http.MethodPost,
+		"/user/uploads",
+		bytes.NewBufferString("filename=test.pdf&target_type=invalid&target_id=something"),
+	)
 	req3.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
 	req3.AddCookie(cookie)
 	rec3 := httptest.NewRecorder()
@@ -1417,7 +1731,11 @@ func TestUserShareHTMLRedirectsOnSuccess(t *testing.T) {
 	cookie := login(t, s, "user", "u-html-share", "uploader")
 	createClientWithoutPassword(t, "c-html-target", "c-html-target@example.com", true)
 
-	req := httptest.NewRequest(http.MethodPost, "/user/uploads", bytes.NewBufferString("filename=doc.pdf&target_type=client&target_id=c-html-target"))
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/user/uploads",
+		bytes.NewBufferString("filename=doc.pdf&target_type=client&target_id=c-html-target"),
+	)
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
 	req.Header.Set(echo.HeaderAccept, echo.MIMETextHTML)
 	req.AddCookie(cookie)
@@ -1439,13 +1757,24 @@ func TestUserFileShareAppearsInUploaderList(t *testing.T) {
 	createClientWithoutPassword(t, "c-list-target", "c-list-target@example.com", true)
 
 	// Upload and share a file
-	shareReq := httptest.NewRequest(http.MethodPost, "/user/uploads", bytes.NewBufferString("filename=listed-file.pdf&target_type=client&target_id=c-list-target"))
+	shareReq := httptest.NewRequest(
+		http.MethodPost,
+		"/user/uploads",
+		bytes.NewBufferString(
+			"filename=listed-file.pdf&target_type=client&target_id=c-list-target",
+		),
+	)
 	shareReq.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
 	shareReq.AddCookie(cookie)
 	shareRec := httptest.NewRecorder()
 	s.e.ServeHTTP(shareRec, shareReq)
 	if shareRec.Code != http.StatusCreated {
-		t.Fatalf("share status = %d, want %d, body=%q", shareRec.Code, http.StatusCreated, shareRec.Body.String())
+		t.Fatalf(
+			"share status = %d, want %d, body=%q",
+			shareRec.Code,
+			http.StatusCreated,
+			shareRec.Body.String(),
+		)
 	}
 
 	// The file should appear in the uploader's file list
@@ -1511,7 +1840,13 @@ func TestClientManagementCreateAndMembershipFlows(t *testing.T) {
 	s := New(testConfig(), slog.Default())
 	managerCookie := login(t, s, "user", "u-manager-create", "account_manager")
 
-	createClientReq := httptest.NewRequest(http.MethodPost, "/user/clients", bytes.NewBufferString("email=flow-client@example.com&display_name=Flow+Client&can_upload=1&is_active=1"))
+	createClientReq := httptest.NewRequest(
+		http.MethodPost,
+		"/user/clients",
+		bytes.NewBufferString(
+			"email=flow-client@example.com&display_name=Flow+Client&can_upload=1&is_active=1",
+		),
+	)
 	createClientReq.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
 	createClientReq.AddCookie(managerCookie)
 	createClientRec := httptest.NewRecorder()
@@ -1520,7 +1855,11 @@ func TestClientManagementCreateAndMembershipFlows(t *testing.T) {
 		t.Fatalf("create client status = %d, want %d", createClientRec.Code, http.StatusCreated)
 	}
 
-	createGroupReq := httptest.NewRequest(http.MethodPost, "/user/client-groups", bytes.NewBufferString("name=FlowGroup"))
+	createGroupReq := httptest.NewRequest(
+		http.MethodPost,
+		"/user/client-groups",
+		bytes.NewBufferString("name=FlowGroup"),
+	)
 	createGroupReq.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
 	createGroupReq.AddCookie(managerCookie)
 	createGroupRec := httptest.NewRecorder()
@@ -1532,7 +1871,11 @@ func TestClientManagementCreateAndMembershipFlows(t *testing.T) {
 	clientID := lookupClientIDByEmail(t, "flow-client@example.com")
 	groupID := latestClientGroupID(t)
 
-	addMemberReq := httptest.NewRequest(http.MethodPost, "/user/client-groups/memberships", bytes.NewBufferString("group_id="+groupID+"&client_id="+clientID))
+	addMemberReq := httptest.NewRequest(
+		http.MethodPost,
+		"/user/client-groups/memberships",
+		bytes.NewBufferString("group_id="+groupID+"&client_id="+clientID),
+	)
 	addMemberReq.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
 	addMemberReq.AddCookie(managerCookie)
 	addMemberRec := httptest.NewRecorder()
@@ -1551,7 +1894,13 @@ func TestClientManagementGroupListShowsMemberCount(t *testing.T) {
 	s := New(testConfig(), slog.Default())
 	managerCookie := login(t, s, "user", "u-manager-group-count", "account_manager")
 
-	createClientReq := httptest.NewRequest(http.MethodPost, "/user/clients", bytes.NewBufferString("email=count-client@example.com&display_name=Count+Client&can_upload=1&is_active=1"))
+	createClientReq := httptest.NewRequest(
+		http.MethodPost,
+		"/user/clients",
+		bytes.NewBufferString(
+			"email=count-client@example.com&display_name=Count+Client&can_upload=1&is_active=1",
+		),
+	)
 	createClientReq.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
 	createClientReq.AddCookie(managerCookie)
 	createClientRec := httptest.NewRecorder()
@@ -1560,7 +1909,11 @@ func TestClientManagementGroupListShowsMemberCount(t *testing.T) {
 		t.Fatalf("create client status = %d, want %d", createClientRec.Code, http.StatusCreated)
 	}
 
-	createGroupReq := httptest.NewRequest(http.MethodPost, "/user/client-groups", bytes.NewBufferString("name=CountGroup"))
+	createGroupReq := httptest.NewRequest(
+		http.MethodPost,
+		"/user/client-groups",
+		bytes.NewBufferString("name=CountGroup"),
+	)
 	createGroupReq.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
 	createGroupReq.AddCookie(managerCookie)
 	createGroupRec := httptest.NewRecorder()
@@ -1572,7 +1925,11 @@ func TestClientManagementGroupListShowsMemberCount(t *testing.T) {
 	clientID := lookupClientIDByEmail(t, "count-client@example.com")
 	groupID := latestClientGroupID(t)
 
-	addMemberReq := httptest.NewRequest(http.MethodPost, "/user/client-groups/memberships", bytes.NewBufferString("group_id="+groupID+"&client_id="+clientID))
+	addMemberReq := httptest.NewRequest(
+		http.MethodPost,
+		"/user/client-groups/memberships",
+		bytes.NewBufferString("group_id="+groupID+"&client_id="+clientID),
+	)
 	addMemberReq.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
 	addMemberReq.AddCookie(managerCookie)
 	addMemberRec := httptest.NewRecorder()
@@ -1621,23 +1978,37 @@ func TestClientGroupDetailRouteSupportsUpdateAndMembershipManagement(t *testing.
 	if detailRec.Code != http.StatusOK {
 		t.Fatalf("detail status = %d, want %d", detailRec.Code, http.StatusOK)
 	}
-	if !strings.Contains(detailRec.Body.String(), "Remove from Group") || !strings.Contains(detailRec.Body.String(), "client-detail-a@example.com") {
+	if !strings.Contains(detailRec.Body.String(), "Remove from Group") ||
+		!strings.Contains(detailRec.Body.String(), "client-detail-a@example.com") {
 		t.Fatalf("detail body = %q, want member list and remove action", detailRec.Body.String())
 	}
 	if !strings.Contains(detailRec.Body.String(), "Back to Client Groups") {
 		t.Fatalf("detail body = %q, want back link near title", detailRec.Body.String())
 	}
 
-	updateReq := httptest.NewRequest(http.MethodPost, "/user/client-groups/update", bytes.NewBufferString("group_id=cg-detail&name=Renamed+Detail+Group"))
+	updateReq := httptest.NewRequest(
+		http.MethodPost,
+		"/user/client-groups/update",
+		bytes.NewBufferString("group_id=cg-detail&name=Renamed+Detail+Group"),
+	)
 	updateReq.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
 	updateReq.AddCookie(managerCookie)
 	updateRec := httptest.NewRecorder()
 	s.e.ServeHTTP(updateRec, updateReq)
 	if updateRec.Code != http.StatusNoContent {
-		t.Fatalf("update status = %d, want %d, body=%q", updateRec.Code, http.StatusNoContent, updateRec.Body.String())
+		t.Fatalf(
+			"update status = %d, want %d, body=%q",
+			updateRec.Code,
+			http.StatusNoContent,
+			updateRec.Body.String(),
+		)
 	}
 
-	addReq := httptest.NewRequest(http.MethodPost, "/user/client-groups/memberships/add", bytes.NewBufferString("group_id=cg-detail&client_id=client-detail-b"))
+	addReq := httptest.NewRequest(
+		http.MethodPost,
+		"/user/client-groups/memberships/add",
+		bytes.NewBufferString("group_id=cg-detail&client_id=client-detail-b"),
+	)
 	addReq.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
 	addReq.AddCookie(managerCookie)
 	addRec := httptest.NewRecorder()
@@ -1646,7 +2017,11 @@ func TestClientGroupDetailRouteSupportsUpdateAndMembershipManagement(t *testing.
 		t.Fatalf("add membership status = %d, want %d", addRec.Code, http.StatusCreated)
 	}
 
-	removeReq := httptest.NewRequest(http.MethodPost, "/user/client-groups/memberships/remove", bytes.NewBufferString("group_id=cg-detail&client_id=client-detail-a"))
+	removeReq := httptest.NewRequest(
+		http.MethodPost,
+		"/user/client-groups/memberships/remove",
+		bytes.NewBufferString("group_id=cg-detail&client_id=client-detail-a"),
+	)
 	removeReq.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
 	removeReq.AddCookie(managerCookie)
 	removeRec := httptest.NewRecorder()
@@ -1667,7 +2042,10 @@ func TestClientGroupDetailRouteSupportsUpdateAndMembershipManagement(t *testing.
 		t.Fatalf("updated detail body = %q, want updated group name", updatedBody)
 	}
 	if strings.Contains(updatedBody, "name=\"client_id\" value=\"client-detail-a\"") {
-		t.Fatalf("updated detail body = %q, should not include removed member in membership list", updatedBody)
+		t.Fatalf(
+			"updated detail body = %q, should not include removed member in membership list",
+			updatedBody,
+		)
 	}
 	if !strings.Contains(updatedBody, "client-detail-b@example.com") {
 		t.Fatalf("updated detail body = %q, want added member", updatedBody)
@@ -1678,7 +2056,11 @@ func TestClientManagementHTMLValidationRedirect(t *testing.T) {
 	s := New(testConfig(), slog.Default())
 	managerCookie := login(t, s, "user", "u-manager-html", "account_manager")
 
-	req := httptest.NewRequest(http.MethodPost, "/user/clients", bytes.NewBufferString("email=&display_name="))
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/user/clients",
+		bytes.NewBufferString("email=&display_name="),
+	)
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
 	req.Header.Set(echo.HeaderAccept, echo.MIMETextHTML)
 	req.AddCookie(managerCookie)
@@ -1689,7 +2071,10 @@ func TestClientManagementHTMLValidationRedirect(t *testing.T) {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusSeeOther)
 	}
 	if !strings.HasPrefix(rec.Result().Header.Get(echo.HeaderLocation), "/user/clients?error=") {
-		t.Fatalf("location = %q, want user clients error redirect", rec.Result().Header.Get(echo.HeaderLocation))
+		t.Fatalf(
+			"location = %q, want user clients error redirect",
+			rec.Result().Header.Get(echo.HeaderLocation),
+		)
 	}
 }
 
@@ -1697,7 +2082,13 @@ func TestClientCreateAllowsOptionalNoGroupSelection(t *testing.T) {
 	s := New(testConfig(), slog.Default())
 	managerCookie := login(t, s, "user", "u-manager-no-group", "account_manager")
 
-	req := httptest.NewRequest(http.MethodPost, "/user/clients", bytes.NewBufferString("email=nogroup-client@example.com&display_name=No+Group+Client&can_upload=1&is_active=1"))
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/user/clients",
+		bytes.NewBufferString(
+			"email=nogroup-client@example.com&display_name=No+Group+Client&can_upload=1&is_active=1",
+		),
+	)
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
 	req.AddCookie(managerCookie)
 	rec := httptest.NewRecorder()
@@ -1718,7 +2109,11 @@ func TestClientCreateCanAssignMultipleGroups(t *testing.T) {
 	s := New(testConfig(), slog.Default())
 	managerCookie := login(t, s, "user", "u-manager-multi-group", "account_manager")
 
-	createGroupReqA := httptest.NewRequest(http.MethodPost, "/user/client-groups", bytes.NewBufferString("name=AlphaGroup"))
+	createGroupReqA := httptest.NewRequest(
+		http.MethodPost,
+		"/user/client-groups",
+		bytes.NewBufferString("name=AlphaGroup"),
+	)
 	createGroupReqA.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
 	createGroupReqA.AddCookie(managerCookie)
 	createGroupRecA := httptest.NewRecorder()
@@ -1727,7 +2122,11 @@ func TestClientCreateCanAssignMultipleGroups(t *testing.T) {
 		t.Fatalf("create group A status = %d, want %d", createGroupRecA.Code, http.StatusCreated)
 	}
 
-	createGroupReqB := httptest.NewRequest(http.MethodPost, "/user/client-groups", bytes.NewBufferString("name=BetaGroup"))
+	createGroupReqB := httptest.NewRequest(
+		http.MethodPost,
+		"/user/client-groups",
+		bytes.NewBufferString("name=BetaGroup"),
+	)
 	createGroupReqB.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
 	createGroupReqB.AddCookie(managerCookie)
 	createGroupRecB := httptest.NewRecorder()
@@ -1739,7 +2138,9 @@ func TestClientCreateCanAssignMultipleGroups(t *testing.T) {
 	groupA := lookupClientGroupIDByName(t, "AlphaGroup")
 	groupB := lookupClientGroupIDByName(t, "BetaGroup")
 
-	body := bytes.NewBufferString("email=multigroup-client@example.com&display_name=Multi+Group+Client&is_active=1&group_ids=" + groupA + "&group_ids=" + groupB)
+	body := bytes.NewBufferString(
+		"email=multigroup-client@example.com&display_name=Multi+Group+Client&is_active=1&group_ids=" + groupA + "&group_ids=" + groupB,
+	)
 	req := httptest.NewRequest(http.MethodPost, "/user/clients", body)
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
 	req.AddCookie(managerCookie)
@@ -1784,7 +2185,11 @@ func TestClientManagementCanUpdateClientFromEditPage(t *testing.T) {
 	managerCookie := login(t, s, "user", "u-manager-edit", "account_manager")
 	createClientWithoutPassword(t, "c-edit-update", "c-edit-update@example.com", true)
 
-	req := httptest.NewRequest(http.MethodPost, "/user/clients/c-edit-update", bytes.NewBufferString("display_name=Updated+Client&can_upload=1"))
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/user/clients/c-edit-update",
+		bytes.NewBufferString("display_name=Updated+Client&can_upload=1"),
+	)
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
 	req.AddCookie(managerCookie)
 	rec := httptest.NewRecorder()
@@ -1820,7 +2225,11 @@ func TestClientManagementCanResetClientPassword(t *testing.T) {
 	managerCookie := login(t, s, "user", "u-manager-client-pass", "account_manager")
 	createClientWithPassword(t, "c-edit-pass", "c-edit-pass@example.com", "old-password-123", true)
 
-	resetReq := httptest.NewRequest(http.MethodPost, "/user/clients/c-edit-pass/reset-password", bytes.NewBufferString("new_password=new-password-123"))
+	resetReq := httptest.NewRequest(
+		http.MethodPost,
+		"/user/clients/c-edit-pass/reset-password",
+		bytes.NewBufferString("new_password=new-password-123"),
+	)
 	resetReq.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
 	resetReq.AddCookie(managerCookie)
 	resetRec := httptest.NewRecorder()
@@ -1830,7 +2239,13 @@ func TestClientManagementCanResetClientPassword(t *testing.T) {
 		t.Fatalf("reset status = %d, want %d", resetRec.Code, http.StatusNoContent)
 	}
 
-	loginReq := httptest.NewRequest(http.MethodPost, "/auth/password/login", bytes.NewBufferString("actor_type=client&email=c-edit-pass@example.com&password=new-password-123"))
+	loginReq := httptest.NewRequest(
+		http.MethodPost,
+		"/auth/password/login",
+		bytes.NewBufferString(
+			"actor_type=client&email=c-edit-pass@example.com&password=new-password-123",
+		),
+	)
 	loginReq.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
 	loginRec := httptest.NewRecorder()
 	s.e.ServeHTTP(loginRec, loginReq)
@@ -1842,11 +2257,27 @@ func TestClientManagementCanResetClientPassword(t *testing.T) {
 
 func TestClientUploadHTMLRedirectsWithValidationAndOutcome(t *testing.T) {
 	s := New(testConfig(), slog.Default())
-	createClientForUploadTests(t, "client-form-upload", "client-form-upload@example.com", true, true)
-	createClientUploadPermissionForTests(t, "perm-form-upload", "client-form-upload", "user", "u-allow")
+	createClientForUploadTests(
+		t,
+		"client-form-upload",
+		"client-form-upload@example.com",
+		true,
+		true,
+	)
+	createClientUploadPermissionForTests(
+		t,
+		"perm-form-upload",
+		"client-form-upload",
+		"user",
+		"u-allow",
+	)
 	cookie := login(t, s, "client", "client-form-upload", "")
 
-	missingReq := httptest.NewRequest(http.MethodPost, "/client/uploads", bytes.NewBufferString("target_type=&target_id="))
+	missingReq := httptest.NewRequest(
+		http.MethodPost,
+		"/client/uploads",
+		bytes.NewBufferString("target_type=&target_id="),
+	)
 	missingReq.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
 	missingReq.Header.Set(echo.HeaderAccept, echo.MIMETextHTML)
 	missingReq.AddCookie(cookie)
@@ -1855,11 +2286,21 @@ func TestClientUploadHTMLRedirectsWithValidationAndOutcome(t *testing.T) {
 	if missingRec.Code != http.StatusSeeOther {
 		t.Fatalf("missing status = %d, want %d", missingRec.Code, http.StatusSeeOther)
 	}
-	if !strings.HasPrefix(missingRec.Result().Header.Get(echo.HeaderLocation), "/client/uploads?error=") {
-		t.Fatalf("missing redirect = %q, want error redirect", missingRec.Result().Header.Get(echo.HeaderLocation))
+	if !strings.HasPrefix(
+		missingRec.Result().Header.Get(echo.HeaderLocation),
+		"/client/uploads?error=",
+	) {
+		t.Fatalf(
+			"missing redirect = %q, want error redirect",
+			missingRec.Result().Header.Get(echo.HeaderLocation),
+		)
 	}
 
-	okReq := httptest.NewRequest(http.MethodPost, "/client/uploads", bytes.NewBufferString("filename=upload.pdf&target_type=user&target_id=u-allow"))
+	okReq := httptest.NewRequest(
+		http.MethodPost,
+		"/client/uploads",
+		bytes.NewBufferString("filename=upload.pdf&target_type=user&target_id=u-allow"),
+	)
 	okReq.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
 	okReq.Header.Set(echo.HeaderAccept, echo.MIMETextHTML)
 	okReq.AddCookie(cookie)
@@ -1868,15 +2309,33 @@ func TestClientUploadHTMLRedirectsWithValidationAndOutcome(t *testing.T) {
 	if okRec.Code != http.StatusSeeOther {
 		t.Fatalf("ok status = %d, want %d", okRec.Code, http.StatusSeeOther)
 	}
-	if !strings.HasPrefix(okRec.Result().Header.Get(echo.HeaderLocation), "/client/uploads?success=") {
-		t.Fatalf("ok redirect = %q, want success redirect", okRec.Result().Header.Get(echo.HeaderLocation))
+	if !strings.HasPrefix(
+		okRec.Result().Header.Get(echo.HeaderLocation),
+		"/client/uploads?success=",
+	) {
+		t.Fatalf(
+			"ok redirect = %q, want success redirect",
+			okRec.Result().Header.Get(echo.HeaderLocation),
+		)
 	}
 }
 
 func TestClientUploadStoresFileMetadataAndShare(t *testing.T) {
 	s := New(testConfig(), slog.Default())
-	createClientForUploadTests(t, "client-upload-store", "client-upload-store@example.com", true, true)
-	createClientUploadPermissionForTests(t, "perm-upload-store", "client-upload-store", "user", "u-store-target")
+	createClientForUploadTests(
+		t,
+		"client-upload-store",
+		"client-upload-store@example.com",
+		true,
+		true,
+	)
+	createClientUploadPermissionForTests(
+		t,
+		"perm-upload-store",
+		"client-upload-store",
+		"user",
+		"u-store-target",
+	)
 	cookie := login(t, s, "client", "client-upload-store", "")
 
 	var body bytes.Buffer
@@ -1911,7 +2370,12 @@ func TestClientUploadStoresFileMetadataAndShare(t *testing.T) {
 	rec := httptest.NewRecorder()
 	s.e.ServeHTTP(rec, req)
 	if rec.Code != http.StatusCreated {
-		t.Fatalf("upload status = %d, want %d, body=%q", rec.Code, http.StatusCreated, rec.Body.String())
+		t.Fatalf(
+			"upload status = %d, want %d, body=%q",
+			rec.Code,
+			http.StatusCreated,
+			rec.Body.String(),
+		)
 	}
 
 	sqlDB, err := sql.Open("sqlite", testConfig().DatabaseURL)
@@ -1921,7 +2385,15 @@ func TestClientUploadStoresFileMetadataAndShare(t *testing.T) {
 	defer sqlDB.Close()
 	q := db.New(sqlDB)
 
-	filesForUploader, err := q.ListFilesByUploader(context.Background(), db.ListFilesByUploaderParams{UploaderType: "client", UploaderID: "client-upload-store", Limit: 50, Offset: 0})
+	filesForUploader, err := q.ListFilesByUploader(
+		context.Background(),
+		db.ListFilesByUploaderParams{
+			UploaderType: "client",
+			UploaderID:   "client-upload-store",
+			Limit:        50,
+			Offset:       0,
+		},
+	)
 	if err != nil {
 		t.Fatalf("ListFilesByUploader() error: %v", err)
 	}
@@ -1930,7 +2402,11 @@ func TestClientUploadStoresFileMetadataAndShare(t *testing.T) {
 	}
 	storedFile := filesForUploader[0]
 	if storedFile.OriginalFilename != "client-uploaded.pdf" {
-		t.Fatalf("stored filename = %q, want %q", storedFile.OriginalFilename, "client-uploaded.pdf")
+		t.Fatalf(
+			"stored filename = %q, want %q",
+			storedFile.OriginalFilename,
+			"client-uploaded.pdf",
+		)
 	}
 	if storedFile.SizeBytes != int64(len(payload)) {
 		t.Fatalf("stored file size_bytes = %d, want %d", storedFile.SizeBytes, len(payload))
@@ -1945,7 +2421,11 @@ func TestClientUploadStoresFileMetadataAndShare(t *testing.T) {
 	}
 	share := shares[0]
 	if share.SharedByType != "client" || share.SharedByID != "client-upload-store" {
-		t.Fatalf("share actor = %s/%s, want client/client-upload-store", share.SharedByType, share.SharedByID)
+		t.Fatalf(
+			"share actor = %s/%s, want client/client-upload-store",
+			share.SharedByType,
+			share.SharedByID,
+		)
 	}
 	if share.TargetType != "user" || share.TargetID != "u-store-target" {
 		t.Fatalf("share target = %s/%s, want user/u-store-target", share.TargetType, share.TargetID)
@@ -2075,7 +2555,16 @@ func TestLogoutHTMLRedirectsToLogin(t *testing.T) {
 
 func TestSSOLoginCreatesUserSession(t *testing.T) {
 	s := New(testConfig(), slog.Default())
-	sso := signedSSOToken(t, "secret", "issuer-1", "aud-1", "user-from-sso", "", "user-from-sso@example.com", "User From SSO")
+	sso := signedSSOToken(
+		t,
+		"secret",
+		"issuer-1",
+		"aud-1",
+		"user-from-sso",
+		"",
+		"user-from-sso@example.com",
+		"User From SSO",
+	)
 
 	req := httptest.NewRequest(http.MethodPost, "/auth/sso/login", nil)
 	req.AddCookie(&http.Cookie{Name: "sso_jwt", Value: sso})
@@ -2125,7 +2614,16 @@ func TestSSOLoginRejectsInvalidToken(t *testing.T) {
 func TestSSOLoginUpsertsLocalUser(t *testing.T) {
 	s := New(testConfig(), slog.Default())
 
-	first := signedSSOToken(t, "secret", "issuer-1", "aud-1", "user-upsert", "", "first@example.com", "First Name")
+	first := signedSSOToken(
+		t,
+		"secret",
+		"issuer-1",
+		"aud-1",
+		"user-upsert",
+		"",
+		"first@example.com",
+		"First Name",
+	)
 	req1 := httptest.NewRequest(http.MethodPost, "/auth/sso/login", nil)
 	req1.AddCookie(&http.Cookie{Name: "sso_jwt", Value: first})
 	rec1 := httptest.NewRecorder()
@@ -2134,7 +2632,16 @@ func TestSSOLoginUpsertsLocalUser(t *testing.T) {
 		t.Fatalf("first login status = %d, want %d", rec1.Code, http.StatusNoContent)
 	}
 
-	second := signedSSOToken(t, "secret", "issuer-1", "aud-1", "user-upsert", "", "updated@example.com", "Updated Name")
+	second := signedSSOToken(
+		t,
+		"secret",
+		"issuer-1",
+		"aud-1",
+		"user-upsert",
+		"",
+		"updated@example.com",
+		"Updated Name",
+	)
 	req2 := httptest.NewRequest(http.MethodPost, "/auth/sso/login", nil)
 	req2.AddCookie(&http.Cookie{Name: "sso_jwt", Value: second})
 	rec2 := httptest.NewRecorder()
@@ -2213,14 +2720,21 @@ func TestMagicLinkVerifyCreatesClientSession(t *testing.T) {
 		t.Fatalf("Create() unexpected error: %v", err)
 	}
 
-	body := bytes.NewBufferString(fmt.Sprintf("client_id=client-verify@example.com&token=%s", token))
+	body := bytes.NewBufferString(
+		fmt.Sprintf("client_id=client-verify@example.com&token=%s", token),
+	)
 	req := httptest.NewRequest(http.MethodPost, "/auth/magic/verify", body)
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
 	rec := httptest.NewRecorder()
 	s.e.ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusNoContent {
-		t.Fatalf("verify status = %d, want %d, body=%q", rec.Code, http.StatusNoContent, rec.Body.String())
+		t.Fatalf(
+			"verify status = %d, want %d, body=%q",
+			rec.Code,
+			http.StatusNoContent,
+			rec.Body.String(),
+		)
 	}
 
 	var sessionCookie *http.Cookie
@@ -2267,12 +2781,42 @@ func TestRBACRoleGates(t *testing.T) {
 		cookie     *http.Cookie
 		wantStatus int
 	}{
-		{name: "admin users allowed", path: "/admin/users", cookie: adminCookie, wantStatus: http.StatusOK},
-		{name: "manager users denied", path: "/admin/users", cookie: managerCookie, wantStatus: http.StatusForbidden},
-		{name: "manager clients allowed", path: "/user/clients", cookie: managerCookie, wantStatus: http.StatusOK},
-		{name: "uploader clients denied", path: "/user/clients", cookie: uploaderCookie, wantStatus: http.StatusForbidden},
-		{name: "uploader uploads allowed", path: "/user/uploads", cookie: uploaderCookie, wantStatus: http.StatusOK},
-		{name: "manager uploads denied", path: "/user/uploads", cookie: managerCookie, wantStatus: http.StatusForbidden},
+		{
+			name:       "admin users allowed",
+			path:       "/admin/users",
+			cookie:     adminCookie,
+			wantStatus: http.StatusOK,
+		},
+		{
+			name:       "manager users denied",
+			path:       "/admin/users",
+			cookie:     managerCookie,
+			wantStatus: http.StatusForbidden,
+		},
+		{
+			name:       "manager clients allowed",
+			path:       "/user/clients",
+			cookie:     managerCookie,
+			wantStatus: http.StatusOK,
+		},
+		{
+			name:       "uploader clients denied",
+			path:       "/user/clients",
+			cookie:     uploaderCookie,
+			wantStatus: http.StatusForbidden,
+		},
+		{
+			name:       "uploader uploads allowed",
+			path:       "/user/uploads",
+			cookie:     uploaderCookie,
+			wantStatus: http.StatusOK,
+		},
+		{
+			name:       "manager uploads denied",
+			path:       "/user/uploads",
+			cookie:     managerCookie,
+			wantStatus: http.StatusForbidden,
+		},
 	}
 
 	for _, tc := range tests {
@@ -2303,7 +2847,13 @@ func TestAdminUsersManagementFlow(t *testing.T) {
 		t.Fatalf("admin users body = %q, want create user form", getRec.Body.String())
 	}
 
-	createReq := httptest.NewRequest(http.MethodPost, "/admin/users", bytes.NewBufferString("email=admin-flow-user@example.com&full_name=Admin+Flow+User&role_id=3&is_active=1&new_password=admin-password-123"))
+	createReq := httptest.NewRequest(
+		http.MethodPost,
+		"/admin/users",
+		bytes.NewBufferString(
+			"email=admin-flow-user@example.com&full_name=Admin+Flow+User&role_id=3&is_active=1&new_password=admin-password-123",
+		),
+	)
 	createReq.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
 	createReq.AddCookie(adminCookie)
 	createRec := httptest.NewRecorder()
@@ -2333,7 +2883,11 @@ func TestAdminUsersManagementFlow(t *testing.T) {
 		t.Fatalf("created roles = %v, want [uploader]", createdRoles)
 	}
 
-	updateReq := httptest.NewRequest(http.MethodPost, "/admin/users/"+createdUser.ID, bytes.NewBufferString("full_name=Updated+Managed+User&role_id=2"))
+	updateReq := httptest.NewRequest(
+		http.MethodPost,
+		"/admin/users/"+createdUser.ID,
+		bytes.NewBufferString("full_name=Updated+Managed+User&role_id=2"),
+	)
 	updateReq.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
 	updateReq.AddCookie(adminCookie)
 	updateRec := httptest.NewRecorder()
@@ -2360,7 +2914,11 @@ func TestAdminUsersManagementFlow(t *testing.T) {
 		t.Fatalf("updated roles = %v, want [account_manager]", updatedRoles)
 	}
 
-	resetReq := httptest.NewRequest(http.MethodPost, "/admin/users/"+createdUser.ID+"/reset-password", bytes.NewBufferString("new_password=reset-password-123"))
+	resetReq := httptest.NewRequest(
+		http.MethodPost,
+		"/admin/users/"+createdUser.ID+"/reset-password",
+		bytes.NewBufferString("new_password=reset-password-123"),
+	)
 	resetReq.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
 	resetReq.AddCookie(adminCookie)
 	resetRec := httptest.NewRecorder()
@@ -2373,10 +2931,24 @@ func TestAdminUsersManagementFlow(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetUserByID() after reset error: %v", err)
 	}
-	if err := queries.UpdateUser(context.Background(), db.UpdateUserParams{ID: userAfterReset.ID, FullName: userAfterReset.FullName, PasswordHash: userAfterReset.PasswordHash, IsActive: 1}); err != nil {
+	if err := queries.UpdateUser(
+		context.Background(),
+		db.UpdateUserParams{
+			ID:           userAfterReset.ID,
+			FullName:     userAfterReset.FullName,
+			PasswordHash: userAfterReset.PasswordHash,
+			IsActive:     1,
+		},
+	); err != nil {
 		t.Fatalf("UpdateUser() error: %v", err)
 	}
-	loginReq := httptest.NewRequest(http.MethodPost, "/auth/password/login", bytes.NewBufferString("actor_type=user&email=admin-flow-user@example.com&password=reset-password-123"))
+	loginReq := httptest.NewRequest(
+		http.MethodPost,
+		"/auth/password/login",
+		bytes.NewBufferString(
+			"actor_type=user&email=admin-flow-user@example.com&password=reset-password-123",
+		),
+	)
 	loginReq.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
 	loginRec := httptest.NewRecorder()
 	s.e.ServeHTTP(loginRec, loginReq)
@@ -2388,9 +2960,24 @@ func TestAdminUsersManagementFlow(t *testing.T) {
 func TestClientDownloadAuthorization(t *testing.T) {
 	s := New(testConfig(), slog.Default())
 
-	createClientWithoutPassword(t, "client-download-direct", "client-download-direct@example.com", true)
-	createClientWithoutPassword(t, "client-download-group", "client-download-group@example.com", true)
-	createClientWithoutPassword(t, "client-download-denied", "client-download-denied@example.com", true)
+	createClientWithoutPassword(
+		t,
+		"client-download-direct",
+		"client-download-direct@example.com",
+		true,
+	)
+	createClientWithoutPassword(
+		t,
+		"client-download-group",
+		"client-download-group@example.com",
+		true,
+	)
+	createClientWithoutPassword(
+		t,
+		"client-download-denied",
+		"client-download-denied@example.com",
+		true,
+	)
 
 	createFileForTests(t, "file-direct")
 	createShareForTests(t, "share-direct", "file-direct", "client", "client-download-direct")
@@ -2410,9 +2997,24 @@ func TestClientDownloadAuthorization(t *testing.T) {
 		cookie     *http.Cookie
 		wantStatus int
 	}{
-		{name: "direct share allowed", fileID: "file-direct", cookie: directCookie, wantStatus: http.StatusOK},
-		{name: "group share allowed", fileID: "file-group", cookie: groupCookie, wantStatus: http.StatusOK},
-		{name: "missing share denied", fileID: "file-direct", cookie: deniedCookie, wantStatus: http.StatusForbidden},
+		{
+			name:       "direct share allowed",
+			fileID:     "file-direct",
+			cookie:     directCookie,
+			wantStatus: http.StatusOK,
+		},
+		{
+			name:       "group share allowed",
+			fileID:     "file-group",
+			cookie:     groupCookie,
+			wantStatus: http.StatusOK,
+		},
+		{
+			name:       "missing share denied",
+			fileID:     "file-direct",
+			cookie:     deniedCookie,
+			wantStatus: http.StatusForbidden,
+		},
 	}
 
 	for _, tc := range tests {
@@ -2437,11 +3039,35 @@ func TestClientDownloadAuthorization(t *testing.T) {
 func TestClientUploadAuthorizationConstraints(t *testing.T) {
 	s := New(testConfig(), slog.Default())
 
-	createClientForUploadTests(t, "client-upload-enabled", "client-upload-enabled@example.com", true, true)
-	createClientForUploadTests(t, "client-upload-disabled", "client-upload-disabled@example.com", true, false)
-	createClientForUploadTests(t, "client-upload-inactive", "client-upload-inactive@example.com", false, true)
+	createClientForUploadTests(
+		t,
+		"client-upload-enabled",
+		"client-upload-enabled@example.com",
+		true,
+		true,
+	)
+	createClientForUploadTests(
+		t,
+		"client-upload-disabled",
+		"client-upload-disabled@example.com",
+		true,
+		false,
+	)
+	createClientForUploadTests(
+		t,
+		"client-upload-inactive",
+		"client-upload-inactive@example.com",
+		false,
+		true,
+	)
 
-	createClientUploadPermissionForTests(t, "perm-enabled", "client-upload-enabled", "user", "u-target-1")
+	createClientUploadPermissionForTests(
+		t,
+		"perm-enabled",
+		"client-upload-enabled",
+		"user",
+		"u-target-1",
+	)
 
 	enabledCookie := login(t, s, "client", "client-upload-enabled", "")
 	disabledCookie := login(t, s, "client", "client-upload-disabled", "")
@@ -2453,16 +3079,45 @@ func TestClientUploadAuthorizationConstraints(t *testing.T) {
 		body       string
 		wantStatus int
 	}{
-		{name: "enabled and allowed target", cookie: enabledCookie, body: "filename=allowed.pdf&target_type=user&target_id=u-target-1", wantStatus: http.StatusCreated},
-		{name: "enabled second user target", cookie: enabledCookie, body: "filename=forbidden.pdf&target_type=user&target_id=u-target-2", wantStatus: http.StatusCreated},
-		{name: "enabled invalid target type", cookie: enabledCookie, body: "filename=invalid.pdf&target_type=client&target_id=c-target-1", wantStatus: http.StatusBadRequest},
-		{name: "disabled upload", cookie: disabledCookie, body: "filename=disabled.pdf&target_type=user&target_id=u-target-1", wantStatus: http.StatusForbidden},
-		{name: "inactive client", cookie: inactiveCookie, body: "filename=inactive.pdf&target_type=user&target_id=u-target-1", wantStatus: http.StatusForbidden},
+		{
+			name:       "enabled and allowed target",
+			cookie:     enabledCookie,
+			body:       "filename=allowed.pdf&target_type=user&target_id=u-target-1",
+			wantStatus: http.StatusCreated,
+		},
+		{
+			name:       "enabled second user target",
+			cookie:     enabledCookie,
+			body:       "filename=forbidden.pdf&target_type=user&target_id=u-target-2",
+			wantStatus: http.StatusCreated,
+		},
+		{
+			name:       "enabled invalid target type",
+			cookie:     enabledCookie,
+			body:       "filename=invalid.pdf&target_type=client&target_id=c-target-1",
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name:       "disabled upload",
+			cookie:     disabledCookie,
+			body:       "filename=disabled.pdf&target_type=user&target_id=u-target-1",
+			wantStatus: http.StatusForbidden,
+		},
+		{
+			name:       "inactive client",
+			cookie:     inactiveCookie,
+			body:       "filename=inactive.pdf&target_type=user&target_id=u-target-1",
+			wantStatus: http.StatusForbidden,
+		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			req := httptest.NewRequest(http.MethodPost, "/client/uploads", bytes.NewBufferString(tc.body))
+			req := httptest.NewRequest(
+				http.MethodPost,
+				"/client/uploads",
+				bytes.NewBufferString(tc.body),
+			)
 			req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
 			req.AddCookie(tc.cookie)
 			rec := httptest.NewRecorder()
@@ -2497,7 +3152,11 @@ func TestClientUploadAuthorizationConstraints(t *testing.T) {
 		}
 	}
 	if !allowedFound || !deniedFound {
-		t.Fatalf("expected both allowed and denied upload authz audit events; got allowed=%v denied=%v", allowedFound, deniedFound)
+		t.Fatalf(
+			"expected both allowed and denied upload authz audit events; got allowed=%v denied=%v",
+			allowedFound,
+			deniedFound,
+		)
 	}
 }
 
@@ -2583,14 +3242,30 @@ func TestClientPasswordLoginDisabledAndInvalidCredentials(t *testing.T) {
 		body       string
 		wantStatus int
 	}{
-		{name: "password disabled", body: "email=client-nopass@example.com&password=secret-pass", wantStatus: http.StatusForbidden},
-		{name: "wrong password", body: "email=client-pass2@example.com&password=wrong", wantStatus: http.StatusUnauthorized},
-		{name: "missing user", body: "email=missing@example.com&password=secret-pass", wantStatus: http.StatusUnauthorized},
+		{
+			name:       "password disabled",
+			body:       "email=client-nopass@example.com&password=secret-pass",
+			wantStatus: http.StatusForbidden,
+		},
+		{
+			name:       "wrong password",
+			body:       "email=client-pass2@example.com&password=wrong",
+			wantStatus: http.StatusUnauthorized,
+		},
+		{
+			name:       "missing user",
+			body:       "email=missing@example.com&password=secret-pass",
+			wantStatus: http.StatusUnauthorized,
+		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			req := httptest.NewRequest(http.MethodPost, "/auth/password/login", bytes.NewBufferString(tc.body))
+			req := httptest.NewRequest(
+				http.MethodPost,
+				"/auth/password/login",
+				bytes.NewBufferString(tc.body),
+			)
 			req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
 			rec := httptest.NewRecorder()
 			s.e.ServeHTTP(rec, req)
@@ -2660,7 +3335,13 @@ func TestLogoutWritesAuditEventForActiveSession(t *testing.T) {
 
 func TestClientPasswordLoginSuccessWritesAuditEvent(t *testing.T) {
 	s := New(testConfig(), slog.Default())
-	createClientWithPassword(t, "client-pass-audit", "client-pass-audit@example.com", "secret-pass", true)
+	createClientWithPassword(
+		t,
+		"client-pass-audit",
+		"client-pass-audit@example.com",
+		"secret-pass",
+		true,
+	)
 
 	body := bytes.NewBufferString("email=client-pass-audit@example.com&password=secret-pass")
 	req := httptest.NewRequest(http.MethodPost, "/auth/password/login", body)
@@ -2716,14 +3397,30 @@ func TestUserPasswordLoginDisabledAndInvalidCredentials(t *testing.T) {
 		body       string
 		wantStatus int
 	}{
-		{name: "password disabled", body: "email=user-nopass@example.com&password=secret-pass", wantStatus: http.StatusForbidden},
-		{name: "wrong password", body: "email=user-pass2@example.com&password=wrong", wantStatus: http.StatusUnauthorized},
-		{name: "missing user", body: "email=missing-user@example.com&password=secret-pass", wantStatus: http.StatusUnauthorized},
+		{
+			name:       "password disabled",
+			body:       "email=user-nopass@example.com&password=secret-pass",
+			wantStatus: http.StatusForbidden,
+		},
+		{
+			name:       "wrong password",
+			body:       "email=user-pass2@example.com&password=wrong",
+			wantStatus: http.StatusUnauthorized,
+		},
+		{
+			name:       "missing user",
+			body:       "email=missing-user@example.com&password=secret-pass",
+			wantStatus: http.StatusUnauthorized,
+		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			req := httptest.NewRequest(http.MethodPost, "/auth/password/login", bytes.NewBufferString(tc.body))
+			req := httptest.NewRequest(
+				http.MethodPost,
+				"/auth/password/login",
+				bytes.NewBufferString(tc.body),
+			)
 			req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
 			rec := httptest.NewRecorder()
 			s.e.ServeHTTP(rec, req)
@@ -2736,7 +3433,11 @@ func TestUserPasswordLoginDisabledAndInvalidCredentials(t *testing.T) {
 
 func TestPasswordLoginRejectsInvalidActorType(t *testing.T) {
 	s := New(testConfig(), slog.Default())
-	req := httptest.NewRequest(http.MethodPost, "/auth/password/login", bytes.NewBufferString("actor_type=admin&email=user@example.com&password=secret-pass"))
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/auth/password/login",
+		bytes.NewBufferString("actor_type=admin&email=user@example.com&password=secret-pass"),
+	)
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
 	rec := httptest.NewRecorder()
 	s.e.ServeHTTP(rec, req)
@@ -2786,22 +3487,57 @@ func TestUserClientEmailUniquenessIsCaseInsensitive(t *testing.T) {
 func TestPasswordResetFlowForUserAndClient(t *testing.T) {
 	s := New(testConfig(), slog.Default())
 	createUserWithPassword(t, "user-reset", "user-reset@example.com", "old-password-123", true, 3)
-	createClientWithPassword(t, "client-reset", "client-reset@example.com", "old-password-123", true)
+	createClientWithPassword(
+		t,
+		"client-reset",
+		"client-reset@example.com",
+		"old-password-123",
+		true,
+	)
 
 	for _, email := range []string{"user-reset@example.com", "client-reset@example.com", "missing-reset@example.com"} {
-		req := httptest.NewRequest(http.MethodPost, "/auth/password/reset/request", bytes.NewBufferString("email="+email))
+		req := httptest.NewRequest(
+			http.MethodPost,
+			"/auth/password/reset/request",
+			bytes.NewBufferString("email="+email),
+		)
 		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
 		rec := httptest.NewRecorder()
 		s.e.ServeHTTP(rec, req)
 		if rec.Code != http.StatusNoContent {
-			t.Fatalf("reset request status for %s = %d, want %d", email, rec.Code, http.StatusNoContent)
+			t.Fatalf(
+				"reset request status for %s = %d, want %d",
+				email,
+				rec.Code,
+				http.StatusNoContent,
+			)
 		}
 	}
 
-	insertPasswordResetForTests(t, "reset-user-1", "user", "user-reset", "user-reset@example.com", "tok-user", time.Now().Add(10*time.Minute))
-	insertPasswordResetForTests(t, "reset-client-1", "client", "client-reset", "client-reset@example.com", "tok-client", time.Now().Add(10*time.Minute))
+	insertPasswordResetForTests(
+		t,
+		"reset-user-1",
+		"user",
+		"user-reset",
+		"user-reset@example.com",
+		"tok-user",
+		time.Now().Add(10*time.Minute),
+	)
+	insertPasswordResetForTests(
+		t,
+		"reset-client-1",
+		"client",
+		"client-reset",
+		"client-reset@example.com",
+		"tok-client",
+		time.Now().Add(10*time.Minute),
+	)
 
-	confirmReq := httptest.NewRequest(http.MethodPost, "/auth/password/reset/confirm", bytes.NewBufferString("token=tok-user&new_password=new-password-123"))
+	confirmReq := httptest.NewRequest(
+		http.MethodPost,
+		"/auth/password/reset/confirm",
+		bytes.NewBufferString("token=tok-user&new_password=new-password-123"),
+	)
 	confirmReq.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
 	confirmRec := httptest.NewRecorder()
 	s.e.ServeHTTP(confirmRec, confirmReq)
@@ -2809,7 +3545,11 @@ func TestPasswordResetFlowForUserAndClient(t *testing.T) {
 		t.Fatalf("user confirm status = %d, want %d", confirmRec.Code, http.StatusNoContent)
 	}
 
-	confirmClientReq := httptest.NewRequest(http.MethodPost, "/auth/password/reset/confirm", bytes.NewBufferString("token=tok-client&new_password=new-password-123"))
+	confirmClientReq := httptest.NewRequest(
+		http.MethodPost,
+		"/auth/password/reset/confirm",
+		bytes.NewBufferString("token=tok-client&new_password=new-password-123"),
+	)
 	confirmClientReq.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
 	confirmClientRec := httptest.NewRecorder()
 	s.e.ServeHTTP(confirmClientRec, confirmClientReq)
@@ -2817,20 +3557,40 @@ func TestPasswordResetFlowForUserAndClient(t *testing.T) {
 		t.Fatalf("client confirm status = %d, want %d", confirmClientRec.Code, http.StatusNoContent)
 	}
 
-	userLoginReq := httptest.NewRequest(http.MethodPost, "/auth/password/login", bytes.NewBufferString("actor_type=user&email=user-reset@example.com&password=new-password-123"))
+	userLoginReq := httptest.NewRequest(
+		http.MethodPost,
+		"/auth/password/login",
+		bytes.NewBufferString(
+			"actor_type=user&email=user-reset@example.com&password=new-password-123",
+		),
+	)
 	userLoginReq.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
 	userLoginRec := httptest.NewRecorder()
 	s.e.ServeHTTP(userLoginRec, userLoginReq)
 	if userLoginRec.Code != http.StatusNoContent {
-		t.Fatalf("user login after reset status = %d, want %d", userLoginRec.Code, http.StatusNoContent)
+		t.Fatalf(
+			"user login after reset status = %d, want %d",
+			userLoginRec.Code,
+			http.StatusNoContent,
+		)
 	}
 
-	clientLoginReq := httptest.NewRequest(http.MethodPost, "/auth/password/login", bytes.NewBufferString("actor_type=client&email=client-reset@example.com&password=new-password-123"))
+	clientLoginReq := httptest.NewRequest(
+		http.MethodPost,
+		"/auth/password/login",
+		bytes.NewBufferString(
+			"actor_type=client&email=client-reset@example.com&password=new-password-123",
+		),
+	)
 	clientLoginReq.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
 	clientLoginRec := httptest.NewRecorder()
 	s.e.ServeHTTP(clientLoginRec, clientLoginReq)
 	if clientLoginRec.Code != http.StatusNoContent {
-		t.Fatalf("client login after reset status = %d, want %d", clientLoginRec.Code, http.StatusNoContent)
+		t.Fatalf(
+			"client login after reset status = %d, want %d",
+			clientLoginRec.Code,
+			http.StatusNoContent,
+		)
 	}
 }
 
@@ -2851,7 +3611,9 @@ func TestTemplateRendererAddsPath(t *testing.T) {
 	if !strings.Contains(string(body), "href=\"/assets/app.css\"") {
 		t.Fatalf("body = %q, want stylesheet link", string(body))
 	}
-	if strings.Contains(string(body), "href=\"/user/dashboard\"") || strings.Contains(string(body), "href=\"/client/dashboard\"") || strings.Contains(string(body), "href=\"/admin/dashboard\"") {
+	if strings.Contains(string(body), "href=\"/user/dashboard\"") ||
+		strings.Contains(string(body), "href=\"/client/dashboard\"") ||
+		strings.Contains(string(body), "href=\"/admin/dashboard\"") {
 		t.Fatalf("body = %q, should not render actor shortcut links", string(body))
 	}
 }
@@ -2878,7 +3640,8 @@ func TestTemplateRendererRendersFlashPartials(t *testing.T) {
 	if !strings.Contains(body, "alert alert-success") || !strings.Contains(body, "saved") {
 		t.Fatalf("body = %q, want success flash", body)
 	}
-	if !strings.Contains(body, "alert alert-error") || !strings.Contains(body, "validation failed") {
+	if !strings.Contains(body, "alert alert-error") ||
+		!strings.Contains(body, "validation failed") {
 		t.Fatalf("body = %q, want error flash", body)
 	}
 }
@@ -2907,7 +3670,9 @@ func TestAssetsCSSIsServed(t *testing.T) {
 
 func login(t *testing.T, s *Server, actorType, actorID, roles string) *http.Cookie {
 	t.Helper()
-	body := bytes.NewBufferString(fmt.Sprintf("actor_type=%s&actor_id=%s&roles=%s", actorType, actorID, roles))
+	body := bytes.NewBufferString(
+		fmt.Sprintf("actor_type=%s&actor_id=%s&roles=%s", actorType, actorID, roles),
+	)
 	req := httptest.NewRequest(http.MethodPost, "/auth/session", body)
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
 	rec := httptest.NewRecorder()
@@ -2915,7 +3680,12 @@ func login(t *testing.T, s *Server, actorType, actorID, roles string) *http.Cook
 	s.e.ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusNoContent {
-		t.Fatalf("login status = %d, want %d, body=%q", rec.Code, http.StatusNoContent, rec.Body.String())
+		t.Fatalf(
+			"login status = %d, want %d, body=%q",
+			rec.Code,
+			http.StatusNoContent,
+			rec.Body.String(),
+		)
 	}
 	if c := cookieByName(rec.Result().Cookies(), "fileshare_session"); c != nil {
 		return c
@@ -2933,7 +3703,10 @@ func cookieByName(cookies []*http.Cookie, name string) *http.Cookie {
 	return nil
 }
 
-func signedSSOToken(t *testing.T, secret, issuer, audience, userID, subject, email, name string) string {
+func signedSSOToken(
+	t *testing.T,
+	secret, issuer, audience, userID, subject, email, name string,
+) string {
 	t.Helper()
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"uid":   userID,
@@ -2953,7 +3726,7 @@ func signedSSOToken(t *testing.T, secret, issuer, audience, userID, subject, ema
 
 type failingSender struct{}
 
-func (failingSender) SendMagicLink(_ context.Context, _ string, _ string) error {
+func (failingSender) SendMagicLink(_ context.Context, _, _ string) error {
 	return errors.New("smtp down")
 }
 
@@ -3015,12 +3788,19 @@ func createUserWithPassword(t *testing.T, id, email, password string, active boo
 	}); err != nil {
 		t.Fatalf("CreateUser() error: %v", err)
 	}
-	if err := queries.AddUserRole(context.Background(), db.AddUserRoleParams{UserID: id, RoleID: roleID}); err != nil {
+	if err := queries.AddUserRole(
+		context.Background(),
+		db.AddUserRoleParams{UserID: id, RoleID: roleID},
+	); err != nil {
 		t.Fatalf("AddUserRole() error: %v", err)
 	}
 }
 
-func insertPasswordResetForTests(t *testing.T, id, actorType, actorID, email, token string, expiresAt time.Time) {
+func insertPasswordResetForTests(
+	t *testing.T,
+	id, actorType, actorID, email, token string,
+	expiresAt time.Time,
+) {
 	t.Helper()
 	sqlDB, err := sql.Open("sqlite", testConfig().DatabaseURL)
 	if err != nil {
@@ -3065,7 +3845,10 @@ func createUserWithoutPassword(t *testing.T, id, email string, active bool, role
 	}); err != nil {
 		t.Fatalf("CreateUser() error: %v", err)
 	}
-	if err := queries.AddUserRole(context.Background(), db.AddUserRoleParams{UserID: id, RoleID: roleID}); err != nil {
+	if err := queries.AddUserRole(
+		context.Background(),
+		db.AddUserRoleParams{UserID: id, RoleID: roleID},
+	); err != nil {
 		t.Fatalf("AddUserRole() error: %v", err)
 	}
 }
@@ -3226,7 +4009,10 @@ func createClientForUploadTests(t *testing.T, id, email string, active, canUploa
 	}
 }
 
-func createClientUploadPermissionForTests(t *testing.T, permissionID, clientID, targetType, targetID string) {
+func createClientUploadPermissionForTests(
+	t *testing.T,
+	permissionID, clientID, targetType, targetID string,
+) {
 	t.Helper()
 	sqlDB, err := sql.Open("sqlite", testConfig().DatabaseURL)
 	if err != nil {
@@ -3234,13 +4020,14 @@ func createClientUploadPermissionForTests(t *testing.T, permissionID, clientID, 
 	}
 	defer sqlDB.Close()
 
-	if err := db.New(sqlDB).CreateClientUploadPermission(context.Background(), db.CreateClientUploadPermissionParams{
-		ID:         permissionID,
-		OwnerType:  "client",
-		OwnerID:    clientID,
-		TargetType: targetType,
-		TargetID:   targetID,
-	}); err != nil {
+	if err := db.New(sqlDB).
+		CreateClientUploadPermission(context.Background(), db.CreateClientUploadPermissionParams{
+			ID:         permissionID,
+			OwnerType:  "client",
+			OwnerID:    clientID,
+			TargetType: targetType,
+			TargetID:   targetID,
+		}); err != nil {
 		t.Fatalf("CreateClientUploadPermission() error: %v", err)
 	}
 }
@@ -3253,11 +4040,12 @@ func listAuditLogsByEventType(t *testing.T, eventType string) []db.AuditLog {
 	}
 	defer sqlDB.Close()
 
-	logs, err := db.New(sqlDB).ListAuditLogsByEventType(context.Background(), db.ListAuditLogsByEventTypeParams{
-		EventType: eventType,
-		Limit:     100,
-		Offset:    0,
-	})
+	logs, err := db.New(sqlDB).
+		ListAuditLogsByEventType(context.Background(), db.ListAuditLogsByEventTypeParams{
+			EventType: eventType,
+			Limit:     100,
+			Offset:    0,
+		})
 	if err != nil {
 		t.Fatalf("ListAuditLogsByEventType() error: %v", err)
 	}
@@ -3287,7 +4075,8 @@ func latestClientGroupID(t *testing.T) string {
 	}
 	defer sqlDB.Close()
 
-	groups, err := db.New(sqlDB).ListClientGroups(context.Background(), db.ListClientGroupsParams{Limit: 1, Offset: 0})
+	groups, err := db.New(sqlDB).
+		ListClientGroups(context.Background(), db.ListClientGroupsParams{Limit: 1, Offset: 0})
 	if err != nil {
 		t.Fatalf("ListClientGroups() error: %v", err)
 	}
@@ -3320,7 +4109,8 @@ func lookupClientGroupIDByName(t *testing.T, name string) string {
 	}
 	defer sqlDB.Close()
 
-	groups, err := db.New(sqlDB).ListClientGroups(context.Background(), db.ListClientGroupsParams{Limit: 200, Offset: 0})
+	groups, err := db.New(sqlDB).
+		ListClientGroups(context.Background(), db.ListClientGroupsParams{Limit: 200, Offset: 0})
 	if err != nil {
 		t.Fatalf("ListClientGroups() error: %v", err)
 	}
@@ -3342,7 +4132,10 @@ func listClientGroupsForClient(t *testing.T, clientID string) []db.ClientGroup {
 	defer sqlDB.Close()
 
 	queries := db.New(sqlDB)
-	groups, err := queries.ListClientGroups(context.Background(), db.ListClientGroupsParams{Limit: 200, Offset: 0})
+	groups, err := queries.ListClientGroups(
+		context.Background(),
+		db.ListClientGroupsParams{Limit: 200, Offset: 0},
+	)
 	if err != nil {
 		t.Fatalf("ListClientGroups() error: %v", err)
 	}

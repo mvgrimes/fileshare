@@ -7,11 +7,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pressly/goose/v3"
-
 	"fileshare/internal/auth"
 	"fileshare/internal/db"
 	"fileshare/migrations"
+
+	"github.com/pressly/goose/v3"
 
 	_ "modernc.org/sqlite"
 )
@@ -21,20 +21,62 @@ func TestMigrationsAndCoreQueries(t *testing.T) {
 	queries := db.New(sqlDB)
 	ctx := context.Background()
 
-	if err := queries.CreateUser(ctx, db.CreateUserParams{ID: "u1", Email: "u1@example.com", FullName: "User One", PasswordHash: sql.NullString{}, IsActive: 1}); err != nil {
+	if err := queries.CreateUser(
+		ctx,
+		db.CreateUserParams{
+			ID:           "u1",
+			Email:        "u1@example.com",
+			FullName:     "User One",
+			PasswordHash: sql.NullString{},
+			IsActive:     1,
+		},
+	); err != nil {
 		t.Fatalf("CreateUser() unexpected error: %v", err)
 	}
-	if err := queries.CreateClient(ctx, db.CreateClientParams{ID: "c1", Email: "c1@example.com", DisplayName: "Client One", CanUpload: 1, IsActive: 1}); err != nil {
+	if err := queries.CreateClient(
+		ctx,
+		db.CreateClientParams{
+			ID:          "c1",
+			Email:       "c1@example.com",
+			DisplayName: "Client One",
+			CanUpload:   1,
+			IsActive:    1,
+		},
+	); err != nil {
 		t.Fatalf("CreateClient() unexpected error: %v", err)
 	}
-	if err := queries.CreateFile(ctx, db.CreateFileParams{ID: "f1", UploaderType: "user", UploaderID: "u1", OriginalFilename: "spec.pdf", StorageKey: "files/f1", ContentType: "application/pdf", SizeBytes: 42}); err != nil {
+	if err := queries.CreateFile(
+		ctx,
+		db.CreateFileParams{
+			ID:               "f1",
+			UploaderType:     "user",
+			UploaderID:       "u1",
+			OriginalFilename: "spec.pdf",
+			StorageKey:       "files/f1",
+			ContentType:      "application/pdf",
+			SizeBytes:        42,
+		},
+	); err != nil {
 		t.Fatalf("CreateFile() unexpected error: %v", err)
 	}
-	if err := queries.CreateShare(ctx, db.CreateShareParams{ID: "s1", FileID: "f1", SharedByType: "user", SharedByID: "u1", TargetType: "client", TargetID: "c1"}); err != nil {
+	if err := queries.CreateShare(
+		ctx,
+		db.CreateShareParams{
+			ID:           "s1",
+			FileID:       "f1",
+			SharedByType: "user",
+			SharedByID:   "u1",
+			TargetType:   "client",
+			TargetID:     "c1",
+		},
+	); err != nil {
 		t.Fatalf("CreateShare() unexpected error: %v", err)
 	}
 
-	shares, err := queries.ListSharesByTarget(ctx, db.ListSharesByTargetParams{TargetType: "client", TargetID: "c1", Limit: 10, Offset: 0})
+	shares, err := queries.ListSharesByTarget(
+		ctx,
+		db.ListSharesByTargetParams{TargetType: "client", TargetID: "c1", Limit: 10, Offset: 0},
+	)
 	if err != nil {
 		t.Fatalf("ListSharesByTarget() unexpected error: %v", err)
 	}
@@ -49,7 +91,10 @@ func TestSessionAndMagicLinkPersistenceFlows(t *testing.T) {
 	ctx := context.Background()
 
 	sessionA := auth.NewManager(queries, time.Hour)
-	token, createdSession, err := sessionA.CreateSession(ctx, auth.Principal{ActorType: "user", ActorID: "u-session"})
+	token, createdSession, err := sessionA.CreateSession(
+		ctx,
+		auth.Principal{ActorType: "user", ActorID: "u-session"},
+	)
 	if err != nil {
 		t.Fatalf("CreateSession() unexpected error: %v", err)
 	}
@@ -60,7 +105,11 @@ func TestSessionAndMagicLinkPersistenceFlows(t *testing.T) {
 		t.Fatalf("LoadSession() unexpected error: %v", err)
 	}
 	if loadedSession.TokenHash != createdSession.TokenHash {
-		t.Fatalf("loaded session hash = %q, want %q", loadedSession.TokenHash, createdSession.TokenHash)
+		t.Fatalf(
+			"loaded session hash = %q, want %q",
+			loadedSession.TokenHash,
+			createdSession.TokenHash,
+		)
 	}
 
 	magicA := auth.NewMagicManager(queries, time.Hour, 0)
@@ -84,16 +133,55 @@ func TestShareDownloadTrackingQueries(t *testing.T) {
 	queries := db.New(sqlDB)
 	ctx := context.Background()
 
-	if err := queries.CreateUser(ctx, db.CreateUserParams{ID: "u1", Email: "u1@example.com", FullName: "User One", PasswordHash: sql.NullString{}, IsActive: 1}); err != nil {
+	if err := queries.CreateUser(
+		ctx,
+		db.CreateUserParams{
+			ID:           "u1",
+			Email:        "u1@example.com",
+			FullName:     "User One",
+			PasswordHash: sql.NullString{},
+			IsActive:     1,
+		},
+	); err != nil {
 		t.Fatalf("CreateUser() unexpected error: %v", err)
 	}
-	if err := queries.CreateClient(ctx, db.CreateClientParams{ID: "c1", Email: "c1@example.com", DisplayName: "Client One", CanUpload: 1, IsActive: 1}); err != nil {
+	if err := queries.CreateClient(
+		ctx,
+		db.CreateClientParams{
+			ID:          "c1",
+			Email:       "c1@example.com",
+			DisplayName: "Client One",
+			CanUpload:   1,
+			IsActive:    1,
+		},
+	); err != nil {
 		t.Fatalf("CreateClient() unexpected error: %v", err)
 	}
-	if err := queries.CreateFile(ctx, db.CreateFileParams{ID: "f1", UploaderType: "user", UploaderID: "u1", OriginalFilename: "spec.pdf", StorageKey: "files/f1", ContentType: "application/pdf", SizeBytes: 42}); err != nil {
+	if err := queries.CreateFile(
+		ctx,
+		db.CreateFileParams{
+			ID:               "f1",
+			UploaderType:     "user",
+			UploaderID:       "u1",
+			OriginalFilename: "spec.pdf",
+			StorageKey:       "files/f1",
+			ContentType:      "application/pdf",
+			SizeBytes:        42,
+		},
+	); err != nil {
 		t.Fatalf("CreateFile() unexpected error: %v", err)
 	}
-	if err := queries.CreateShare(ctx, db.CreateShareParams{ID: "s1", FileID: "f1", SharedByType: "user", SharedByID: "u1", TargetType: "client", TargetID: "c1"}); err != nil {
+	if err := queries.CreateShare(
+		ctx,
+		db.CreateShareParams{
+			ID:           "s1",
+			FileID:       "f1",
+			SharedByType: "user",
+			SharedByID:   "u1",
+			TargetType:   "client",
+			TargetID:     "c1",
+		},
+	); err != nil {
 		t.Fatalf("CreateShare() unexpected error: %v", err)
 	}
 
@@ -112,10 +200,16 @@ func TestShareDownloadTrackingQueries(t *testing.T) {
 		t.Fatalf("share viewed before download = true, want false")
 	}
 
-	if err := queries.RecordShareDownload(ctx, db.RecordShareDownloadParams{ID: "d1", ShareID: "s1", ClientID: "c1"}); err != nil {
+	if err := queries.RecordShareDownload(
+		ctx,
+		db.RecordShareDownloadParams{ID: "d1", ShareID: "s1", ClientID: "c1"},
+	); err != nil {
 		t.Fatalf("RecordShareDownload() first call unexpected error: %v", err)
 	}
-	if err := queries.RecordShareDownload(ctx, db.RecordShareDownloadParams{ID: "d2", ShareID: "s1", ClientID: "c1"}); err != nil {
+	if err := queries.RecordShareDownload(
+		ctx,
+		db.RecordShareDownloadParams{ID: "d2", ShareID: "s1", ClientID: "c1"},
+	); err != nil {
 		t.Fatalf("RecordShareDownload() second call unexpected error: %v", err)
 	}
 

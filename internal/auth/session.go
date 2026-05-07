@@ -14,8 +14,10 @@ import (
 	"fileshare/internal/db"
 )
 
-var ErrSessionNotFound = errors.New("session not found")
-var ErrInvalidPrincipal = errors.New("invalid principal")
+var (
+	ErrSessionNotFound  = errors.New("session not found")
+	ErrInvalidPrincipal = errors.New("invalid principal")
+)
 
 type Principal struct {
 	ActorType string

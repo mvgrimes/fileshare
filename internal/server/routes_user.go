@@ -8,14 +8,14 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/google/uuid"
-	"github.com/labstack/echo/v4"
-	"golang.org/x/crypto/bcrypt"
-
 	"fileshare/internal/auth"
 	"fileshare/internal/db"
 	"fileshare/internal/files"
 	"fileshare/internal/mail"
+
+	"github.com/google/uuid"
+	"github.com/labstack/echo/v4"
+	"golang.org/x/crypto/bcrypt"
 )
 
 func (s *Server) registerUserRoutes(queries *db.Queries) {
@@ -32,11 +32,22 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 		principal, _ := auth.PrincipalFromContext(c)
 		actions := dashboardActions(principal)
 
-		sentUploads, err := queries.ListFilesByUploader(c.Request().Context(), db.ListFilesByUploaderParams{UploaderType: "user", UploaderID: principal.ActorID, Limit: 200, Offset: 0})
+		sentUploads, err := queries.ListFilesByUploader(
+			c.Request().Context(),
+			db.ListFilesByUploaderParams{
+				UploaderType: "user",
+				UploaderID:   principal.ActorID,
+				Limit:        200,
+				Offset:       0,
+			},
+		)
 		if err != nil {
 			return c.String(http.StatusInternalServerError, "failed to load dashboard files")
 		}
-		clients, err := queries.ListClients(c.Request().Context(), db.ListClientsParams{Limit: 500, Offset: 0})
+		clients, err := queries.ListClients(
+			c.Request().Context(),
+			db.ListClientsParams{Limit: 500, Offset: 0},
+		)
 		if err != nil {
 			return c.String(http.StatusInternalServerError, "failed to load dashboard stats")
 		}
@@ -44,7 +55,10 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 		for _, cl := range clients {
 			clientByID[cl.ID] = cl
 		}
-		groups, err := queries.ListClientGroups(c.Request().Context(), db.ListClientGroupsParams{Limit: 500, Offset: 0})
+		groups, err := queries.ListClientGroups(
+			c.Request().Context(),
+			db.ListClientGroupsParams{Limit: 500, Offset: 0},
+		)
 		if err != nil {
 			return c.String(http.StatusInternalServerError, "failed to load dashboard stats")
 		}
@@ -58,7 +72,10 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 		for _, f := range sentUploads {
 			viewed, viewErr := queries.FileHasAnyClientDownload(c.Request().Context(), f.ID)
 			if viewErr != nil {
-				return c.String(http.StatusInternalServerError, "failed to load dashboard file status")
+				return c.String(
+					http.StatusInternalServerError,
+					"failed to load dashboard file status",
+				)
 			}
 			if viewed {
 				userSentViewed++
@@ -69,9 +86,15 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 			}
 			for _, sh := range shares {
 				status := "unviewed"
-				shareViewed, shareViewErr := queries.ShareHasAnyDownload(c.Request().Context(), sh.ID)
+				shareViewed, shareViewErr := queries.ShareHasAnyDownload(
+					c.Request().Context(),
+					sh.ID,
+				)
 				if shareViewErr != nil {
-					return c.String(http.StatusInternalServerError, "failed to load dashboard share status")
+					return c.String(
+						http.StatusInternalServerError,
+						"failed to load dashboard share status",
+					)
 				}
 				if shareViewed {
 					status = "viewed"
@@ -87,7 +110,18 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 						targetLabel = "Client Group: " + strings.TrimSpace(cg.Name)
 					}
 				}
-				sentItems = append(sentItems, fileListItem{ID: sh.ID, FileID: f.ID, Name: f.OriginalFilename, UploadedAt: f.CreatedAt, ViewStatus: status, SharedVia: targetLabel, SharedAt: sh.CreatedAt})
+				sentItems = append(
+					sentItems,
+					fileListItem{
+						ID:         sh.ID,
+						FileID:     f.ID,
+						Name:       f.OriginalFilename,
+						UploadedAt: f.CreatedAt,
+						ViewStatus: status,
+						SharedVia:  targetLabel,
+						SharedAt:   sh.CreatedAt,
+					},
+				)
 			}
 		}
 		sort.SliceStable(sentItems, func(i, j int) bool {
@@ -100,7 +134,10 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 			sentItems = sentItems[:10]
 		}
 
-		shares, err := queries.ListUserAccessibleShares(c.Request().Context(), db.ListUserAccessibleSharesParams{UserID: principal.ActorID, Limit: 200, Offset: 0})
+		shares, err := queries.ListUserAccessibleShares(
+			c.Request().Context(),
+			db.ListUserAccessibleSharesParams{UserID: principal.ActorID, Limit: 200, Offset: 0},
+		)
 		if err != nil {
 			return c.String(http.StatusInternalServerError, "failed to load dashboard shares")
 		}
@@ -116,7 +153,17 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 					sharedBy = strings.TrimSpace(cl.DisplayName)
 				}
 			}
-			receivedItems = append(receivedItems, fileListItem{ID: sh.ID, FileID: f.ID, Name: f.OriginalFilename, SharedVia: sharedBy, SharedAt: sh.CreatedAt, ViewStatus: "unviewed"})
+			receivedItems = append(
+				receivedItems,
+				fileListItem{
+					ID:         sh.ID,
+					FileID:     f.ID,
+					Name:       f.OriginalFilename,
+					SharedVia:  sharedBy,
+					SharedAt:   sh.CreatedAt,
+					ViewStatus: "unviewed",
+				},
+			)
 		}
 		sort.SliceStable(receivedItems, func(i, j int) bool {
 			if receivedItems[i].ViewStatus != receivedItems[j].ViewStatus {
@@ -160,7 +207,22 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 			}
 			return c.String(http.StatusInternalServerError, "failed to load profile")
 		}
-		return c.Render(http.StatusOK, "profile", map[string]any{"Title": "Profile", "Subtitle": "Update your name and password.", "ContentTemplate": "profile_content", "ProfileType": "user", "ActorID": principal.ActorID, "Email": account.Email, "DisplayName": account.FullName, "FormAction": "/user/profile", "FlashError": c.QueryParam("error"), "FlashSuccess": c.QueryParam("success")})
+		return c.Render(
+			http.StatusOK,
+			"profile",
+			map[string]any{
+				"Title":           "Profile",
+				"Subtitle":        "Update your name and password.",
+				"ContentTemplate": "profile_content",
+				"ProfileType":     "user",
+				"ActorID":         principal.ActorID,
+				"Email":           account.Email,
+				"DisplayName":     account.FullName,
+				"FormAction":      "/user/profile",
+				"FlashError":      c.QueryParam("error"),
+				"FlashSuccess":    c.QueryParam("success"),
+			},
+		)
 	})
 
 	user.POST("/profile", func(c echo.Context) error {
@@ -175,7 +237,10 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 		fullName := strings.TrimSpace(c.FormValue("display_name"))
 		if fullName == "" {
 			if isHTMLRequest(c) {
-				return c.Redirect(http.StatusSeeOther, "/user/profile?error="+url.QueryEscape("display_name is required"))
+				return c.Redirect(
+					http.StatusSeeOther,
+					"/user/profile?error="+url.QueryEscape("display_name is required"),
+				)
 			}
 			return c.String(http.StatusBadRequest, "display_name is required")
 		}
@@ -183,17 +248,33 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 		confirmPassword := strings.TrimSpace(c.FormValue("confirm_password"))
 		if newPassword != confirmPassword {
 			if isHTMLRequest(c) {
-				return c.Redirect(http.StatusSeeOther, "/user/profile?error="+url.QueryEscape("Passwords do not match"))
+				return c.Redirect(
+					http.StatusSeeOther,
+					"/user/profile?error="+url.QueryEscape("Passwords do not match"),
+				)
 			}
 			return c.String(http.StatusBadRequest, "passwords do not match")
 		}
 		if len(newPassword) > 0 && len(newPassword) < 12 {
 			if isHTMLRequest(c) {
-				return c.Redirect(http.StatusSeeOther, "/user/profile?error="+url.QueryEscape("Password must be at least 12 characters"))
+				return c.Redirect(
+					http.StatusSeeOther,
+					"/user/profile?error="+url.QueryEscape(
+						"Password must be at least 12 characters",
+					),
+				)
 			}
 			return c.String(http.StatusBadRequest, "password must be at least 12 characters")
 		}
-		if err := queries.UpdateUser(c.Request().Context(), db.UpdateUserParams{ID: account.ID, FullName: fullName, PasswordHash: account.PasswordHash, IsActive: account.IsActive}); err != nil {
+		if err := queries.UpdateUser(
+			c.Request().Context(),
+			db.UpdateUserParams{
+				ID:           account.ID,
+				FullName:     fullName,
+				PasswordHash: account.PasswordHash,
+				IsActive:     account.IsActive,
+			},
+		); err != nil {
 			return c.String(http.StatusInternalServerError, "failed to update profile")
 		}
 		if newPassword != "" {
@@ -201,12 +282,19 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 			if hashErr != nil {
 				return c.String(http.StatusInternalServerError, "failed to update password")
 			}
-			if err := queries.UpdateUserPasswordHashByID(c.Request().Context(), account.ID, sql.NullString{Valid: true, String: string(hash)}); err != nil {
+			if err := queries.UpdateUserPasswordHashByID(
+				c.Request().Context(),
+				account.ID,
+				sql.NullString{Valid: true, String: string(hash)},
+			); err != nil {
 				return c.String(http.StatusInternalServerError, "failed to update password")
 			}
 		}
 		if isHTMLRequest(c) {
-			return c.Redirect(http.StatusSeeOther, "/user/profile?success="+url.QueryEscape("Profile updated"))
+			return c.Redirect(
+				http.StatusSeeOther,
+				"/user/profile?success="+url.QueryEscape("Profile updated"),
+			)
 		}
 		return c.NoContent(http.StatusNoContent)
 	})
@@ -216,11 +304,17 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 		if err := s.authz.AuthorizeUploadFiles(principal); err != nil {
 			return c.String(http.StatusForbidden, "forbidden")
 		}
-		clients, err := queries.ListClients(c.Request().Context(), db.ListClientsParams{Limit: 200, Offset: 0})
+		clients, err := queries.ListClients(
+			c.Request().Context(),
+			db.ListClientsParams{Limit: 200, Offset: 0},
+		)
 		if err != nil {
 			return c.String(http.StatusInternalServerError, "failed to load clients")
 		}
-		clientGroups, err := queries.ListClientGroups(c.Request().Context(), db.ListClientGroupsParams{Limit: 200, Offset: 0})
+		clientGroups, err := queries.ListClientGroups(
+			c.Request().Context(),
+			db.ListClientGroupsParams{Limit: 200, Offset: 0},
+		)
 		if err != nil {
 			return c.String(http.StatusInternalServerError, "failed to load client groups")
 		}
@@ -240,11 +334,22 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 
 	user.GET("/sent", func(c echo.Context) error {
 		principal, _ := auth.PrincipalFromContext(c)
-		files, err := queries.ListFilesByUploader(c.Request().Context(), db.ListFilesByUploaderParams{UploaderType: "user", UploaderID: principal.ActorID, Limit: 50, Offset: 0})
+		files, err := queries.ListFilesByUploader(
+			c.Request().Context(),
+			db.ListFilesByUploaderParams{
+				UploaderType: "user",
+				UploaderID:   principal.ActorID,
+				Limit:        50,
+				Offset:       0,
+			},
+		)
 		if err != nil {
 			return c.String(http.StatusInternalServerError, "failed to load files")
 		}
-		clients, err := queries.ListClients(c.Request().Context(), db.ListClientsParams{Limit: 500, Offset: 0})
+		clients, err := queries.ListClients(
+			c.Request().Context(),
+			db.ListClientsParams{Limit: 500, Offset: 0},
+		)
 		if err != nil {
 			return c.String(http.StatusInternalServerError, "failed to load clients")
 		}
@@ -252,7 +357,10 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 		for _, cl := range clients {
 			clientByID[cl.ID] = cl
 		}
-		groups, err := queries.ListClientGroups(c.Request().Context(), db.ListClientGroupsParams{Limit: 500, Offset: 0})
+		groups, err := queries.ListClientGroups(
+			c.Request().Context(),
+			db.ListClientGroupsParams{Limit: 500, Offset: 0},
+		)
 		if err != nil {
 			return c.String(http.StatusInternalServerError, "failed to load client groups")
 		}
@@ -271,7 +379,10 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 				status := "unviewed"
 				viewed, viewErr := queries.ShareHasAnyDownload(c.Request().Context(), sh.ID)
 				if viewErr != nil {
-					return c.String(http.StatusInternalServerError, "failed to load download status")
+					return c.String(
+						http.StatusInternalServerError,
+						"failed to load download status",
+					)
 				}
 				if viewed {
 					status = "viewed"
@@ -291,10 +402,39 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 				if sh.Message.Valid {
 					message = strings.TrimSpace(sh.Message.String)
 				}
-				items = append(items, fileListItem{ID: sh.ID, FileID: f.ID, Name: f.OriginalFilename, ContentType: f.ContentType, SizeBytes: f.SizeBytes, SharedVia: targetLabel, UploadedAt: f.CreatedAt, ViewStatus: status, SharedAt: sh.CreatedAt, Message: message})
+				items = append(
+					items,
+					fileListItem{
+						ID:          sh.ID,
+						FileID:      f.ID,
+						Name:        f.OriginalFilename,
+						ContentType: f.ContentType,
+						SizeBytes:   f.SizeBytes,
+						SharedVia:   targetLabel,
+						UploadedAt:  f.CreatedAt,
+						ViewStatus:  status,
+						SharedAt:    sh.CreatedAt,
+						Message:     message,
+					},
+				)
 			}
 		}
-		return c.Render(http.StatusOK, "shared_files", map[string]any{"Title": "Sent Files", "Subtitle": "Shares sent from your account.", "ContentTemplate": "shared_files_content", "Files": items, "EmptyMessage": "No files sent yet.", "DetailBasePath": "/user/sent", "DownloadBasePath": "/user/file", "ShowSharedViaColumn": true, "SharedViaColumnLabel": "Shared With", "DownloadUsesFileID": true})
+		return c.Render(
+			http.StatusOK,
+			"shared_files",
+			map[string]any{
+				"Title":                "Sent Files",
+				"Subtitle":             "Shares sent from your account.",
+				"ContentTemplate":      "shared_files_content",
+				"Files":                items,
+				"EmptyMessage":         "No files sent yet.",
+				"DetailBasePath":       "/user/sent",
+				"DownloadBasePath":     "/user/file",
+				"ShowSharedViaColumn":  true,
+				"SharedViaColumnLabel": "Shared With",
+				"DownloadUsesFileID":   true,
+			},
+		)
 	})
 
 	user.GET("/file/:fileID/download", func(c echo.Context) error {
@@ -343,7 +483,10 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 		if file.UploaderType != "user" || file.UploaderID != principal.ActorID {
 			return c.String(http.StatusForbidden, "forbidden")
 		}
-		clients, err := queries.ListClients(c.Request().Context(), db.ListClientsParams{Limit: 200, Offset: 0})
+		clients, err := queries.ListClients(
+			c.Request().Context(),
+			db.ListClientsParams{Limit: 200, Offset: 0},
+		)
 		if err != nil {
 			return c.String(http.StatusInternalServerError, "failed to load clients")
 		}
@@ -351,7 +494,10 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 		for _, cl := range clients {
 			clientByID[cl.ID] = cl
 		}
-		clientGroups, err := queries.ListClientGroups(c.Request().Context(), db.ListClientGroupsParams{Limit: 200, Offset: 0})
+		clientGroups, err := queries.ListClientGroups(
+			c.Request().Context(),
+			db.ListClientGroupsParams{Limit: 200, Offset: 0},
+		)
 		if err != nil {
 			return c.String(http.StatusInternalServerError, "failed to load client groups")
 		}
@@ -359,7 +505,10 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 		for _, cg := range clientGroups {
 			clientGroupByID[cg.ID] = cg
 		}
-		users, err := queries.ListUsers(c.Request().Context(), db.ListUsersParams{Limit: 200, Offset: 0})
+		users, err := queries.ListUsers(
+			c.Request().Context(),
+			db.ListUsersParams{Limit: 200, Offset: 0},
+		)
 		if err != nil {
 			return c.String(http.StatusInternalServerError, "failed to load users")
 		}
@@ -367,7 +516,10 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 		for _, u := range users {
 			userByID[u.ID] = u
 		}
-		userGroups, err := queries.ListUserGroups(c.Request().Context(), db.ListUserGroupsParams{Limit: 200, Offset: 0})
+		userGroups, err := queries.ListUserGroups(
+			c.Request().Context(),
+			db.ListUserGroupsParams{Limit: 200, Offset: 0},
+		)
 		if err != nil {
 			return c.String(http.StatusInternalServerError, "failed to load user groups")
 		}
@@ -429,7 +581,36 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 		if err != nil {
 			return c.String(http.StatusInternalServerError, "failed to load view history")
 		}
-		return c.Render(http.StatusOK, "shared_files", map[string]any{"Title": "Sent Share Detail", "Subtitle": "Detailed metadata for this sent share.", "ContentTemplate": "share_detail_content", "File": fileListItem{ID: share.ID, FileID: file.ID, Name: file.OriginalFilename, ContentType: file.ContentType, SizeBytes: file.SizeBytes, SharedVia: sharedVia, SharedBy: sharedBy, UploadedAt: file.CreatedAt, SharedAt: share.CreatedAt, ViewStatus: status, Message: message}, "BackPath": "/user/sent", "BackLabel": "Back to Sent Files", "DownloadPath": "/user/file/" + file.ID + "/download", "FileDetailPath": "/user/file/" + file.ID, "UnsharePath": "/user/sent/" + share.ID + "/delete", "ViewHistory": viewHistory, "FlashError": c.QueryParam("error"), "FlashSuccess": c.QueryParam("success")})
+		return c.Render(
+			http.StatusOK,
+			"shared_files",
+			map[string]any{
+				"Title":           "Sent Share Detail",
+				"Subtitle":        "Detailed metadata for this sent share.",
+				"ContentTemplate": "share_detail_content",
+				"File": fileListItem{
+					ID:          share.ID,
+					FileID:      file.ID,
+					Name:        file.OriginalFilename,
+					ContentType: file.ContentType,
+					SizeBytes:   file.SizeBytes,
+					SharedVia:   sharedVia,
+					SharedBy:    sharedBy,
+					UploadedAt:  file.CreatedAt,
+					SharedAt:    share.CreatedAt,
+					ViewStatus:  status,
+					Message:     message,
+				},
+				"BackPath":       "/user/sent",
+				"BackLabel":      "Back to Sent Files",
+				"DownloadPath":   "/user/file/" + file.ID + "/download",
+				"FileDetailPath": "/user/file/" + file.ID,
+				"UnsharePath":    "/user/sent/" + share.ID + "/delete",
+				"ViewHistory":    viewHistory,
+				"FlashError":     c.QueryParam("error"),
+				"FlashSuccess":   c.QueryParam("success"),
+			},
+		)
 	})
 
 	user.POST("/sent/:shareID/delete", func(c echo.Context) error {
@@ -456,7 +637,10 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 			return c.String(http.StatusInternalServerError, "failed to remove share")
 		}
 		if isHTMLRequest(c) {
-			return c.Redirect(http.StatusSeeOther, "/user/sent?success="+url.QueryEscape("Share removed"))
+			return c.Redirect(
+				http.StatusSeeOther,
+				"/user/sent?success="+url.QueryEscape("Share removed"),
+			)
 		}
 		return c.NoContent(http.StatusNoContent)
 	})
@@ -478,7 +662,10 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 		if err != nil {
 			return c.String(http.StatusInternalServerError, "failed to load shares")
 		}
-		clients, err := queries.ListClients(c.Request().Context(), db.ListClientsParams{Limit: 200, Offset: 0})
+		clients, err := queries.ListClients(
+			c.Request().Context(),
+			db.ListClientsParams{Limit: 200, Offset: 0},
+		)
 		if err != nil {
 			return c.String(http.StatusInternalServerError, "failed to load clients")
 		}
@@ -486,7 +673,10 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 		for _, cl := range clients {
 			clientByID[cl.ID] = cl
 		}
-		clientGroups, err := queries.ListClientGroups(c.Request().Context(), db.ListClientGroupsParams{Limit: 200, Offset: 0})
+		clientGroups, err := queries.ListClientGroups(
+			c.Request().Context(),
+			db.ListClientGroupsParams{Limit: 200, Offset: 0},
+		)
 		if err != nil {
 			return c.String(http.StatusInternalServerError, "failed to load client groups")
 		}
@@ -494,7 +684,10 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 		for _, cg := range clientGroups {
 			clientGroupByID[cg.ID] = cg
 		}
-		users, err := queries.ListUsers(c.Request().Context(), db.ListUsersParams{Limit: 200, Offset: 0})
+		users, err := queries.ListUsers(
+			c.Request().Context(),
+			db.ListUsersParams{Limit: 200, Offset: 0},
+		)
 		if err != nil {
 			return c.String(http.StatusInternalServerError, "failed to load users")
 		}
@@ -502,7 +695,10 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 		for _, u := range users {
 			userByID[u.ID] = u
 		}
-		userGroups, err := queries.ListUserGroups(c.Request().Context(), db.ListUserGroupsParams{Limit: 200, Offset: 0})
+		userGroups, err := queries.ListUserGroups(
+			c.Request().Context(),
+			db.ListUserGroupsParams{Limit: 200, Offset: 0},
+		)
 		if err != nil {
 			return c.String(http.StatusInternalServerError, "failed to load user groups")
 		}
@@ -547,13 +743,52 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 			if sh.Message.Valid {
 				message = strings.TrimSpace(sh.Message.String)
 			}
-			shareItems = append(shareItems, fileShareListItem{ID: sh.ID, FileID: file.ID, TargetType: sh.TargetType, TargetID: sh.TargetID, TargetLabel: targetLabel, ViewStatus: status, Message: message, SharedAt: sh.CreatedAt})
+			shareItems = append(
+				shareItems,
+				fileShareListItem{
+					ID:          sh.ID,
+					FileID:      file.ID,
+					TargetType:  sh.TargetType,
+					TargetID:    sh.TargetID,
+					TargetLabel: targetLabel,
+					ViewStatus:  status,
+					Message:     message,
+					SharedAt:    sh.CreatedAt,
+				},
+			)
 		}
 		viewHistory, err := queries.ListFileViewHistory(c.Request().Context(), fileID)
 		if err != nil {
 			return c.String(http.StatusInternalServerError, "failed to load view history")
 		}
-		return c.Render(http.StatusOK, "shared_files", map[string]any{"Title": "File Detail", "Subtitle": "Manage this file and its shares.", "ContentTemplate": "user_file_detail_content", "File": fileListItem{ID: file.ID, Name: file.OriginalFilename, ContentType: file.ContentType, SizeBytes: file.SizeBytes, UploadedAt: file.CreatedAt}, "BackPath": "/user/sent", "BackLabel": "Back to Sent Files", "DownloadPath": "/user/file/" + file.ID + "/download", "ManageBasePath": "/user/file", "ShareTargets": shareItems, "Clients": clients, "ClientGroups": clientGroups, "Users": users, "UserGroups": userGroups, "ViewHistory": viewHistory, "FlashError": c.QueryParam("error"), "FlashSuccess": c.QueryParam("success")})
+		return c.Render(
+			http.StatusOK,
+			"shared_files",
+			map[string]any{
+				"Title":           "File Detail",
+				"Subtitle":        "Manage this file and its shares.",
+				"ContentTemplate": "user_file_detail_content",
+				"File": fileListItem{
+					ID:          file.ID,
+					Name:        file.OriginalFilename,
+					ContentType: file.ContentType,
+					SizeBytes:   file.SizeBytes,
+					UploadedAt:  file.CreatedAt,
+				},
+				"BackPath":       "/user/sent",
+				"BackLabel":      "Back to Sent Files",
+				"DownloadPath":   "/user/file/" + file.ID + "/download",
+				"ManageBasePath": "/user/file",
+				"ShareTargets":   shareItems,
+				"Clients":        clients,
+				"ClientGroups":   clientGroups,
+				"Users":          users,
+				"UserGroups":     userGroups,
+				"ViewHistory":    viewHistory,
+				"FlashError":     c.QueryParam("error"),
+				"FlashSuccess":   c.QueryParam("success"),
+			},
+		)
 	})
 
 	user.POST("/file/:fileID/rename", func(c echo.Context) error {
@@ -572,15 +807,24 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 		name := strings.TrimSpace(c.FormValue("filename"))
 		if name == "" {
 			if isHTMLRequest(c) {
-				return c.Redirect(http.StatusSeeOther, "/user/file/"+fileID+"?error="+url.QueryEscape("filename is required"))
+				return c.Redirect(
+					http.StatusSeeOther,
+					"/user/file/"+fileID+"?error="+url.QueryEscape("filename is required"),
+				)
 			}
 			return c.String(http.StatusBadRequest, "filename is required")
 		}
-		if err := queries.UpdateFileNameByID(c.Request().Context(), db.UpdateFileNameByIDParams{ID: fileID, OriginalFilename: name}); err != nil {
+		if err := queries.UpdateFileNameByID(
+			c.Request().Context(),
+			db.UpdateFileNameByIDParams{ID: fileID, OriginalFilename: name},
+		); err != nil {
 			return c.String(http.StatusInternalServerError, "failed to rename file")
 		}
 		if isHTMLRequest(c) {
-			return c.Redirect(http.StatusSeeOther, "/user/file/"+fileID+"?success="+url.QueryEscape("File renamed"))
+			return c.Redirect(
+				http.StatusSeeOther,
+				"/user/file/"+fileID+"?success="+url.QueryEscape("File renamed"),
+			)
 		}
 		return c.NoContent(http.StatusNoContent)
 	})
@@ -602,7 +846,10 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 			return c.String(http.StatusInternalServerError, "failed to delete file")
 		}
 		if isHTMLRequest(c) {
-			return c.Redirect(http.StatusSeeOther, "/user/sent?success="+url.QueryEscape("File deleted"))
+			return c.Redirect(
+				http.StatusSeeOther,
+				"/user/sent?success="+url.QueryEscape("File deleted"),
+			)
 		}
 		return c.NoContent(http.StatusNoContent)
 	})
@@ -625,7 +872,12 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 		message := strings.TrimSpace(c.FormValue("message"))
 		if targetType == "" || targetID == "" {
 			if isHTMLRequest(c) {
-				return c.Redirect(http.StatusSeeOther, "/user/file/"+fileID+"?error="+url.QueryEscape("target_type and target_id are required"))
+				return c.Redirect(
+					http.StatusSeeOther,
+					"/user/file/"+fileID+"?error="+url.QueryEscape(
+						"target_type and target_id are required",
+					),
+				)
 			}
 			return c.String(http.StatusBadRequest, "target_type and target_id are required")
 		}
@@ -643,7 +895,10 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 		}
 		if err != nil {
 			if isHTMLRequest(c) {
-				return c.Redirect(http.StatusSeeOther, "/user/file/"+fileID+"?error="+url.QueryEscape("invalid share target"))
+				return c.Redirect(
+					http.StatusSeeOther,
+					"/user/file/"+fileID+"?error="+url.QueryEscape("invalid share target"),
+				)
 			}
 			return c.String(http.StatusBadRequest, "invalid share target")
 		}
@@ -651,11 +906,25 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 		if message != "" {
 			msgNull = sql.NullString{Valid: true, String: message}
 		}
-		if err := queries.CreateShare(c.Request().Context(), db.CreateShareParams{ID: uuid.NewString(), FileID: fileID, SharedByType: "user", SharedByID: principal.ActorID, TargetType: targetType, TargetID: targetID, Message: msgNull}); err != nil {
+		if err := queries.CreateShare(
+			c.Request().Context(),
+			db.CreateShareParams{
+				ID:           uuid.NewString(),
+				FileID:       fileID,
+				SharedByType: "user",
+				SharedByID:   principal.ActorID,
+				TargetType:   targetType,
+				TargetID:     targetID,
+				Message:      msgNull,
+			},
+		); err != nil {
 			return c.String(http.StatusInternalServerError, "failed to create share")
 		}
 		if isHTMLRequest(c) {
-			return c.Redirect(http.StatusSeeOther, "/user/file/"+fileID+"?success="+url.QueryEscape("Share added"))
+			return c.Redirect(
+				http.StatusSeeOther,
+				"/user/file/"+fileID+"?success="+url.QueryEscape("Share added"),
+			)
 		}
 		return c.NoContent(http.StatusCreated)
 	})
@@ -688,18 +957,27 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 			return c.String(http.StatusInternalServerError, "failed to remove share")
 		}
 		if isHTMLRequest(c) {
-			return c.Redirect(http.StatusSeeOther, "/user/file/"+fileID+"?success="+url.QueryEscape("Share removed"))
+			return c.Redirect(
+				http.StatusSeeOther,
+				"/user/file/"+fileID+"?success="+url.QueryEscape("Share removed"),
+			)
 		}
 		return c.NoContent(http.StatusNoContent)
 	})
 
 	user.GET("/received", func(c echo.Context) error {
 		principal, _ := auth.PrincipalFromContext(c)
-		shares, err := queries.ListUserAccessibleShares(c.Request().Context(), db.ListUserAccessibleSharesParams{UserID: principal.ActorID, Limit: 50, Offset: 0})
+		shares, err := queries.ListUserAccessibleShares(
+			c.Request().Context(),
+			db.ListUserAccessibleSharesParams{UserID: principal.ActorID, Limit: 50, Offset: 0},
+		)
 		if err != nil {
 			return c.String(http.StatusInternalServerError, "failed to load received files")
 		}
-		clients, err := queries.ListClients(c.Request().Context(), db.ListClientsParams{Limit: 500, Offset: 0})
+		clients, err := queries.ListClients(
+			c.Request().Context(),
+			db.ListClientsParams{Limit: 500, Offset: 0},
+		)
 		if err != nil {
 			return c.String(http.StatusInternalServerError, "failed to load clients")
 		}
@@ -724,15 +1002,46 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 			if sh.Message.Valid {
 				message = strings.TrimSpace(sh.Message.String)
 			}
-			items = append(items, fileListItem{ID: sh.ID, FileID: f.ID, Name: f.OriginalFilename, ContentType: f.ContentType, SizeBytes: f.SizeBytes, SharedVia: sharedBy, SharedAt: sh.CreatedAt, SharedBy: sharedBy, Message: message})
+			items = append(
+				items,
+				fileListItem{
+					ID:          sh.ID,
+					FileID:      f.ID,
+					Name:        f.OriginalFilename,
+					ContentType: f.ContentType,
+					SizeBytes:   f.SizeBytes,
+					SharedVia:   sharedBy,
+					SharedAt:    sh.CreatedAt,
+					SharedBy:    sharedBy,
+					Message:     message,
+				},
+			)
 		}
-		return c.Render(http.StatusOK, "shared_files", map[string]any{"Title": "Received Files", "Subtitle": "Shares sent to your account.", "ContentTemplate": "shared_files_content", "Files": items, "EmptyMessage": "No files have been received yet.", "DetailBasePath": "/user/received", "DownloadBasePath": "/user/file", "DownloadUsesFileID": true, "ShowSharedViaColumn": true, "SharedViaColumnLabel": "Shared By"})
+		return c.Render(
+			http.StatusOK,
+			"shared_files",
+			map[string]any{
+				"Title":                "Received Files",
+				"Subtitle":             "Shares sent to your account.",
+				"ContentTemplate":      "shared_files_content",
+				"Files":                items,
+				"EmptyMessage":         "No files have been received yet.",
+				"DetailBasePath":       "/user/received",
+				"DownloadBasePath":     "/user/file",
+				"DownloadUsesFileID":   true,
+				"ShowSharedViaColumn":  true,
+				"SharedViaColumnLabel": "Shared By",
+			},
+		)
 	})
 
 	user.GET("/received/:shareID", func(c echo.Context) error {
 		principal, _ := auth.PrincipalFromContext(c)
 		shareID := c.Param("shareID")
-		shares, err := queries.ListUserAccessibleShares(c.Request().Context(), db.ListUserAccessibleSharesParams{UserID: principal.ActorID, Limit: 200, Offset: 0})
+		shares, err := queries.ListUserAccessibleShares(
+			c.Request().Context(),
+			db.ListUserAccessibleSharesParams{UserID: principal.ActorID, Limit: 200, Offset: 0},
+		)
 		if err != nil {
 			return c.String(http.StatusInternalServerError, "failed to authorize file")
 		}
@@ -755,7 +1064,10 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 			}
 			return c.String(http.StatusInternalServerError, "failed to load file")
 		}
-		clients, err := queries.ListClients(c.Request().Context(), db.ListClientsParams{Limit: 200, Offset: 0})
+		clients, err := queries.ListClients(
+			c.Request().Context(),
+			db.ListClientsParams{Limit: 200, Offset: 0},
+		)
 		if err != nil {
 			return c.String(http.StatusInternalServerError, "failed to load clients")
 		}
@@ -772,7 +1084,10 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 		sharedVia := selected.TargetType + ": " + selected.TargetID
 		switch selected.TargetType {
 		case "user":
-			users, usersErr := queries.ListUsers(c.Request().Context(), db.ListUsersParams{Limit: 200, Offset: 0})
+			users, usersErr := queries.ListUsers(
+				c.Request().Context(),
+				db.ListUsersParams{Limit: 200, Offset: 0},
+			)
 			if usersErr != nil {
 				return c.String(http.StatusInternalServerError, "failed to load users")
 			}
@@ -788,7 +1103,10 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 				break
 			}
 		case "user_group":
-			groups, groupsErr := queries.ListUserGroups(c.Request().Context(), db.ListUserGroupsParams{Limit: 200, Offset: 0})
+			groups, groupsErr := queries.ListUserGroups(
+				c.Request().Context(),
+				db.ListUserGroupsParams{Limit: 200, Offset: 0},
+			)
 			if groupsErr != nil {
 				return c.String(http.StatusInternalServerError, "failed to load user groups")
 			}
@@ -803,19 +1121,50 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 		if selected.Message.Valid {
 			message = strings.TrimSpace(selected.Message.String)
 		}
-		return c.Render(http.StatusOK, "shared_files", map[string]any{"Title": "Received Share Detail", "Subtitle": "File metadata and share details.", "ContentTemplate": "share_detail_content", "File": fileListItem{ID: selected.ID, FileID: file.ID, Name: file.OriginalFilename, ContentType: file.ContentType, SizeBytes: file.SizeBytes, SharedVia: sharedVia, SharedBy: sharedBy, SharedAt: selected.CreatedAt, UploadedAt: file.CreatedAt, Message: message}, "BackPath": "/user/received", "BackLabel": "Back to Received Files", "DownloadPath": "/user/file/" + file.ID + "/download", "FileDetailPath": "/user/file/" + file.ID})
+		return c.Render(
+			http.StatusOK,
+			"shared_files",
+			map[string]any{
+				"Title":           "Received Share Detail",
+				"Subtitle":        "File metadata and share details.",
+				"ContentTemplate": "share_detail_content",
+				"File": fileListItem{
+					ID:          selected.ID,
+					FileID:      file.ID,
+					Name:        file.OriginalFilename,
+					ContentType: file.ContentType,
+					SizeBytes:   file.SizeBytes,
+					SharedVia:   sharedVia,
+					SharedBy:    sharedBy,
+					SharedAt:    selected.CreatedAt,
+					UploadedAt:  file.CreatedAt,
+					Message:     message,
+				},
+				"BackPath":       "/user/received",
+				"BackLabel":      "Back to Received Files",
+				"DownloadPath":   "/user/file/" + file.ID + "/download",
+				"FileDetailPath": "/user/file/" + file.ID,
+			},
+		)
 	})
 
 	user.GET("/received/:shareID/download", func(c echo.Context) error {
 		principal, _ := auth.PrincipalFromContext(c)
 		shareID := c.Param("shareID")
-		shares, err := queries.ListUserAccessibleShares(c.Request().Context(), db.ListUserAccessibleSharesParams{UserID: principal.ActorID, Limit: 200, Offset: 0})
+		shares, err := queries.ListUserAccessibleShares(
+			c.Request().Context(),
+			db.ListUserAccessibleSharesParams{UserID: principal.ActorID, Limit: 200, Offset: 0},
+		)
 		if err != nil {
 			return c.String(http.StatusInternalServerError, "failed to authorize download")
 		}
 		for _, sh := range shares {
 			if sh.ID == shareID {
-				signedURL, signedErr := s.downSvc.SignedDownloadURL(c.Request().Context(), principal, sh.FileID)
+				signedURL, signedErr := s.downSvc.SignedDownloadURL(
+					c.Request().Context(),
+					principal,
+					sh.FileID,
+				)
 				if signedErr != nil {
 					if signedErr == auth.ErrForbidden {
 						return c.String(http.StatusForbidden, "forbidden")
@@ -842,13 +1191,26 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 		message := strings.TrimSpace(c.FormValue("message"))
 		if filename == "" || targetType == "" || targetID == "" {
 			if isHTMLRequest(c) {
-				return c.Redirect(http.StatusSeeOther, "/user/uploads?error="+url.QueryEscape("filename, target_type, and target_id are required"))
+				return c.Redirect(
+					http.StatusSeeOther,
+					"/user/uploads?error="+url.QueryEscape(
+						"filename, target_type, and target_id are required",
+					),
+				)
 			}
-			return c.String(http.StatusBadRequest, "filename, target_type, and target_id are required")
+			return c.String(
+				http.StatusBadRequest,
+				"filename, target_type, and target_id are required",
+			)
 		}
 		if targetType != "client" && targetType != "client_group" {
 			if isHTMLRequest(c) {
-				return c.Redirect(http.StatusSeeOther, "/user/uploads?error="+url.QueryEscape("target_type must be client or client_group"))
+				return c.Redirect(
+					http.StatusSeeOther,
+					"/user/uploads?error="+url.QueryEscape(
+						"target_type must be client or client_group",
+					),
+				)
 			}
 			return c.String(http.StatusBadRequest, "target_type must be client or client_group")
 		}
@@ -857,7 +1219,10 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 			if _, err := queries.GetClientByID(c.Request().Context(), targetID); err != nil {
 				if err == sql.ErrNoRows {
 					if isHTMLRequest(c) {
-						return c.Redirect(http.StatusSeeOther, "/user/uploads?error="+url.QueryEscape("Client not found"))
+						return c.Redirect(
+							http.StatusSeeOther,
+							"/user/uploads?error="+url.QueryEscape("Client not found"),
+						)
 					}
 					return c.String(http.StatusBadRequest, "client not found")
 				}
@@ -867,7 +1232,10 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 			if _, err := queries.GetClientGroupByID(c.Request().Context(), targetID); err != nil {
 				if err == sql.ErrNoRows {
 					if isHTMLRequest(c) {
-						return c.Redirect(http.StatusSeeOther, "/user/uploads?error="+url.QueryEscape("Client group not found"))
+						return c.Redirect(
+							http.StatusSeeOther,
+							"/user/uploads?error="+url.QueryEscape("Client group not found"),
+						)
 					}
 					return c.String(http.StatusBadRequest, "client group not found")
 				}
@@ -884,7 +1252,10 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 			opened, openErr := uploadFile.Open()
 			if openErr != nil {
 				if isHTMLRequest(c) {
-					return c.Redirect(http.StatusSeeOther, "/user/uploads?error="+url.QueryEscape("Failed to read uploaded file"))
+					return c.Redirect(
+						http.StatusSeeOther,
+						"/user/uploads?error="+url.QueryEscape("Failed to read uploaded file"),
+					)
 				}
 				return c.String(http.StatusBadRequest, "failed to read uploaded file")
 			}
@@ -901,10 +1272,22 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 			bodyReader = *strings.NewReader("")
 		}
 
-		fileID, _, err := s.uploadSvc.Upload(c.Request().Context(), files.UploadInput{Uploader: principal, OriginalFilename: filename, ContentType: contentType, SizeBytes: sizeBytes, Body: uploadBody})
+		fileID, _, err := s.uploadSvc.Upload(
+			c.Request().Context(),
+			files.UploadInput{
+				Uploader:         principal,
+				OriginalFilename: filename,
+				ContentType:      contentType,
+				SizeBytes:        sizeBytes,
+				Body:             uploadBody,
+			},
+		)
 		if err != nil {
 			if isHTMLRequest(c) {
-				return c.Redirect(http.StatusSeeOther, "/user/uploads?error="+url.QueryEscape("Failed to record file"))
+				return c.Redirect(
+					http.StatusSeeOther,
+					"/user/uploads?error="+url.QueryEscape("Failed to record file"),
+				)
 			}
 			return c.String(http.StatusInternalServerError, "failed to record file")
 		}
@@ -913,32 +1296,83 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 		if message != "" {
 			msgNull = sql.NullString{Valid: true, String: message}
 		}
-		if err := queries.CreateShare(c.Request().Context(), db.CreateShareParams{ID: shareID, FileID: fileID, SharedByType: "user", SharedByID: principal.ActorID, TargetType: targetType, TargetID: targetID, Message: msgNull}); err != nil {
+		if err := queries.CreateShare(
+			c.Request().Context(),
+			db.CreateShareParams{
+				ID:           shareID,
+				FileID:       fileID,
+				SharedByType: "user",
+				SharedByID:   principal.ActorID,
+				TargetType:   targetType,
+				TargetID:     targetID,
+				Message:      msgNull,
+			},
+		); err != nil {
 			if isHTMLRequest(c) {
-				return c.Redirect(http.StatusSeeOther, "/user/uploads?error="+url.QueryEscape("Failed to create share"))
+				return c.Redirect(
+					http.StatusSeeOther,
+					"/user/uploads?error="+url.QueryEscape("Failed to create share"),
+				)
 			}
 			return c.String(http.StatusInternalServerError, "failed to create share")
 		}
 		actorLabel := principal.ActorID
-		if user, userErr := queries.GetUserByID(c.Request().Context(), principal.ActorID); userErr == nil {
+		if user, userErr := queries.GetUserByID(
+			c.Request().Context(),
+			principal.ActorID,
+		); userErr == nil {
 			if name := strings.TrimSpace(user.FullName); name != "" {
 				actorLabel = name
 			} else if email := strings.TrimSpace(user.Email); email != "" {
 				actorLabel = email
 			}
 		}
-		recipients, recErr := resolveShareRecipientEmails(c.Request().Context(), queries, targetType, targetID)
+		recipients, recErr := resolveShareRecipientEmails(
+			c.Request().Context(),
+			queries,
+			targetType,
+			targetID,
+		)
 		if recErr == nil {
 			for _, recipient := range recipients {
-				notifyErr := s.notifier.NotifyFileShared(c.Request().Context(), mail.FileSharedNotification{RecipientEmail: recipient, RecipientName: recipient, ActorLabel: actorLabel, FileName: filename, Message: message, TargetType: targetType, TargetID: targetID})
+				notifyErr := s.notifier.NotifyFileShared(
+					c.Request().Context(),
+					mail.FileSharedNotification{
+						RecipientEmail: recipient,
+						RecipientName:  recipient,
+						ActorLabel:     actorLabel,
+						FileName:       filename,
+						Message:        message,
+						TargetType:     targetType,
+						TargetID:       targetID,
+					},
+				)
 				if notifyErr != nil {
-					s.log.Error("share notification failed", "recipient", recipient, "error", notifyErr.Error())
+					s.log.Error(
+						"share notification failed",
+						"recipient",
+						recipient,
+						"error",
+						notifyErr.Error(),
+					)
 				}
 			}
 		}
-		auditAuthEvent(c, queries, "file.share", "user", principal.ActorID, targetType, targetID, map[string]any{"file_id": fileID, "share_id": shareID})
+		auditAuthEvent(
+			c,
+			queries,
+			"file.share",
+			"user",
+			principal.ActorID,
+			targetType,
+			targetID,
+			map[string]any{"file_id": fileID, "share_id": shareID},
+		)
 		if isHTMLRequest(c) {
-			return c.Redirect(http.StatusSeeOther, "/user/uploads?success="+url.QueryEscape("File shared successfully"))
+			return c.Redirect(
+				http.StatusSeeOther,
+				"/user/uploads?success="+url.QueryEscape("File shared successfully"),
+			)
 		}
 		return c.String(http.StatusCreated, "file shared: "+fileID)
 	}, auth.RequireCapability(auth.CapabilityUploadFiles))
@@ -948,15 +1382,33 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 		if err := s.authz.AuthorizeManageClients(principal); err != nil {
 			return c.String(http.StatusForbidden, "forbidden")
 		}
-		clients, err := queries.ListClients(c.Request().Context(), db.ListClientsParams{Limit: 50, Offset: 0})
+		clients, err := queries.ListClients(
+			c.Request().Context(),
+			db.ListClientsParams{Limit: 50, Offset: 0},
+		)
 		if err != nil {
 			return c.String(http.StatusInternalServerError, "failed to load clients")
 		}
-		groups, err := queries.ListClientGroups(c.Request().Context(), db.ListClientGroupsParams{Limit: 200, Offset: 0})
+		groups, err := queries.ListClientGroups(
+			c.Request().Context(),
+			db.ListClientGroupsParams{Limit: 200, Offset: 0},
+		)
 		if err != nil {
 			return c.String(http.StatusInternalServerError, "failed to load client groups")
 		}
-		return c.Render(http.StatusOK, "clients_management", map[string]any{"Title": "Client Management", "Subtitle": "Create clients and manage client accounts.", "ContentTemplate": "clients_management_content", "FlashError": c.QueryParam("error"), "FlashSuccess": c.QueryParam("success"), "Clients": clients, "ClientGroups": groups})
+		return c.Render(
+			http.StatusOK,
+			"clients_management",
+			map[string]any{
+				"Title":           "Client Management",
+				"Subtitle":        "Create clients and manage client accounts.",
+				"ContentTemplate": "clients_management_content",
+				"FlashError":      c.QueryParam("error"),
+				"FlashSuccess":    c.QueryParam("success"),
+				"Clients":         clients,
+				"ClientGroups":    groups,
+			},
+		)
 	})
 
 	user.GET("/client-groups", func(c echo.Context) error {
@@ -964,11 +1416,17 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 		if err := s.authz.AuthorizeManageClients(principal); err != nil {
 			return c.String(http.StatusForbidden, "forbidden")
 		}
-		clients, err := queries.ListClients(c.Request().Context(), db.ListClientsParams{Limit: 200, Offset: 0})
+		clients, err := queries.ListClients(
+			c.Request().Context(),
+			db.ListClientsParams{Limit: 200, Offset: 0},
+		)
 		if err != nil {
 			return c.String(http.StatusInternalServerError, "failed to load clients")
 		}
-		groups, err := queries.ListClientGroups(c.Request().Context(), db.ListClientGroupsParams{Limit: 200, Offset: 0})
+		groups, err := queries.ListClientGroups(
+			c.Request().Context(),
+			db.ListClientGroupsParams{Limit: 200, Offset: 0},
+		)
 		if err != nil {
 			return c.String(http.StatusInternalServerError, "failed to load client groups")
 		}
@@ -978,9 +1436,25 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 			if memberErr != nil {
 				return c.String(http.StatusInternalServerError, "failed to load client groups")
 			}
-			groupItems = append(groupItems, clientGroupListItem{ID: g.ID, Name: g.Name, MemberCount: len(members)})
+			groupItems = append(
+				groupItems,
+				clientGroupListItem{ID: g.ID, Name: g.Name, MemberCount: len(members)},
+			)
 		}
-		return c.Render(http.StatusOK, "client_groups_management", map[string]any{"Title": "Client Groups", "Subtitle": "Create groups and add client memberships.", "ContentTemplate": "client_groups_management_content", "FlashError": c.QueryParam("error"), "FlashSuccess": c.QueryParam("success"), "Clients": clients, "ClientGroups": groups, "ClientGroupItems": groupItems})
+		return c.Render(
+			http.StatusOK,
+			"client_groups_management",
+			map[string]any{
+				"Title":            "Client Groups",
+				"Subtitle":         "Create groups and add client memberships.",
+				"ContentTemplate":  "client_groups_management_content",
+				"FlashError":       c.QueryParam("error"),
+				"FlashSuccess":     c.QueryParam("success"),
+				"Clients":          clients,
+				"ClientGroups":     groups,
+				"ClientGroupItems": groupItems,
+			},
+		)
 	})
 
 	user.GET("/client-groups/:groupID", func(c echo.Context) error {
@@ -1000,11 +1474,29 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 		if err != nil {
 			return c.String(http.StatusInternalServerError, "failed to load client group members")
 		}
-		clients, err := queries.ListClients(c.Request().Context(), db.ListClientsParams{Limit: 200, Offset: 0})
+		clients, err := queries.ListClients(
+			c.Request().Context(),
+			db.ListClientsParams{Limit: 200, Offset: 0},
+		)
 		if err != nil {
 			return c.String(http.StatusInternalServerError, "failed to load clients")
 		}
-		return c.Render(http.StatusOK, "client_group_detail", map[string]any{"Title": "Client Group Detail", "Subtitle": "Update group settings and memberships.", "ContentTemplate": "client_group_detail_content", "FlashError": c.QueryParam("error"), "FlashSuccess": c.QueryParam("success"), "ClientGroup": group, "GroupMembers": members, "Clients": clients, "BackPath": "/user/client-groups", "BackLabel": "Back to Client Groups"})
+		return c.Render(
+			http.StatusOK,
+			"client_group_detail",
+			map[string]any{
+				"Title":           "Client Group Detail",
+				"Subtitle":        "Update group settings and memberships.",
+				"ContentTemplate": "client_group_detail_content",
+				"FlashError":      c.QueryParam("error"),
+				"FlashSuccess":    c.QueryParam("success"),
+				"ClientGroup":     group,
+				"GroupMembers":    members,
+				"Clients":         clients,
+				"BackPath":        "/user/client-groups",
+				"BackLabel":       "Back to Client Groups",
+			},
+		)
 	})
 
 	user.POST("/clients", func(c echo.Context) error {
@@ -1016,7 +1508,10 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 		displayName := strings.TrimSpace(c.FormValue("display_name"))
 		if email == "" || displayName == "" {
 			if isHTMLRequest(c) {
-				return c.Redirect(http.StatusSeeOther, "/user/clients?error="+url.QueryEscape("email and display_name are required"))
+				return c.Redirect(
+					http.StatusSeeOther,
+					"/user/clients?error="+url.QueryEscape("email and display_name are required"),
+				)
 			}
 			return c.String(http.StatusBadRequest, "email and display_name are required")
 		}
@@ -1029,10 +1524,32 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 			isActive = 1
 		}
 		clientID := uuid.NewString()
-		if err := queries.CreateClient(c.Request().Context(), db.CreateClientParams{ID: clientID, Email: email, DisplayName: displayName, PasswordHash: sql.NullString{}, CanUpload: canUpload, IsActive: isActive}); err != nil {
-			auditAuthEvent(c, queries, "admin.client.create", principal.ActorType, principal.ActorID, "client", "", map[string]any{"outcome": "failure", "reason": "create_failed", "email": email})
+		if err := queries.CreateClient(
+			c.Request().Context(),
+			db.CreateClientParams{
+				ID:           clientID,
+				Email:        email,
+				DisplayName:  displayName,
+				PasswordHash: sql.NullString{},
+				CanUpload:    canUpload,
+				IsActive:     isActive,
+			},
+		); err != nil {
+			auditAuthEvent(
+				c,
+				queries,
+				"admin.client.create",
+				principal.ActorType,
+				principal.ActorID,
+				"client",
+				"",
+				map[string]any{"outcome": "failure", "reason": "create_failed", "email": email},
+			)
 			if isHTMLRequest(c) {
-				return c.Redirect(http.StatusSeeOther, "/user/clients?error="+url.QueryEscape("failed to create client"))
+				return c.Redirect(
+					http.StatusSeeOther,
+					"/user/clients?error="+url.QueryEscape("failed to create client"),
+				)
 			}
 			return c.String(http.StatusInternalServerError, "failed to create client")
 		}
@@ -1046,16 +1563,39 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 			if groupID == "" {
 				continue
 			}
-			if err := queries.AddClientToGroup(c.Request().Context(), db.AddClientToGroupParams{ClientGroupID: groupID, ClientID: clientID}); err != nil {
+			if err := queries.AddClientToGroup(
+				c.Request().Context(),
+				db.AddClientToGroupParams{ClientGroupID: groupID, ClientID: clientID},
+			); err != nil {
 				if isHTMLRequest(c) {
-					return c.Redirect(http.StatusSeeOther, "/user/clients?error="+url.QueryEscape("failed to assign client group membership"))
+					return c.Redirect(
+						http.StatusSeeOther,
+						"/user/clients?error="+url.QueryEscape(
+							"failed to assign client group membership",
+						),
+					)
 				}
-				return c.String(http.StatusInternalServerError, "failed to assign client group membership")
+				return c.String(
+					http.StatusInternalServerError,
+					"failed to assign client group membership",
+				)
 			}
 		}
-		auditAuthEvent(c, queries, "admin.client.create", principal.ActorType, principal.ActorID, "client", email, map[string]any{"outcome": "success"})
+		auditAuthEvent(
+			c,
+			queries,
+			"admin.client.create",
+			principal.ActorType,
+			principal.ActorID,
+			"client",
+			email,
+			map[string]any{"outcome": "success"},
+		)
 		if isHTMLRequest(c) {
-			return c.Redirect(http.StatusSeeOther, "/user/clients?success="+url.QueryEscape("Client created"))
+			return c.Redirect(
+				http.StatusSeeOther,
+				"/user/clients?success="+url.QueryEscape("Client created"),
+			)
 		}
 		return c.NoContent(http.StatusCreated)
 	}, auth.RequireCapability(auth.CapabilityManageClients))
@@ -1073,7 +1613,20 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 			}
 			return c.String(http.StatusInternalServerError, "failed to load client")
 		}
-		return c.Render(http.StatusOK, "client_edit", map[string]any{"Title": "Edit Client", "Subtitle": "Update client access and reset password.", "ContentTemplate": "client_edit_content", "Client": client, "FlashError": c.QueryParam("error"), "FlashSuccess": c.QueryParam("success"), "BackPath": "/user/clients", "BackLabel": "Back to Clients"})
+		return c.Render(
+			http.StatusOK,
+			"client_edit",
+			map[string]any{
+				"Title":           "Edit Client",
+				"Subtitle":        "Update client access and reset password.",
+				"ContentTemplate": "client_edit_content",
+				"Client":          client,
+				"FlashError":      c.QueryParam("error"),
+				"FlashSuccess":    c.QueryParam("success"),
+				"BackPath":        "/user/clients",
+				"BackLabel":       "Back to Clients",
+			},
+		)
 	}, auth.RequireCapability(auth.CapabilityManageClients))
 
 	user.POST("/clients/:clientID", func(c echo.Context) error {
@@ -1092,7 +1645,12 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 		displayName := strings.TrimSpace(c.FormValue("display_name"))
 		if displayName == "" {
 			if isHTMLRequest(c) {
-				return c.Redirect(http.StatusSeeOther, "/user/clients/"+client.ID+"?error="+url.QueryEscape("display_name is required"))
+				return c.Redirect(
+					http.StatusSeeOther,
+					"/user/clients/"+client.ID+"?error="+url.QueryEscape(
+						"display_name is required",
+					),
+				)
 			}
 			return c.String(http.StatusBadRequest, "display_name is required")
 		}
@@ -1104,14 +1662,28 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 		if c.FormValue("is_active") == "1" {
 			isActive = 1
 		}
-		if err := queries.UpdateClient(c.Request().Context(), db.UpdateClientParams{ID: client.ID, DisplayName: displayName, CanUpload: canUpload, IsActive: isActive}); err != nil {
+		if err := queries.UpdateClient(
+			c.Request().Context(),
+			db.UpdateClientParams{
+				ID:          client.ID,
+				DisplayName: displayName,
+				CanUpload:   canUpload,
+				IsActive:    isActive,
+			},
+		); err != nil {
 			if isHTMLRequest(c) {
-				return c.Redirect(http.StatusSeeOther, "/user/clients/"+client.ID+"?error="+url.QueryEscape("failed to update client"))
+				return c.Redirect(
+					http.StatusSeeOther,
+					"/user/clients/"+client.ID+"?error="+url.QueryEscape("failed to update client"),
+				)
 			}
 			return c.String(http.StatusInternalServerError, "failed to update client")
 		}
 		if isHTMLRequest(c) {
-			return c.Redirect(http.StatusSeeOther, "/user/clients/"+client.ID+"?success="+url.QueryEscape("Client updated"))
+			return c.Redirect(
+				http.StatusSeeOther,
+				"/user/clients/"+client.ID+"?success="+url.QueryEscape("Client updated"),
+			)
 		}
 		return c.NoContent(http.StatusNoContent)
 	}, auth.RequireCapability(auth.CapabilityManageClients))
@@ -1125,7 +1697,12 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 		newPassword := strings.TrimSpace(c.FormValue("new_password"))
 		if len(newPassword) < 12 {
 			if isHTMLRequest(c) {
-				return c.Redirect(http.StatusSeeOther, "/user/clients/"+clientID+"?error="+url.QueryEscape("Password must be at least 12 characters"))
+				return c.Redirect(
+					http.StatusSeeOther,
+					"/user/clients/"+clientID+"?error="+url.QueryEscape(
+						"Password must be at least 12 characters",
+					),
+				)
 			}
 			return c.String(http.StatusBadRequest, "password must be at least 12 characters")
 		}
@@ -1133,14 +1710,24 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 		if err != nil {
 			return c.String(http.StatusInternalServerError, "failed to hash password")
 		}
-		if err := queries.UpdateClientPasswordHashByID(c.Request().Context(), clientID, sql.NullString{Valid: true, String: string(hash)}); err != nil {
+		if err := queries.UpdateClientPasswordHashByID(
+			c.Request().Context(),
+			clientID,
+			sql.NullString{Valid: true, String: string(hash)},
+		); err != nil {
 			if isHTMLRequest(c) {
-				return c.Redirect(http.StatusSeeOther, "/user/clients/"+clientID+"?error="+url.QueryEscape("failed to reset password"))
+				return c.Redirect(
+					http.StatusSeeOther,
+					"/user/clients/"+clientID+"?error="+url.QueryEscape("failed to reset password"),
+				)
 			}
 			return c.String(http.StatusInternalServerError, "failed to reset password")
 		}
 		if isHTMLRequest(c) {
-			return c.Redirect(http.StatusSeeOther, "/user/clients/"+clientID+"?success="+url.QueryEscape("Password reset"))
+			return c.Redirect(
+				http.StatusSeeOther,
+				"/user/clients/"+clientID+"?success="+url.QueryEscape("Password reset"),
+			)
 		}
 		return c.NoContent(http.StatusNoContent)
 	}, auth.RequireCapability(auth.CapabilityManageClients))
@@ -1153,20 +1740,54 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 		name := strings.TrimSpace(c.FormValue("name"))
 		if name == "" {
 			if isHTMLRequest(c) {
-				return c.Redirect(http.StatusSeeOther, "/user/client-groups?error="+url.QueryEscape("name is required"))
+				return c.Redirect(
+					http.StatusSeeOther,
+					"/user/client-groups?error="+url.QueryEscape("name is required"),
+				)
 			}
 			return c.String(http.StatusBadRequest, "name is required")
 		}
-		if err := queries.CreateClientGroup(c.Request().Context(), db.CreateClientGroupParams{ID: uuid.NewString(), Name: name, CreatedByUserID: sql.NullString{Valid: true, String: principal.ActorID}}); err != nil {
-			auditAuthEvent(c, queries, "admin.client_group.create", principal.ActorType, principal.ActorID, "client_group", "", map[string]any{"outcome": "failure", "reason": "create_failed", "name": name})
+		if err := queries.CreateClientGroup(
+			c.Request().Context(),
+			db.CreateClientGroupParams{
+				ID:              uuid.NewString(),
+				Name:            name,
+				CreatedByUserID: sql.NullString{Valid: true, String: principal.ActorID},
+			},
+		); err != nil {
+			auditAuthEvent(
+				c,
+				queries,
+				"admin.client_group.create",
+				principal.ActorType,
+				principal.ActorID,
+				"client_group",
+				"",
+				map[string]any{"outcome": "failure", "reason": "create_failed", "name": name},
+			)
 			if isHTMLRequest(c) {
-				return c.Redirect(http.StatusSeeOther, "/user/client-groups?error="+url.QueryEscape("failed to create client group"))
+				return c.Redirect(
+					http.StatusSeeOther,
+					"/user/client-groups?error="+url.QueryEscape("failed to create client group"),
+				)
 			}
 			return c.String(http.StatusInternalServerError, "failed to create client group")
 		}
-		auditAuthEvent(c, queries, "admin.client_group.create", principal.ActorType, principal.ActorID, "client_group", name, map[string]any{"outcome": "success"})
+		auditAuthEvent(
+			c,
+			queries,
+			"admin.client_group.create",
+			principal.ActorType,
+			principal.ActorID,
+			"client_group",
+			name,
+			map[string]any{"outcome": "success"},
+		)
 		if isHTMLRequest(c) {
-			return c.Redirect(http.StatusSeeOther, "/user/client-groups?success="+url.QueryEscape("Client group created"))
+			return c.Redirect(
+				http.StatusSeeOther,
+				"/user/client-groups?success="+url.QueryEscape("Client group created"),
+			)
 		}
 		return c.NoContent(http.StatusCreated)
 	}, auth.RequireCapability(auth.CapabilityManageClients))
@@ -1180,20 +1801,52 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 		clientID := strings.TrimSpace(c.FormValue("client_id"))
 		if groupID == "" || clientID == "" {
 			if isHTMLRequest(c) {
-				return c.Redirect(http.StatusSeeOther, "/user/client-groups?error="+url.QueryEscape("group_id and client_id are required"))
+				return c.Redirect(
+					http.StatusSeeOther,
+					"/user/client-groups?error="+url.QueryEscape(
+						"group_id and client_id are required",
+					),
+				)
 			}
 			return c.String(http.StatusBadRequest, "group_id and client_id are required")
 		}
-		if err := queries.AddClientToGroup(c.Request().Context(), db.AddClientToGroupParams{ClientGroupID: groupID, ClientID: clientID}); err != nil {
-			auditAuthEvent(c, queries, "admin.client_group.membership.add", principal.ActorType, principal.ActorID, "client_group", groupID, map[string]any{"outcome": "failure", "reason": "add_failed", "client_id": clientID})
+		if err := queries.AddClientToGroup(
+			c.Request().Context(),
+			db.AddClientToGroupParams{ClientGroupID: groupID, ClientID: clientID},
+		); err != nil {
+			auditAuthEvent(
+				c,
+				queries,
+				"admin.client_group.membership.add",
+				principal.ActorType,
+				principal.ActorID,
+				"client_group",
+				groupID,
+				map[string]any{"outcome": "failure", "reason": "add_failed", "client_id": clientID},
+			)
 			if isHTMLRequest(c) {
-				return c.Redirect(http.StatusSeeOther, "/user/client-groups?error="+url.QueryEscape("failed to add membership"))
+				return c.Redirect(
+					http.StatusSeeOther,
+					"/user/client-groups?error="+url.QueryEscape("failed to add membership"),
+				)
 			}
 			return c.String(http.StatusInternalServerError, "failed to add membership")
 		}
-		auditAuthEvent(c, queries, "admin.client_group.membership.add", principal.ActorType, principal.ActorID, "client_group", groupID, map[string]any{"outcome": "success", "client_id": clientID})
+		auditAuthEvent(
+			c,
+			queries,
+			"admin.client_group.membership.add",
+			principal.ActorType,
+			principal.ActorID,
+			"client_group",
+			groupID,
+			map[string]any{"outcome": "success", "client_id": clientID},
+		)
 		if isHTMLRequest(c) {
-			return c.Redirect(http.StatusSeeOther, "/user/client-groups?success="+url.QueryEscape("Membership added"))
+			return c.Redirect(
+				http.StatusSeeOther,
+				"/user/client-groups?success="+url.QueryEscape("Membership added"),
+			)
 		}
 		return c.NoContent(http.StatusCreated)
 	}, auth.RequireCapability(auth.CapabilityManageClients))
@@ -1207,19 +1860,41 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 		name := strings.TrimSpace(c.FormValue("name"))
 		if name == "" {
 			if isHTMLRequest(c) {
-				return c.Redirect(http.StatusSeeOther, "/user/client-groups/"+groupID+"?error="+url.QueryEscape("name is required"))
+				return c.Redirect(
+					http.StatusSeeOther,
+					"/user/client-groups/"+groupID+"?error="+url.QueryEscape("name is required"),
+				)
 			}
 			return c.String(http.StatusBadRequest, "name is required")
 		}
-		if err := queries.UpdateClientGroup(c.Request().Context(), db.UpdateClientGroupParams{ID: groupID, Name: name}); err != nil {
-			s.log.Error("update client group failed", "group_id", groupID, "name", name, "error", err.Error())
+		if err := queries.UpdateClientGroup(
+			c.Request().Context(),
+			db.UpdateClientGroupParams{ID: groupID, Name: name},
+		); err != nil {
+			s.log.Error(
+				"update client group failed",
+				"group_id",
+				groupID,
+				"name",
+				name,
+				"error",
+				err.Error(),
+			)
 			if isHTMLRequest(c) {
-				return c.Redirect(http.StatusSeeOther, "/user/client-groups/"+groupID+"?error="+url.QueryEscape("failed to update client group"))
+				return c.Redirect(
+					http.StatusSeeOther,
+					"/user/client-groups/"+groupID+"?error="+url.QueryEscape(
+						"failed to update client group",
+					),
+				)
 			}
 			return c.String(http.StatusInternalServerError, "failed to update client group")
 		}
 		if isHTMLRequest(c) {
-			return c.Redirect(http.StatusSeeOther, "/user/client-groups/"+groupID+"?success="+url.QueryEscape("Client group updated"))
+			return c.Redirect(
+				http.StatusSeeOther,
+				"/user/client-groups/"+groupID+"?success="+url.QueryEscape("Client group updated"),
+			)
 		}
 		return c.NoContent(http.StatusNoContent)
 	})
@@ -1233,18 +1908,34 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 		clientID := strings.TrimSpace(c.FormValue("client_id"))
 		if clientID == "" {
 			if isHTMLRequest(c) {
-				return c.Redirect(http.StatusSeeOther, "/user/client-groups/"+groupID+"?error="+url.QueryEscape("client_id is required"))
+				return c.Redirect(
+					http.StatusSeeOther,
+					"/user/client-groups/"+groupID+"?error="+url.QueryEscape(
+						"client_id is required",
+					),
+				)
 			}
 			return c.String(http.StatusBadRequest, "client_id is required")
 		}
-		if err := queries.AddClientToGroup(c.Request().Context(), db.AddClientToGroupParams{ClientGroupID: groupID, ClientID: clientID}); err != nil {
+		if err := queries.AddClientToGroup(
+			c.Request().Context(),
+			db.AddClientToGroupParams{ClientGroupID: groupID, ClientID: clientID},
+		); err != nil {
 			if isHTMLRequest(c) {
-				return c.Redirect(http.StatusSeeOther, "/user/client-groups/"+groupID+"?error="+url.QueryEscape("failed to add membership"))
+				return c.Redirect(
+					http.StatusSeeOther,
+					"/user/client-groups/"+groupID+"?error="+url.QueryEscape(
+						"failed to add membership",
+					),
+				)
 			}
 			return c.String(http.StatusInternalServerError, "failed to add membership")
 		}
 		if isHTMLRequest(c) {
-			return c.Redirect(http.StatusSeeOther, "/user/client-groups/"+groupID+"?success="+url.QueryEscape("Membership added"))
+			return c.Redirect(
+				http.StatusSeeOther,
+				"/user/client-groups/"+groupID+"?success="+url.QueryEscape("Membership added"),
+			)
 		}
 		return c.NoContent(http.StatusCreated)
 	})
@@ -1256,14 +1947,25 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 		}
 		groupID := strings.TrimSpace(c.FormValue("group_id"))
 		clientID := strings.TrimSpace(c.FormValue("client_id"))
-		if err := queries.RemoveClientFromGroup(c.Request().Context(), db.RemoveClientFromGroupParams{ClientGroupID: groupID, ClientID: clientID}); err != nil {
+		if err := queries.RemoveClientFromGroup(
+			c.Request().Context(),
+			db.RemoveClientFromGroupParams{ClientGroupID: groupID, ClientID: clientID},
+		); err != nil {
 			if isHTMLRequest(c) {
-				return c.Redirect(http.StatusSeeOther, "/user/client-groups/"+groupID+"?error="+url.QueryEscape("failed to remove membership"))
+				return c.Redirect(
+					http.StatusSeeOther,
+					"/user/client-groups/"+groupID+"?error="+url.QueryEscape(
+						"failed to remove membership",
+					),
+				)
 			}
 			return c.String(http.StatusInternalServerError, "failed to remove membership")
 		}
 		if isHTMLRequest(c) {
-			return c.Redirect(http.StatusSeeOther, "/user/client-groups/"+groupID+"?success="+url.QueryEscape("Membership removed"))
+			return c.Redirect(
+				http.StatusSeeOther,
+				"/user/client-groups/"+groupID+"?success="+url.QueryEscape("Membership removed"),
+			)
 		}
 		return c.NoContent(http.StatusNoContent)
 	})

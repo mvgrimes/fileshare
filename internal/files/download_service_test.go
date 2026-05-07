@@ -44,7 +44,11 @@ type signerStub struct {
 	filename string
 }
 
-func (s *signerStub) SignGetURL(_ context.Context, _, _, downloadFilename string, _ time.Duration) (string, error) {
+func (s *signerStub) SignGetURL(
+	_ context.Context,
+	_, _, downloadFilename string,
+	_ time.Duration,
+) (string, error) {
 	s.filename = downloadFilename
 	if s.err != nil {
 		return "", s.err
@@ -53,18 +57,36 @@ func (s *signerStub) SignGetURL(_ context.Context, _, _, downloadFilename string
 }
 
 func TestNewDownloadServiceValidation(t *testing.T) {
-	_, err := NewDownloadService("", time.Minute, &downloadRepoStub{}, &downloadAuthzStub{}, &signerStub{})
+	_, err := NewDownloadService(
+		"",
+		time.Minute,
+		&downloadRepoStub{},
+		&downloadAuthzStub{},
+		&signerStub{},
+	)
 	if !errors.Is(err, ErrBucketRequired) {
 		t.Fatalf("error = %v, want %v", err, ErrBucketRequired)
 	}
-	_, err = NewDownloadService("bucket", 0, &downloadRepoStub{}, &downloadAuthzStub{}, &signerStub{})
+	_, err = NewDownloadService(
+		"bucket",
+		0,
+		&downloadRepoStub{},
+		&downloadAuthzStub{},
+		&signerStub{},
+	)
 	if !errors.Is(err, ErrInvalidDownloadTTL) {
 		t.Fatalf("error = %v, want %v", err, ErrInvalidDownloadTTL)
 	}
 }
 
 func TestSignedDownloadURLForClient(t *testing.T) {
-	repo := &downloadRepoStub{file: db.File{ID: "f1", StorageKey: "uploads/client/c1/f1.pdf", OriginalFilename: "report.pdf"}}
+	repo := &downloadRepoStub{
+		file: db.File{
+			ID:               "f1",
+			StorageKey:       "uploads/client/c1/f1.pdf",
+			OriginalFilename: "report.pdf",
+		},
+	}
 	authz := &downloadAuthzStub{}
 	signer := &signerStub{url: "https://signed.example/f1"}
 	svc, err := NewDownloadService("bucket", 10*time.Minute, repo, authz, signer)
@@ -72,7 +94,11 @@ func TestSignedDownloadURLForClient(t *testing.T) {
 		t.Fatalf("NewDownloadService() error = %v", err)
 	}
 
-	url, err := svc.SignedDownloadURL(context.Background(), auth.Principal{ActorType: "client", ActorID: "c1"}, "f1")
+	url, err := svc.SignedDownloadURL(
+		context.Background(),
+		auth.Principal{ActorType: "client", ActorID: "c1"},
+		"f1",
+	)
 	if err != nil {
 		t.Fatalf("SignedDownloadURL() error = %v", err)
 	}
@@ -88,28 +114,68 @@ func TestSignedDownloadURLForClient(t *testing.T) {
 }
 
 func TestSignedDownloadURLForUserOwnership(t *testing.T) {
-	repo := &downloadRepoStub{file: db.File{ID: "f1", UploaderType: "user", UploaderID: "u1", StorageKey: "uploads/user/u1/f1.pdf"}}
-	svc, err := NewDownloadService("bucket", 10*time.Minute, repo, &downloadAuthzStub{}, &signerStub{url: "ok"})
+	repo := &downloadRepoStub{
+		file: db.File{
+			ID:           "f1",
+			UploaderType: "user",
+			UploaderID:   "u1",
+			StorageKey:   "uploads/user/u1/f1.pdf",
+		},
+	}
+	svc, err := NewDownloadService(
+		"bucket",
+		10*time.Minute,
+		repo,
+		&downloadAuthzStub{},
+		&signerStub{url: "ok"},
+	)
 	if err != nil {
 		t.Fatalf("NewDownloadService() error = %v", err)
 	}
 
-	if _, err := svc.SignedDownloadURL(context.Background(), auth.Principal{ActorType: "user", ActorID: "u1"}, "f1"); err != nil {
+	if _, err := svc.SignedDownloadURL(
+		context.Background(),
+		auth.Principal{ActorType: "user", ActorID: "u1"},
+		"f1",
+	); err != nil {
 		t.Fatalf("owner should be allowed, err = %v", err)
 	}
-	blockedSvc, err := NewDownloadService("bucket", 10*time.Minute, repo, &downloadAuthzStub{err: auth.ErrForbidden}, &signerStub{url: "ok"})
+	blockedSvc, err := NewDownloadService(
+		"bucket",
+		10*time.Minute,
+		repo,
+		&downloadAuthzStub{err: auth.ErrForbidden},
+		&signerStub{url: "ok"},
+	)
 	if err != nil {
 		t.Fatalf("NewDownloadService() error = %v", err)
 	}
-	if _, err := blockedSvc.SignedDownloadURL(context.Background(), auth.Principal{ActorType: "user", ActorID: "u2"}, "f1"); !errors.Is(err, auth.ErrForbidden) {
+	if _, err := blockedSvc.SignedDownloadURL(
+		context.Background(),
+		auth.Principal{ActorType: "user", ActorID: "u2"},
+		"f1",
+	); !errors.Is(
+		err,
+		auth.ErrForbidden,
+	) {
 		t.Fatalf("non-owner err = %v, want %v", err, auth.ErrForbidden)
 	}
 }
 
 func TestSignedDownloadURLDenialsAndFailures(t *testing.T) {
 	t.Run("missing file forbidden", func(t *testing.T) {
-		svc, _ := NewDownloadService("bucket", time.Minute, &downloadRepoStub{err: sql.ErrNoRows}, &downloadAuthzStub{}, &signerStub{url: "ok"})
-		_, err := svc.SignedDownloadURL(context.Background(), auth.Principal{ActorType: "client", ActorID: "c1"}, "missing")
+		svc, _ := NewDownloadService(
+			"bucket",
+			time.Minute,
+			&downloadRepoStub{err: sql.ErrNoRows},
+			&downloadAuthzStub{},
+			&signerStub{url: "ok"},
+		)
+		_, err := svc.SignedDownloadURL(
+			context.Background(),
+			auth.Principal{ActorType: "client", ActorID: "c1"},
+			"missing",
+		)
 		if !errors.Is(err, auth.ErrForbidden) {
 			t.Fatalf("error = %v, want %v", err, auth.ErrForbidden)
 		}
@@ -117,8 +183,24 @@ func TestSignedDownloadURLDenialsAndFailures(t *testing.T) {
 
 	t.Run("expired file forbidden", func(t *testing.T) {
 		expired := time.Now().UTC().Add(-time.Minute).Format(time.RFC3339Nano)
-		svc, _ := NewDownloadService("bucket", time.Minute, &downloadRepoStub{file: db.File{ID: "f1", ExpiresAt: sql.NullString{Valid: true, String: expired}, StorageKey: "k"}}, &downloadAuthzStub{}, &signerStub{url: "ok"})
-		_, err := svc.SignedDownloadURL(context.Background(), auth.Principal{ActorType: "client", ActorID: "c1"}, "f1")
+		svc, _ := NewDownloadService(
+			"bucket",
+			time.Minute,
+			&downloadRepoStub{
+				file: db.File{
+					ID:         "f1",
+					ExpiresAt:  sql.NullString{Valid: true, String: expired},
+					StorageKey: "k",
+				},
+			},
+			&downloadAuthzStub{},
+			&signerStub{url: "ok"},
+		)
+		_, err := svc.SignedDownloadURL(
+			context.Background(),
+			auth.Principal{ActorType: "client", ActorID: "c1"},
+			"f1",
+		)
 		if !errors.Is(err, auth.ErrForbidden) {
 			t.Fatalf("error = %v, want %v", err, auth.ErrForbidden)
 		}
@@ -126,8 +208,18 @@ func TestSignedDownloadURLDenialsAndFailures(t *testing.T) {
 
 	t.Run("client authz denied", func(t *testing.T) {
 		authz := &downloadAuthzStub{err: auth.ErrForbidden}
-		svc, _ := NewDownloadService("bucket", time.Minute, &downloadRepoStub{file: db.File{ID: "f1", StorageKey: "k"}}, authz, &signerStub{url: "ok"})
-		_, err := svc.SignedDownloadURL(context.Background(), auth.Principal{ActorType: "client", ActorID: "c1"}, "f1")
+		svc, _ := NewDownloadService(
+			"bucket",
+			time.Minute,
+			&downloadRepoStub{file: db.File{ID: "f1", StorageKey: "k"}},
+			authz,
+			&signerStub{url: "ok"},
+		)
+		_, err := svc.SignedDownloadURL(
+			context.Background(),
+			auth.Principal{ActorType: "client", ActorID: "c1"},
+			"f1",
+		)
 		if !errors.Is(err, auth.ErrForbidden) {
 			t.Fatalf("error = %v, want %v", err, auth.ErrForbidden)
 		}
@@ -135,8 +227,18 @@ func TestSignedDownloadURLDenialsAndFailures(t *testing.T) {
 
 	t.Run("signer failure bubbles", func(t *testing.T) {
 		signerErr := errors.New("sign failed")
-		svc, _ := NewDownloadService("bucket", time.Minute, &downloadRepoStub{file: db.File{ID: "f1", StorageKey: "k"}}, &downloadAuthzStub{}, &signerStub{err: signerErr})
-		_, err := svc.SignedDownloadURL(context.Background(), auth.Principal{ActorType: "client", ActorID: "c1"}, "f1")
+		svc, _ := NewDownloadService(
+			"bucket",
+			time.Minute,
+			&downloadRepoStub{file: db.File{ID: "f1", StorageKey: "k"}},
+			&downloadAuthzStub{},
+			&signerStub{err: signerErr},
+		)
+		_, err := svc.SignedDownloadURL(
+			context.Background(),
+			auth.Principal{ActorType: "client", ActorID: "c1"},
+			"f1",
+		)
 		if !errors.Is(err, signerErr) {
 			t.Fatalf("error = %v, want %v", err, signerErr)
 		}

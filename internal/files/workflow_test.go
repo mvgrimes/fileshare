@@ -53,17 +53,30 @@ func (s *fileRecordRepoStub) GetFileByID(_ context.Context, id string) (db.File,
 
 type allowClientUploadAuthz struct{}
 
-func (a allowClientUploadAuthz) AuthorizeClientUpload(context.Context, auth.Principal, string, string) error {
+func (a allowClientUploadAuthz) AuthorizeClientUpload(
+	context.Context,
+	auth.Principal,
+	string,
+	string,
+) error {
 	return nil
 }
 
 type allowClientDownloadAuthz struct{}
 
-func (a allowClientDownloadAuthz) AuthorizeClientDownload(context.Context, auth.Principal, string) error {
+func (a allowClientDownloadAuthz) AuthorizeClientDownload(
+	context.Context,
+	auth.Principal,
+	string,
+) error {
 	return nil
 }
 
-func (a allowClientDownloadAuthz) AuthorizeUserDownload(context.Context, auth.Principal, string) error {
+func (a allowClientDownloadAuthz) AuthorizeUserDownload(
+	context.Context,
+	auth.Principal,
+	string,
+) error {
 	return nil
 }
 
@@ -109,11 +122,21 @@ func TestWorkflowClientUploadShareAndSignedDownload(t *testing.T) {
 		t.Fatal("shareID should be non-empty")
 	}
 
-	downloadSvc, err := NewDownloadService("files-bucket", 5*time.Minute, repo, allowClientDownloadAuthz{}, &signerStub{url: "https://signed.example/file"})
+	downloadSvc, err := NewDownloadService(
+		"files-bucket",
+		5*time.Minute,
+		repo,
+		allowClientDownloadAuthz{},
+		&signerStub{url: "https://signed.example/file"},
+	)
 	if err != nil {
 		t.Fatalf("NewDownloadService() error = %v", err)
 	}
-	url, err := downloadSvc.SignedDownloadURL(ctx, auth.Principal{ActorType: "client", ActorID: "client-1"}, fileID)
+	url, err := downloadSvc.SignedDownloadURL(
+		ctx,
+		auth.Principal{ActorType: "client", ActorID: "client-1"},
+		fileID,
+	)
 	if err != nil {
 		t.Fatalf("SignedDownloadURL() error = %v", err)
 	}
@@ -145,11 +168,21 @@ func TestWorkflowExpiredFileDownloadDenied(t *testing.T) {
 		t.Fatalf("Upload() error = %v", err)
 	}
 
-	downloadSvc, err := NewDownloadService("files-bucket", 5*time.Minute, repo, allowClientDownloadAuthz{}, &signerStub{url: "https://signed.example/file"})
+	downloadSvc, err := NewDownloadService(
+		"files-bucket",
+		5*time.Minute,
+		repo,
+		allowClientDownloadAuthz{},
+		&signerStub{url: "https://signed.example/file"},
+	)
 	if err != nil {
 		t.Fatalf("NewDownloadService() error = %v", err)
 	}
-	_, err = downloadSvc.SignedDownloadURL(ctx, auth.Principal{ActorType: "client", ActorID: "client-1"}, fileID)
+	_, err = downloadSvc.SignedDownloadURL(
+		ctx,
+		auth.Principal{ActorType: "client", ActorID: "client-1"},
+		fileID,
+	)
 	if !errors.Is(err, auth.ErrForbidden) {
 		t.Fatalf("error = %v, want %v", err, auth.ErrForbidden)
 	}

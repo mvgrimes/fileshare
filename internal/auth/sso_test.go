@@ -41,7 +41,15 @@ func TestSSOValidatorValidateInvalidToken(t *testing.T) {
 
 func TestSSOValidatorRejectsMismatchedIssuer(t *testing.T) {
 	v := NewSSOValidator("secret", "issuer-1", "aud-1")
-	signed := signedSSOTestToken(t, "secret", jwt.SigningMethodHS256, "issuer-2", "aud-1", "u-1", "sub-1")
+	signed := signedSSOTestToken(
+		t,
+		"secret",
+		jwt.SigningMethodHS256,
+		"issuer-2",
+		"aud-1",
+		"u-1",
+		"sub-1",
+	)
 
 	if _, err := v.Validate(signed); err == nil {
 		t.Fatal("Validate() error = nil, want error")
@@ -50,7 +58,15 @@ func TestSSOValidatorRejectsMismatchedIssuer(t *testing.T) {
 
 func TestSSOValidatorRejectsMismatchedAudience(t *testing.T) {
 	v := NewSSOValidator("secret", "issuer-1", "aud-1")
-	signed := signedSSOTestToken(t, "secret", jwt.SigningMethodHS256, "issuer-1", "aud-2", "u-1", "sub-1")
+	signed := signedSSOTestToken(
+		t,
+		"secret",
+		jwt.SigningMethodHS256,
+		"issuer-1",
+		"aud-2",
+		"u-1",
+		"sub-1",
+	)
 
 	if _, err := v.Validate(signed); err == nil {
 		t.Fatal("Validate() error = nil, want error")
@@ -59,7 +75,15 @@ func TestSSOValidatorRejectsMismatchedAudience(t *testing.T) {
 
 func TestSSOValidatorRejectsWrongSigningMethod(t *testing.T) {
 	v := NewSSOValidator("secret", "issuer-1", "aud-1")
-	signed := signedSSOTestToken(t, "secret", jwt.SigningMethodHS384, "issuer-1", "aud-1", "u-1", "sub-1")
+	signed := signedSSOTestToken(
+		t,
+		"secret",
+		jwt.SigningMethodHS384,
+		"issuer-1",
+		"aud-1",
+		"u-1",
+		"sub-1",
+	)
 
 	if _, err := v.Validate(signed); err == nil {
 		t.Fatal("Validate() error = nil, want error")
@@ -81,7 +105,15 @@ func TestSSOValidatorRejectsMissingValidatorConfig(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			v := NewSSOValidator(tc.secret, tc.issuer, tc.audience)
-			signed := signedSSOTestToken(t, "secret", jwt.SigningMethodHS256, "issuer-1", "aud-1", "u-1", "sub-1")
+			signed := signedSSOTestToken(
+				t,
+				"secret",
+				jwt.SigningMethodHS256,
+				"issuer-1",
+				"aud-1",
+				"u-1",
+				"sub-1",
+			)
 			if _, err := v.Validate(signed); err == nil {
 				t.Fatal("Validate() error = nil, want error")
 			}
@@ -96,7 +128,12 @@ func TestSSOValidatorRejectsEmptyToken(t *testing.T) {
 	}
 }
 
-func signedSSOTestToken(t *testing.T, secret string, method jwt.SigningMethod, issuer, audience, userID, subject string) string {
+func signedSSOTestToken(
+	t *testing.T,
+	secret string,
+	method jwt.SigningMethod,
+	issuer, audience, userID, subject string,
+) string {
 	t.Helper()
 	token := jwt.NewWithClaims(method, SSOClaims{
 		UserID: userID,

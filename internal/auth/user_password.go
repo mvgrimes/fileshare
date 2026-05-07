@@ -6,9 +6,9 @@ import (
 	"errors"
 	"strings"
 
-	"golang.org/x/crypto/bcrypt"
-
 	"fileshare/internal/db"
+
+	"golang.org/x/crypto/bcrypt"
 )
 
 var (
@@ -29,7 +29,10 @@ func NewUserPasswordAuthenticator(queries userPasswordQuerier) *UserPasswordAuth
 	return &UserPasswordAuthenticator{queries: queries}
 }
 
-func (a *UserPasswordAuthenticator) Authenticate(ctx context.Context, email, password string) (db.User, []string, error) {
+func (a *UserPasswordAuthenticator) Authenticate(
+	ctx context.Context,
+	email, password string,
+) (db.User, []string, error) {
 	email = strings.TrimSpace(email)
 	if email == "" || strings.TrimSpace(password) == "" {
 		return db.User{}, nil, ErrInvalidUserCredentials
@@ -48,7 +51,10 @@ func (a *UserPasswordAuthenticator) Authenticate(ctx context.Context, email, pas
 	if !user.PasswordHash.Valid || strings.TrimSpace(user.PasswordHash.String) == "" {
 		return db.User{}, nil, ErrUserPasswordDisabled
 	}
-	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash.String), []byte(password)); err != nil {
+	if err := bcrypt.CompareHashAndPassword(
+		[]byte(user.PasswordHash.String),
+		[]byte(password),
+	); err != nil {
 		return db.User{}, nil, ErrInvalidUserCredentials
 	}
 
