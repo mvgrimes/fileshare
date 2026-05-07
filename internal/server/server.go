@@ -153,6 +153,12 @@ func New(cfg *config.Config, log *slog.Logger) *Server {
 		if c.Response().Committed {
 			return
 		}
+		log.Error("http internal error",
+			"request_id", c.Response().Header().Get(echo.HeaderXRequestID),
+			"method", c.Request().Method,
+			"uri", c.Request().RequestURI,
+			"error", err,
+		)
 		_ = c.String(http.StatusInternalServerError, "internal server error")
 	}
 
