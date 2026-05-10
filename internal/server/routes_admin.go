@@ -23,7 +23,7 @@ func (s *Server) registerAdminRoutes(queries *db.Queries) {
 			"Title":           "Admin Dashboard",
 			"Role":            principal.ActorType,
 			"ActorID":         principal.ActorID,
-			"ContentTemplate": "dashboard_content",
+			"ContentTemplate": "admin_dashboard_content",
 		})
 	})
 	admin.GET("/users", func(c echo.Context) error {

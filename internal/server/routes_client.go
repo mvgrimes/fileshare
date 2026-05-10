@@ -41,7 +41,7 @@ func (s *Server) registerClientRoutes(queries *db.Queries) {
 			"Title":            "Client Upload",
 			"Subtitle":         "Submit upload targets permitted for your account.",
 			"ActorID":          principal.ActorID,
-			"ContentTemplate":  "upload_share_content",
+			"ContentTemplate":  "client_uploads_content",
 			"FormAction":       "/client/uploads",
 			"FlashError":       c.QueryParam("error"),
 			"FlashSuccess":     c.QueryParam("success"),
@@ -109,7 +109,7 @@ func (s *Server) registerClientRoutes(queries *db.Queries) {
 		return c.Render(http.StatusOK, "base", map[string]any{
 			"Title":           "Profile",
 			"Subtitle":        "Update your display name and password.",
-			"ContentTemplate": "profile_content",
+			"ContentTemplate": "client_profile_content",
 			"ProfileType":     "client",
 			"ActorID":         principal.ActorID,
 			"Email":           account.Email,
@@ -223,7 +223,7 @@ func (s *Server) registerClientRoutes(queries *db.Queries) {
 		return c.Render(http.StatusOK, "base", map[string]any{
 			"Title":              "Sent Files",
 			"Subtitle":           "Files sent from your client account.",
-			"ContentTemplate":    "shared_files_content",
+			"ContentTemplate":    "client_sent_content",
 			"Files":              items,
 			"EmptyMessage":       "No sent files are available yet.",
 			"DetailBasePath":     "/client/file",
@@ -248,7 +248,7 @@ func (s *Server) registerClientRoutes(queries *db.Queries) {
 		return c.Render(http.StatusOK, "base", map[string]any{
 			"Title":           "File Detail",
 			"Subtitle":        "File metadata and details.",
-			"ContentTemplate": "file_detail_content",
+			"ContentTemplate": "client_file_content",
 			"File": fileListItem{
 				ID:          file.ID,
 				Name:        file.OriginalFilename,
@@ -355,7 +355,7 @@ func (s *Server) registerClientRoutes(queries *db.Queries) {
 		return c.Render(http.StatusOK, "base", map[string]any{
 			"Title":                "Received Files",
 			"Subtitle":             "Shares sent to your client account.",
-			"ContentTemplate":      "shared_files_content",
+			"ContentTemplate":      "client_received_content",
 			"Files":                items,
 			"EmptyMessage":         "No files have been received yet.",
 			"DetailBasePath":       "/client/received",
@@ -433,7 +433,7 @@ func (s *Server) registerClientRoutes(queries *db.Queries) {
 		return c.Render(http.StatusOK, "base", map[string]any{
 			"Title":           "Received Share Detail",
 			"Subtitle":        "File metadata and share details.",
-			"ContentTemplate": "share_detail_content",
+			"ContentTemplate": "client_received_share_content",
 			"File": fileListItem{
 				ID:          selected.ID,
 				FileID:      file.ID,

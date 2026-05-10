@@ -193,7 +193,7 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 				"ClientSentViewed":   0,
 				"ClientSentUnviewed": len(receivedItems),
 			},
-			"ContentTemplate": "user_dashboard",
+			"ContentTemplate": "user_dashboard_content",
 		})
 	})
 
@@ -209,7 +209,7 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 		return c.Render(http.StatusOK, "base", map[string]any{
 			"Title":           "Profile",
 			"Subtitle":        "Update your name and password.",
-			"ContentTemplate": "profile",
+			"ContentTemplate": "user_profile_content",
 			"ProfileType":     "user",
 			"ActorID":         principal.ActorID,
 			"Email":           account.Email,
@@ -317,7 +317,7 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 			"Title":           "Upload and Share",
 			"Subtitle":        "Upload metadata and sharing targets for processing.",
 			"ActorID":         principal.ActorID,
-			"ContentTemplate": "upload_share",
+			"ContentTemplate": "user_uploads_content",
 			"FormAction":      "/user/uploads",
 			"FlashError":      c.QueryParam("error"),
 			"FlashSuccess":    c.QueryParam("success"),
@@ -417,7 +417,7 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 		return c.Render(http.StatusOK, "base", map[string]any{
 			"Title":                "Sent Files",
 			"Subtitle":             "Shares sent from your account.",
-			"ContentTemplate":      "shared_files",
+			"ContentTemplate":      "user_sent_content",
 			"Files":                items,
 			"EmptyMessage":         "No files sent yet.",
 			"DetailBasePath":       "/user/sent",
@@ -575,7 +575,7 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 		return c.Render(http.StatusOK, "base", map[string]any{
 			"Title":           "Sent Share Detail",
 			"Subtitle":        "Detailed metadata for this sent share.",
-			"ContentTemplate": "share_detail",
+			"ContentTemplate": "user_sent_share_content",
 			"File": fileListItem{
 				ID:          share.ID,
 				FileID:      file.ID,
@@ -751,7 +751,7 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 		return c.Render(http.StatusOK, "base", map[string]any{
 			"Title":           "File Detail",
 			"Subtitle":        "Manage this file and its shares.",
-			"ContentTemplate": "user_file_detail",
+			"ContentTemplate": "user_file_content",
 			"File": fileListItem{
 				ID:          file.ID,
 				Name:        file.OriginalFilename,
@@ -1003,7 +1003,7 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 		return c.Render(http.StatusOK, "base", map[string]any{
 			"Title":                "Received Files",
 			"Subtitle":             "Shares sent to your account.",
-			"ContentTemplate":      "shared_files",
+			"ContentTemplate":      "user_received_content",
 			"Files":                items,
 			"EmptyMessage":         "No files have been received yet.",
 			"DetailBasePath":       "/user/received",
@@ -1103,7 +1103,7 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 		return c.Render(http.StatusOK, "base", map[string]any{
 			"Title":           "Received Share Detail",
 			"Subtitle":        "File metadata and share details.",
-			"ContentTemplate": "share_detail",
+			"ContentTemplate": "user_received_share_content",
 			"File": fileListItem{
 				ID:          selected.ID,
 				FileID:      file.ID,
@@ -1374,7 +1374,7 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 		return c.Render(http.StatusOK, "base", map[string]any{
 			"Title":           "Client Management",
 			"Subtitle":        "Create clients and manage client accounts.",
-			"ContentTemplate": "clients_management",
+			"ContentTemplate": "user_clients_content",
 			"FlashError":      c.QueryParam("error"),
 			"FlashSuccess":    c.QueryParam("success"),
 			"Clients":         clients,
@@ -1415,7 +1415,7 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 		return c.Render(http.StatusOK, "base", map[string]any{
 			"Title":            "Client Groups",
 			"Subtitle":         "Create groups and add client memberships.",
-			"ContentTemplate":  "client_groups_management",
+			"ContentTemplate":  "user_client_groups_content",
 			"FlashError":       c.QueryParam("error"),
 			"FlashSuccess":     c.QueryParam("success"),
 			"Clients":          clients,
@@ -1451,7 +1451,7 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 		return c.Render(http.StatusOK, "base", map[string]any{
 			"Title":           "Client Group Detail",
 			"Subtitle":        "Update group settings and memberships.",
-			"ContentTemplate": "client_group_detail",
+			"ContentTemplate": "user_client_group_content",
 			"FlashError":      c.QueryParam("error"),
 			"FlashSuccess":    c.QueryParam("success"),
 			"ClientGroup":     group,
@@ -1579,7 +1579,7 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 		return c.Render(http.StatusOK, "base", map[string]any{
 			"Title":           "Edit Client",
 			"Subtitle":        "Update client access and reset password.",
-			"ContentTemplate": "client_edit",
+			"ContentTemplate": "user_client_edit_content",
 			"Client":          client,
 			"FlashError":      c.QueryParam("error"),
 			"FlashSuccess":    c.QueryParam("success"),

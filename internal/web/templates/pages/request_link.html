@@ -1,0 +1,17 @@
+{{define "request_link_content"}}
+<section class="grid gap-4">
+  <article class="card bg-base-100 shadow-sm">
+    <div class="card-body gap-3">
+      {{template "page_header" .}}
+      <form method="post" action="/auth/magic/request" class="space-y-3" data-enhance="submission">
+        <label class="form-control w-full">
+          <span class="label-text">Email Address</span>
+          <input class="input input-bordered w-full" type="email" name="client_id" required value="{{.MagicClientID}}">
+        </label>
+        <button class="btn btn-primary w-full" type="submit" data-pending-text="Sending...">Send Magic Link</button>
+      </form>
+      <a class="link link-primary text-sm" href="/verify-token">Already have a token? Verify it</a>
+    </div>
+  </article>
+</section>
+{{end}}

@@ -1,4 +1,4 @@
-{{define "upload_share_content"}}
+{{define "upload_share_form_partial"}}
 <section class="card bg-base-100 shadow-sm">
   <div class="card-body gap-4">
     {{template "page_header" .}}
@@ -37,61 +37,24 @@
           <option value="{{.ID}}" data-target-option="user">{{.FullName}} ({{.Email}})</option>
           {{end}}
           {{range .UserGroups}}
-          <option value="{{.ID}}" data-target-option="user_group" hidden>{{.Name}} ({{.ID}})</option>
+          <option value="{{.ID}}" data-target-option="user_group">{{.Name}}</option>
           {{end}}
           {{else}}
           {{range .Clients}}
-          <option value="{{.ID}}" data-target-option="client">{{.DisplayName}} ({{.ID}})</option>
+          <option value="{{.ID}}" data-target-option="client">{{.DisplayName}} ({{.Email}})</option>
           {{end}}
           {{range .ClientGroups}}
-          <option value="{{.ID}}" data-target-option="client_group" hidden>{{.Name}} ({{.ID}})</option>
+          <option value="{{.ID}}" data-target-option="client_group">{{.Name}}</option>
           {{end}}
           {{end}}
         </select>
       </label>
       <label class="form-control w-full md:col-span-2">
         <span class="label-text">Message...</span>
-        <textarea class="textarea textarea-bordered w-full" name="message" rows="3" placeholder="Optional note for recipients"></textarea>
+        <textarea class="textarea textarea-bordered w-full" name="message" rows="3" placeholder="Optional message to include with the share"></textarea>
       </label>
       <button class="btn btn-primary md:col-span-2" type="submit" data-pending-text="Submitting...">Submit</button>
     </form>
   </div>
 </section>
-<script>
-  (() => {
-    const forms = document.querySelectorAll("form[data-target-select-form]");
-    for (const form of forms) {
-      const typeSelect = form.querySelector("select[data-target-type-select]");
-      const targetSelect = form.querySelector("select[data-target-id-select]");
-      if (!typeSelect || !targetSelect) continue;
-
-      const syncTargetOptions = () => {
-        const targetType = typeSelect.value;
-        let firstVisibleOption = null;
-
-        for (const option of targetSelect.options) {
-          const optionType = option.dataset.targetOption;
-          const isVisible = optionType === targetType;
-          option.hidden = !isVisible;
-          option.disabled = !isVisible;
-          if (isVisible && !firstVisibleOption) {
-            firstVisibleOption = option;
-          }
-        }
-
-        const selectedOption = targetSelect.selectedOptions[0];
-        if (!selectedOption || selectedOption.hidden || selectedOption.disabled) {
-          if (firstVisibleOption) {
-            targetSelect.value = firstVisibleOption.value;
-          } else {
-            targetSelect.value = "";
-          }
-        }
-      };
-
-      typeSelect.addEventListener("change", syncTargetOptions);
-      syncTargetOptions();
-    }
-  })();
-</script>
 {{end}}
