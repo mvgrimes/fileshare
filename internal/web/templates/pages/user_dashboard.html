@@ -1,0 +1,109 @@
+{{define "user_dashboard_content"}}
+<div class="space-y-3">
+<section class="grid gap-4 xxl:grid-cols-2">
+  <article
+    class="stats stats-horizontal bg-base-100 shadow-sm xl:col-span-2 overflow-x-auto"
+  >
+    <div class="stat">
+      <div class="stat-title">Clients</div>
+      <div class="stat-value text-2xl">{{.Stats.ClientCount}}</div>
+    </div>
+    <div class="stat">
+      <div class="stat-title">Your Sent Files</div>
+      <div class="stat-value text-2xl">{{.Stats.UserSentTotal}}</div>
+      <div class="stat-desc">
+        {{.Stats.UserSentViewed}} viewed / {{.Stats.UserSentUnviewed}} unviewed
+      </div>
+    </div>
+    <div class="stat">
+      <div class="stat-title">Client Sent Files</div>
+      <div class="stat-value text-2xl">{{.Stats.ClientSentTotal}}</div>
+      <div class="stat-desc">
+        {{.Stats.ClientSentViewed}} viewed / {{.Stats.ClientSentUnviewed}}
+        unviewed
+      </div>
+    </div>
+  </article>
+  <article class="card bg-base-100 shadow-sm">
+    <div class="card-body">
+      <div class="flex items-center justify-between">
+        <h2 class="card-title">Files Received</h2>
+        <a class="btn btn-xs btn-ghost" href="/user/received">View all</a>
+      </div>
+      {{if .DashboardReceivedFiles}}
+      <div class="overflow-x-auto">
+        <table class="table table-zebra table-sm">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Shared By</th>
+              <th>Status</th>
+              <th>Shared At</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {{range .DashboardReceivedFiles}}
+            <tr>
+              <td>{{.Name}}</td>
+              <td>{{.SharedVia}}</td>
+              <td>{{.ViewStatus}}</td>
+              <td>{{.SharedAt}}</td>
+              <td>
+                <a class="btn btn-xs btn-primary" href="/user/received/{{.ID}}"
+                  >Details</a
+                >
+              </td>
+            </tr>
+            {{end}}
+          </tbody>
+        </table>
+      </div>
+      {{else}}
+      <p class="text-sm opacity-70">No files received yet.</p>
+      {{end}}
+    </div>
+  </article>
+  <article class="card bg-base-100 shadow-sm">
+    <div class="card-body">
+      <div class="flex items-center justify-between">
+        <h2 class="card-title">Files Sent</h2>
+        <a class="btn btn-xs btn-ghost" href="/user/sent">View all</a>
+      </div>
+      {{if .DashboardSentFiles}}
+      <div class="overflow-x-auto">
+        <table class="table table-zebra table-sm">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Shared With</th>
+              <th>Status</th>
+              <th>Uploaded</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {{range .DashboardSentFiles}}
+            <tr>
+              <td>{{.Name}}</td>
+              <td>{{.SharedVia}}</td>
+              <td>{{.ViewStatus}}</td>
+              <td>{{.UploadedAt}}</td>
+              <td>
+                <a class="btn btn-xs btn-primary" href="/user/sent/{{.ID}}"
+                  >Details</a
+                >
+              </td>
+            </tr>
+            {{end}}
+          </tbody>
+        </table>
+      </div>
+      {{else}}
+      <p class="text-sm opacity-70">No files sent yet.</p>
+      {{end}}
+    </div>
+  </article>
+</section>
+</div>
+{{end}}

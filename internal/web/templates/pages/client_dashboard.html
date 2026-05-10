@@ -1,0 +1,57 @@
+{{define "client_dashboard_content"}}
+<div class="space-y-3">
+  {{template "page_header" .}}
+  <section class="card bg-base-100 shadow-sm">
+    <div class="card-body gap-4">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <h2 class="card-title">Files Received</h2>
+        <a class="btn btn-primary" href="/client/uploads">Upload a file</a>
+      </div>
+      {{if .DashboardReceivedFiles}}
+      <div class="overflow-x-auto">
+        <table class="table table-zebra">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Size</th>
+              <th>Shared At</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {{range .DashboardReceivedFiles}}
+            <tr>
+              <td>{{.Name}}</td>
+              <td>
+                <span data-format-bytes="{{.SizeBytes}}">{{.SizeBytes}}</span>
+              </td>
+              <td>
+                {{if .SharedAt}}<span data-format-datetime="{{.SharedAt}}"
+                  >{{.SharedAt}}</span
+                >{{end}}
+              </td>
+              <td class="space-x-1">
+                <a
+                  class="btn btn-xs btn-primary"
+                  href="/client/received/{{.ID}}"
+                  >Details</a
+                ><a
+                  class="btn btn-xs btn-secondary"
+                  href="/client/file/{{.FileID}}/download"
+                  >Download</a
+                >
+              </td>
+            </tr>
+            {{end}}
+          </tbody>
+        </table>
+      </div>
+      {{else}}
+      <div class="alert" role="status">
+        <span>No files have been received yet.</span>
+      </div>
+      {{end}}
+    </div>
+  </section>
+</div>
+{{end}}

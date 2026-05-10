@@ -19,16 +19,12 @@ func (s *Server) registerAdminRoutes(queries *db.Queries) {
 	admin.Use(auth.RequireAuth(), auth.RequireActorType("user"), auth.RequireRole("admin"))
 	admin.GET("/dashboard", func(c echo.Context) error {
 		principal, _ := auth.PrincipalFromContext(c)
-		return c.Render(
-			http.StatusOK,
-			"dashboard",
-			map[string]any{
-				"Title":           "Admin Dashboard",
-				"Role":            principal.ActorType,
-				"ActorID":         principal.ActorID,
-				"ContentTemplate": "dashboard_content",
-			},
-		)
+		return c.Render(http.StatusOK, "base", map[string]any{
+			"Title":           "Admin Dashboard",
+			"Role":            principal.ActorType,
+			"ActorID":         principal.ActorID,
+			"ContentTemplate": "dashboard_content",
+		})
 	})
 	admin.GET("/users", func(c echo.Context) error {
 		principal, _ := auth.PrincipalFromContext(c)
@@ -83,19 +79,15 @@ func (s *Server) registerAdminRoutes(queries *db.Queries) {
 			"",
 			map[string]any{"outcome": "success"},
 		)
-		return c.Render(
-			http.StatusOK,
-			"admin_users",
-			map[string]any{
-				"Title":           "Manage Users",
-				"Subtitle":        "Create users, update profile data, and reset passwords.",
-				"ContentTemplate": "admin_users_content",
-				"Users":           items,
-				"Roles":           roles,
-				"FlashError":      c.QueryParam("error"),
-				"FlashSuccess":    c.QueryParam("success"),
-			},
-		)
+		return c.Render(http.StatusOK, "base", map[string]any{
+			"Title":           "Manage Users",
+			"Subtitle":        "Create users, update profile data, and reset passwords.",
+			"ContentTemplate": "admin_users_content",
+			"Users":           items,
+			"Roles":           roles,
+			"FlashError":      c.QueryParam("error"),
+			"FlashSuccess":    c.QueryParam("success"),
+		})
 	}, auth.RequireCapability(auth.CapabilityManageUsers))
 	admin.POST("/users", func(c echo.Context) error {
 		principal, _ := auth.PrincipalFromContext(c)

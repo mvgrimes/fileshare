@@ -432,7 +432,7 @@ func loadTemplates(environment string) (*template.Template, error) {
 		},
 	}
 
-	parsed, err := template.New("root").Funcs(funcs).ParseFS(templatesFS, "*.html")
+	parsed, err := template.New("root").Funcs(funcs).ParseFS(templatesFS, "*/*.html")
 	if err != nil {
 		return nil, err
 	}

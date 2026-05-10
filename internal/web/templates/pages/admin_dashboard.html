@@ -1,0 +1,11 @@
+{{define "admin_dashboard_content"}}
+<section class="card bg-base-100 shadow-sm">
+  <div class="card-body gap-4">
+    {{template "page_header" .}}
+    <p class="text-sm opacity-80">Use the admin tools to manage users and account access.</p>
+    <div>
+      <a class="btn btn-primary" href="/admin/users">Manage Users</a>
+    </div>
+  </div>
+</section>
+{{end}}

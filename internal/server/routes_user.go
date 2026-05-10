@@ -175,14 +175,13 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 			receivedItems = receivedItems[:10]
 		}
 
-		return c.Render(http.StatusOK, "dashboard", map[string]any{
+		return c.Render(http.StatusOK, "base", map[string]any{
 			"Title":                  "User Dashboard",
 			"Role":                   principal.ActorType,
 			"Subtitle":               "Overview of sent and received files.",
 			"ActorID":                principal.ActorID,
 			"DashboardActions":       actions,
 			"HasActions":             len(actions) > 0,
-			"DashboardMainTemplate":  "user_dashboard_main",
 			"DashboardSentFiles":     sentItems,
 			"DashboardReceivedFiles": receivedItems,
 			"Stats": map[string]int{
@@ -194,7 +193,7 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 				"ClientSentViewed":   0,
 				"ClientSentUnviewed": len(receivedItems),
 			},
-			"ContentTemplate": "dashboard_content",
+			"ContentTemplate": "user_dashboard",
 		})
 	})
 
@@ -207,22 +206,18 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 			}
 			return c.String(http.StatusInternalServerError, "failed to load profile")
 		}
-		return c.Render(
-			http.StatusOK,
-			"profile",
-			map[string]any{
-				"Title":           "Profile",
-				"Subtitle":        "Update your name and password.",
-				"ContentTemplate": "profile_content",
-				"ProfileType":     "user",
-				"ActorID":         principal.ActorID,
-				"Email":           account.Email,
-				"DisplayName":     account.FullName,
-				"FormAction":      "/user/profile",
-				"FlashError":      c.QueryParam("error"),
-				"FlashSuccess":    c.QueryParam("success"),
-			},
-		)
+		return c.Render(http.StatusOK, "base", map[string]any{
+			"Title":           "Profile",
+			"Subtitle":        "Update your name and password.",
+			"ContentTemplate": "profile",
+			"ProfileType":     "user",
+			"ActorID":         principal.ActorID,
+			"Email":           account.Email,
+			"DisplayName":     account.FullName,
+			"FormAction":      "/user/profile",
+			"FlashError":      c.QueryParam("error"),
+			"FlashSuccess":    c.QueryParam("success"),
+		})
 	})
 
 	user.POST("/profile", func(c echo.Context) error {
@@ -318,11 +313,11 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 		if err != nil {
 			return c.String(http.StatusInternalServerError, "failed to load client groups")
 		}
-		return c.Render(http.StatusOK, "upload_share", map[string]any{
+		return c.Render(http.StatusOK, "base", map[string]any{
 			"Title":           "Upload and Share",
 			"Subtitle":        "Upload metadata and sharing targets for processing.",
 			"ActorID":         principal.ActorID,
-			"ContentTemplate": "upload_share_content",
+			"ContentTemplate": "upload_share",
 			"FormAction":      "/user/uploads",
 			"FlashError":      c.QueryParam("error"),
 			"FlashSuccess":    c.QueryParam("success"),
@@ -419,22 +414,18 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 				)
 			}
 		}
-		return c.Render(
-			http.StatusOK,
-			"shared_files",
-			map[string]any{
-				"Title":                "Sent Files",
-				"Subtitle":             "Shares sent from your account.",
-				"ContentTemplate":      "shared_files_content",
-				"Files":                items,
-				"EmptyMessage":         "No files sent yet.",
-				"DetailBasePath":       "/user/sent",
-				"DownloadBasePath":     "/user/file",
-				"ShowSharedViaColumn":  true,
-				"SharedViaColumnLabel": "Shared With",
-				"DownloadUsesFileID":   true,
-			},
-		)
+		return c.Render(http.StatusOK, "base", map[string]any{
+			"Title":                "Sent Files",
+			"Subtitle":             "Shares sent from your account.",
+			"ContentTemplate":      "shared_files",
+			"Files":                items,
+			"EmptyMessage":         "No files sent yet.",
+			"DetailBasePath":       "/user/sent",
+			"DownloadBasePath":     "/user/file",
+			"ShowSharedViaColumn":  true,
+			"SharedViaColumnLabel": "Shared With",
+			"DownloadUsesFileID":   true,
+		})
 	})
 
 	user.GET("/file/:fileID/download", func(c echo.Context) error {
@@ -581,36 +572,32 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 		if err != nil {
 			return c.String(http.StatusInternalServerError, "failed to load view history")
 		}
-		return c.Render(
-			http.StatusOK,
-			"shared_files",
-			map[string]any{
-				"Title":           "Sent Share Detail",
-				"Subtitle":        "Detailed metadata for this sent share.",
-				"ContentTemplate": "share_detail_content",
-				"File": fileListItem{
-					ID:          share.ID,
-					FileID:      file.ID,
-					Name:        file.OriginalFilename,
-					ContentType: file.ContentType,
-					SizeBytes:   file.SizeBytes,
-					SharedVia:   sharedVia,
-					SharedBy:    sharedBy,
-					UploadedAt:  file.CreatedAt,
-					SharedAt:    share.CreatedAt,
-					ViewStatus:  status,
-					Message:     message,
-				},
-				"BackPath":       "/user/sent",
-				"BackLabel":      "Back to Sent Files",
-				"DownloadPath":   "/user/file/" + file.ID + "/download",
-				"FileDetailPath": "/user/file/" + file.ID,
-				"UnsharePath":    "/user/sent/" + share.ID + "/delete",
-				"ViewHistory":    viewHistory,
-				"FlashError":     c.QueryParam("error"),
-				"FlashSuccess":   c.QueryParam("success"),
+		return c.Render(http.StatusOK, "base", map[string]any{
+			"Title":           "Sent Share Detail",
+			"Subtitle":        "Detailed metadata for this sent share.",
+			"ContentTemplate": "share_detail",
+			"File": fileListItem{
+				ID:          share.ID,
+				FileID:      file.ID,
+				Name:        file.OriginalFilename,
+				ContentType: file.ContentType,
+				SizeBytes:   file.SizeBytes,
+				SharedVia:   sharedVia,
+				SharedBy:    sharedBy,
+				UploadedAt:  file.CreatedAt,
+				SharedAt:    share.CreatedAt,
+				ViewStatus:  status,
+				Message:     message,
 			},
-		)
+			"BackPath":       "/user/sent",
+			"BackLabel":      "Back to Sent Files",
+			"DownloadPath":   "/user/file/" + file.ID + "/download",
+			"FileDetailPath": "/user/file/" + file.ID,
+			"UnsharePath":    "/user/sent/" + share.ID + "/delete",
+			"ViewHistory":    viewHistory,
+			"FlashError":     c.QueryParam("error"),
+			"FlashSuccess":   c.QueryParam("success"),
+		})
 	})
 
 	user.POST("/sent/:shareID/delete", func(c echo.Context) error {
@@ -761,34 +748,30 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 		if err != nil {
 			return c.String(http.StatusInternalServerError, "failed to load view history")
 		}
-		return c.Render(
-			http.StatusOK,
-			"shared_files",
-			map[string]any{
-				"Title":           "File Detail",
-				"Subtitle":        "Manage this file and its shares.",
-				"ContentTemplate": "user_file_detail_content",
-				"File": fileListItem{
-					ID:          file.ID,
-					Name:        file.OriginalFilename,
-					ContentType: file.ContentType,
-					SizeBytes:   file.SizeBytes,
-					UploadedAt:  file.CreatedAt,
-				},
-				"BackPath":       "/user/sent",
-				"BackLabel":      "Back to Sent Files",
-				"DownloadPath":   "/user/file/" + file.ID + "/download",
-				"ManageBasePath": "/user/file",
-				"ShareTargets":   shareItems,
-				"Clients":        clients,
-				"ClientGroups":   clientGroups,
-				"Users":          users,
-				"UserGroups":     userGroups,
-				"ViewHistory":    viewHistory,
-				"FlashError":     c.QueryParam("error"),
-				"FlashSuccess":   c.QueryParam("success"),
+		return c.Render(http.StatusOK, "base", map[string]any{
+			"Title":           "File Detail",
+			"Subtitle":        "Manage this file and its shares.",
+			"ContentTemplate": "user_file_detail",
+			"File": fileListItem{
+				ID:          file.ID,
+				Name:        file.OriginalFilename,
+				ContentType: file.ContentType,
+				SizeBytes:   file.SizeBytes,
+				UploadedAt:  file.CreatedAt,
 			},
-		)
+			"BackPath":       "/user/sent",
+			"BackLabel":      "Back to Sent Files",
+			"DownloadPath":   "/user/file/" + file.ID + "/download",
+			"ManageBasePath": "/user/file",
+			"ShareTargets":   shareItems,
+			"Clients":        clients,
+			"ClientGroups":   clientGroups,
+			"Users":          users,
+			"UserGroups":     userGroups,
+			"ViewHistory":    viewHistory,
+			"FlashError":     c.QueryParam("error"),
+			"FlashSuccess":   c.QueryParam("success"),
+		})
 	})
 
 	user.POST("/file/:fileID/rename", func(c echo.Context) error {
@@ -1017,22 +1000,18 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 				},
 			)
 		}
-		return c.Render(
-			http.StatusOK,
-			"shared_files",
-			map[string]any{
-				"Title":                "Received Files",
-				"Subtitle":             "Shares sent to your account.",
-				"ContentTemplate":      "shared_files_content",
-				"Files":                items,
-				"EmptyMessage":         "No files have been received yet.",
-				"DetailBasePath":       "/user/received",
-				"DownloadBasePath":     "/user/file",
-				"DownloadUsesFileID":   true,
-				"ShowSharedViaColumn":  true,
-				"SharedViaColumnLabel": "Shared By",
-			},
-		)
+		return c.Render(http.StatusOK, "base", map[string]any{
+			"Title":                "Received Files",
+			"Subtitle":             "Shares sent to your account.",
+			"ContentTemplate":      "shared_files",
+			"Files":                items,
+			"EmptyMessage":         "No files have been received yet.",
+			"DetailBasePath":       "/user/received",
+			"DownloadBasePath":     "/user/file",
+			"DownloadUsesFileID":   true,
+			"ShowSharedViaColumn":  true,
+			"SharedViaColumnLabel": "Shared By",
+		})
 	})
 
 	user.GET("/received/:shareID", func(c echo.Context) error {
@@ -1121,31 +1100,27 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 		if selected.Message.Valid {
 			message = strings.TrimSpace(selected.Message.String)
 		}
-		return c.Render(
-			http.StatusOK,
-			"shared_files",
-			map[string]any{
-				"Title":           "Received Share Detail",
-				"Subtitle":        "File metadata and share details.",
-				"ContentTemplate": "share_detail_content",
-				"File": fileListItem{
-					ID:          selected.ID,
-					FileID:      file.ID,
-					Name:        file.OriginalFilename,
-					ContentType: file.ContentType,
-					SizeBytes:   file.SizeBytes,
-					SharedVia:   sharedVia,
-					SharedBy:    sharedBy,
-					SharedAt:    selected.CreatedAt,
-					UploadedAt:  file.CreatedAt,
-					Message:     message,
-				},
-				"BackPath":       "/user/received",
-				"BackLabel":      "Back to Received Files",
-				"DownloadPath":   "/user/file/" + file.ID + "/download",
-				"FileDetailPath": "/user/file/" + file.ID,
+		return c.Render(http.StatusOK, "base", map[string]any{
+			"Title":           "Received Share Detail",
+			"Subtitle":        "File metadata and share details.",
+			"ContentTemplate": "share_detail",
+			"File": fileListItem{
+				ID:          selected.ID,
+				FileID:      file.ID,
+				Name:        file.OriginalFilename,
+				ContentType: file.ContentType,
+				SizeBytes:   file.SizeBytes,
+				SharedVia:   sharedVia,
+				SharedBy:    sharedBy,
+				SharedAt:    selected.CreatedAt,
+				UploadedAt:  file.CreatedAt,
+				Message:     message,
 			},
-		)
+			"BackPath":       "/user/received",
+			"BackLabel":      "Back to Received Files",
+			"DownloadPath":   "/user/file/" + file.ID + "/download",
+			"FileDetailPath": "/user/file/" + file.ID,
+		})
 	})
 
 	user.GET("/received/:shareID/download", func(c echo.Context) error {
@@ -1396,19 +1371,15 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 		if err != nil {
 			return c.String(http.StatusInternalServerError, "failed to load client groups")
 		}
-		return c.Render(
-			http.StatusOK,
-			"clients_management",
-			map[string]any{
-				"Title":           "Client Management",
-				"Subtitle":        "Create clients and manage client accounts.",
-				"ContentTemplate": "clients_management_content",
-				"FlashError":      c.QueryParam("error"),
-				"FlashSuccess":    c.QueryParam("success"),
-				"Clients":         clients,
-				"ClientGroups":    groups,
-			},
-		)
+		return c.Render(http.StatusOK, "base", map[string]any{
+			"Title":           "Client Management",
+			"Subtitle":        "Create clients and manage client accounts.",
+			"ContentTemplate": "clients_management",
+			"FlashError":      c.QueryParam("error"),
+			"FlashSuccess":    c.QueryParam("success"),
+			"Clients":         clients,
+			"ClientGroups":    groups,
+		})
 	})
 
 	user.GET("/client-groups", func(c echo.Context) error {
@@ -1441,20 +1412,16 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 				clientGroupListItem{ID: g.ID, Name: g.Name, MemberCount: len(members)},
 			)
 		}
-		return c.Render(
-			http.StatusOK,
-			"client_groups_management",
-			map[string]any{
-				"Title":            "Client Groups",
-				"Subtitle":         "Create groups and add client memberships.",
-				"ContentTemplate":  "client_groups_management_content",
-				"FlashError":       c.QueryParam("error"),
-				"FlashSuccess":     c.QueryParam("success"),
-				"Clients":          clients,
-				"ClientGroups":     groups,
-				"ClientGroupItems": groupItems,
-			},
-		)
+		return c.Render(http.StatusOK, "base", map[string]any{
+			"Title":            "Client Groups",
+			"Subtitle":         "Create groups and add client memberships.",
+			"ContentTemplate":  "client_groups_management",
+			"FlashError":       c.QueryParam("error"),
+			"FlashSuccess":     c.QueryParam("success"),
+			"Clients":          clients,
+			"ClientGroups":     groups,
+			"ClientGroupItems": groupItems,
+		})
 	})
 
 	user.GET("/client-groups/:groupID", func(c echo.Context) error {
@@ -1481,22 +1448,18 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 		if err != nil {
 			return c.String(http.StatusInternalServerError, "failed to load clients")
 		}
-		return c.Render(
-			http.StatusOK,
-			"client_group_detail",
-			map[string]any{
-				"Title":           "Client Group Detail",
-				"Subtitle":        "Update group settings and memberships.",
-				"ContentTemplate": "client_group_detail_content",
-				"FlashError":      c.QueryParam("error"),
-				"FlashSuccess":    c.QueryParam("success"),
-				"ClientGroup":     group,
-				"GroupMembers":    members,
-				"Clients":         clients,
-				"BackPath":        "/user/client-groups",
-				"BackLabel":       "Back to Client Groups",
-			},
-		)
+		return c.Render(http.StatusOK, "base", map[string]any{
+			"Title":           "Client Group Detail",
+			"Subtitle":        "Update group settings and memberships.",
+			"ContentTemplate": "client_group_detail",
+			"FlashError":      c.QueryParam("error"),
+			"FlashSuccess":    c.QueryParam("success"),
+			"ClientGroup":     group,
+			"GroupMembers":    members,
+			"Clients":         clients,
+			"BackPath":        "/user/client-groups",
+			"BackLabel":       "Back to Client Groups",
+		})
 	})
 
 	user.POST("/clients", func(c echo.Context) error {
@@ -1613,20 +1576,16 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 			}
 			return c.String(http.StatusInternalServerError, "failed to load client")
 		}
-		return c.Render(
-			http.StatusOK,
-			"client_edit",
-			map[string]any{
-				"Title":           "Edit Client",
-				"Subtitle":        "Update client access and reset password.",
-				"ContentTemplate": "client_edit_content",
-				"Client":          client,
-				"FlashError":      c.QueryParam("error"),
-				"FlashSuccess":    c.QueryParam("success"),
-				"BackPath":        "/user/clients",
-				"BackLabel":       "Back to Clients",
-			},
-		)
+		return c.Render(http.StatusOK, "base", map[string]any{
+			"Title":           "Edit Client",
+			"Subtitle":        "Update client access and reset password.",
+			"ContentTemplate": "client_edit",
+			"Client":          client,
+			"FlashError":      c.QueryParam("error"),
+			"FlashSuccess":    c.QueryParam("success"),
+			"BackPath":        "/user/clients",
+			"BackLabel":       "Back to Clients",
+		})
 	}, auth.RequireCapability(auth.CapabilityManageClients))
 
 	user.POST("/clients/:clientID", func(c echo.Context) error {

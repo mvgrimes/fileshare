@@ -37,23 +37,19 @@ func (s *Server) registerClientRoutes(queries *db.Queries) {
 		if groupErr != nil {
 			return c.String(http.StatusInternalServerError, "failed to load user groups")
 		}
-		return c.Render(
-			http.StatusOK,
-			"upload_share",
-			map[string]any{
-				"Title":            "Client Upload",
-				"Subtitle":         "Submit upload targets permitted for your account.",
-				"ActorID":          principal.ActorID,
-				"ContentTemplate":  "upload_share_content",
-				"FormAction":       "/client/uploads",
-				"FlashError":       c.QueryParam("error"),
-				"FlashSuccess":     c.QueryParam("success"),
-				"ShowShareFields":  true,
-				"ClientUploadMode": true,
-				"Users":            users,
-				"UserGroups":       userGroups,
-			},
-		)
+		return c.Render(http.StatusOK, "base", map[string]any{
+			"Title":            "Client Upload",
+			"Subtitle":         "Submit upload targets permitted for your account.",
+			"ActorID":          principal.ActorID,
+			"ContentTemplate":  "upload_share_content",
+			"FormAction":       "/client/uploads",
+			"FlashError":       c.QueryParam("error"),
+			"FlashSuccess":     c.QueryParam("success"),
+			"ShowShareFields":  true,
+			"ClientUploadMode": true,
+			"Users":            users,
+			"UserGroups":       userGroups,
+		})
 	})
 	client.GET("/dashboard", func(c echo.Context) error {
 		principal, _ := auth.PrincipalFromContext(c)
@@ -90,21 +86,16 @@ func (s *Server) registerClientRoutes(queries *db.Queries) {
 		if len(items) > 10 {
 			items = items[:10]
 		}
-		return c.Render(
-			http.StatusOK,
-			"dashboard",
-			map[string]any{
-				"Title":                  "Client Dashboard",
-				"Role":                   principal.ActorType,
-				"Subtitle":               "Use secure links to access files and upload where permitted.",
-				"ActorID":                principal.ActorID,
-				"DashboardActions":       actions,
-				"HasActions":             true,
-				"DashboardMainTemplate":  "client_dashboard_main",
-				"DashboardReceivedFiles": items,
-				"ContentTemplate":        "dashboard_content",
-			},
-		)
+		return c.Render(http.StatusOK, "base", map[string]any{
+			"Title":                  "Client Dashboard",
+			"Role":                   principal.ActorType,
+			"Subtitle":               "Use secure links to access files and upload where permitted.",
+			"ActorID":                principal.ActorID,
+			"DashboardActions":       actions,
+			"HasActions":             true,
+			"DashboardReceivedFiles": items,
+			"ContentTemplate":        "client_dashboard_content",
+		})
 	})
 	client.GET("/profile", func(c echo.Context) error {
 		principal, _ := auth.PrincipalFromContext(c)
@@ -115,22 +106,18 @@ func (s *Server) registerClientRoutes(queries *db.Queries) {
 			}
 			return c.String(http.StatusInternalServerError, "failed to load profile")
 		}
-		return c.Render(
-			http.StatusOK,
-			"profile",
-			map[string]any{
-				"Title":           "Profile",
-				"Subtitle":        "Update your display name and password.",
-				"ContentTemplate": "profile_content",
-				"ProfileType":     "client",
-				"ActorID":         principal.ActorID,
-				"Email":           account.Email,
-				"DisplayName":     account.DisplayName,
-				"FormAction":      "/client/profile",
-				"FlashError":      c.QueryParam("error"),
-				"FlashSuccess":    c.QueryParam("success"),
-			},
-		)
+		return c.Render(http.StatusOK, "base", map[string]any{
+			"Title":           "Profile",
+			"Subtitle":        "Update your display name and password.",
+			"ContentTemplate": "profile_content",
+			"ProfileType":     "client",
+			"ActorID":         principal.ActorID,
+			"Email":           account.Email,
+			"DisplayName":     account.DisplayName,
+			"FormAction":      "/client/profile",
+			"FlashError":      c.QueryParam("error"),
+			"FlashSuccess":    c.QueryParam("success"),
+		})
 	})
 	client.POST("/profile", func(c echo.Context) error {
 		principal, _ := auth.PrincipalFromContext(c)
@@ -233,21 +220,17 @@ func (s *Server) registerClientRoutes(queries *db.Queries) {
 				},
 			)
 		}
-		return c.Render(
-			http.StatusOK,
-			"shared_files",
-			map[string]any{
-				"Title":              "Sent Files",
-				"Subtitle":           "Files sent from your client account.",
-				"ContentTemplate":    "shared_files_content",
-				"Files":              items,
-				"EmptyMessage":       "No sent files are available yet.",
-				"DetailBasePath":     "/client/file",
-				"DownloadBasePath":   "/client/file",
-				"HideStatusColumn":   true,
-				"HideSharedAtColumn": true,
-			},
-		)
+		return c.Render(http.StatusOK, "base", map[string]any{
+			"Title":              "Sent Files",
+			"Subtitle":           "Files sent from your client account.",
+			"ContentTemplate":    "shared_files_content",
+			"Files":              items,
+			"EmptyMessage":       "No sent files are available yet.",
+			"DetailBasePath":     "/client/file",
+			"DownloadBasePath":   "/client/file",
+			"HideStatusColumn":   true,
+			"HideSharedAtColumn": true,
+		})
 	})
 	client.GET("/file/:fileID", func(c echo.Context) error {
 		principal, _ := auth.PrincipalFromContext(c)
@@ -262,26 +245,22 @@ func (s *Server) registerClientRoutes(queries *db.Queries) {
 		if file.UploaderType != "client" || file.UploaderID != principal.ActorID {
 			return c.String(http.StatusForbidden, "forbidden")
 		}
-		return c.Render(
-			http.StatusOK,
-			"shared_files",
-			map[string]any{
-				"Title":           "File Detail",
-				"Subtitle":        "File metadata and details.",
-				"ContentTemplate": "file_detail_content",
-				"File": fileListItem{
-					ID:          file.ID,
-					Name:        file.OriginalFilename,
-					ContentType: file.ContentType,
-					SizeBytes:   file.SizeBytes,
-					SharedVia:   "sent",
-					UploadedAt:  file.CreatedAt,
-				},
-				"BackPath":     "/client/sent",
-				"BackLabel":    "Back to Sent Files",
-				"DownloadPath": "/client/file/" + file.ID + "/download",
+		return c.Render(http.StatusOK, "base", map[string]any{
+			"Title":           "File Detail",
+			"Subtitle":        "File metadata and details.",
+			"ContentTemplate": "file_detail_content",
+			"File": fileListItem{
+				ID:          file.ID,
+				Name:        file.OriginalFilename,
+				ContentType: file.ContentType,
+				SizeBytes:   file.SizeBytes,
+				SharedVia:   "sent",
+				UploadedAt:  file.CreatedAt,
 			},
-		)
+			"BackPath":     "/client/sent",
+			"BackLabel":    "Back to Sent Files",
+			"DownloadPath": "/client/file/" + file.ID + "/download",
+		})
 	})
 	client.GET("/file/:fileID/download", func(c echo.Context) error {
 		principal, _ := auth.PrincipalFromContext(c)
@@ -373,22 +352,18 @@ func (s *Server) registerClientRoutes(queries *db.Queries) {
 				},
 			)
 		}
-		return c.Render(
-			http.StatusOK,
-			"shared_files",
-			map[string]any{
-				"Title":                "Received Files",
-				"Subtitle":             "Shares sent to your client account.",
-				"ContentTemplate":      "shared_files_content",
-				"Files":                items,
-				"EmptyMessage":         "No files have been received yet.",
-				"DetailBasePath":       "/client/received",
-				"DownloadBasePath":     "/client/file",
-				"DownloadUsesFileID":   true,
-				"HideStatusColumn":     true,
-				"HideUploadedAtColumn": true,
-			},
-		)
+		return c.Render(http.StatusOK, "base", map[string]any{
+			"Title":                "Received Files",
+			"Subtitle":             "Shares sent to your client account.",
+			"ContentTemplate":      "shared_files_content",
+			"Files":                items,
+			"EmptyMessage":         "No files have been received yet.",
+			"DetailBasePath":       "/client/received",
+			"DownloadBasePath":     "/client/file",
+			"DownloadUsesFileID":   true,
+			"HideStatusColumn":     true,
+			"HideUploadedAtColumn": true,
+		})
 	})
 	client.GET("/received/:shareID", func(c echo.Context) error {
 		principal, _ := auth.PrincipalFromContext(c)
@@ -455,30 +430,26 @@ func (s *Server) registerClientRoutes(queries *db.Queries) {
 				sharedBy = "Client: " + strings.TrimSpace(client.DisplayName)
 			}
 		}
-		return c.Render(
-			http.StatusOK,
-			"shared_files",
-			map[string]any{
-				"Title":           "Received Share Detail",
-				"Subtitle":        "File metadata and share details.",
-				"ContentTemplate": "share_detail_content",
-				"File": fileListItem{
-					ID:          selected.ID,
-					FileID:      file.ID,
-					Name:        file.OriginalFilename,
-					ContentType: file.ContentType,
-					SizeBytes:   file.SizeBytes,
-					SharedVia:   sharedVia,
-					SharedBy:    sharedBy,
-					SharedAt:    selected.CreatedAt,
-					UploadedAt:  file.CreatedAt,
-					Message:     message,
-				},
-				"BackPath":     "/client/received",
-				"BackLabel":    "Back to Received Files",
-				"DownloadPath": "/client/file/" + file.ID + "/download",
+		return c.Render(http.StatusOK, "base", map[string]any{
+			"Title":           "Received Share Detail",
+			"Subtitle":        "File metadata and share details.",
+			"ContentTemplate": "share_detail_content",
+			"File": fileListItem{
+				ID:          selected.ID,
+				FileID:      file.ID,
+				Name:        file.OriginalFilename,
+				ContentType: file.ContentType,
+				SizeBytes:   file.SizeBytes,
+				SharedVia:   sharedVia,
+				SharedBy:    sharedBy,
+				SharedAt:    selected.CreatedAt,
+				UploadedAt:  file.CreatedAt,
+				Message:     message,
 			},
-		)
+			"BackPath":     "/client/received",
+			"BackLabel":    "Back to Received Files",
+			"DownloadPath": "/client/file/" + file.ID + "/download",
+		})
 	})
 	client.POST("/uploads", func(c echo.Context) error {
 		principal, _ := auth.PrincipalFromContext(c)

@@ -29,49 +29,34 @@ func (s *Server) registerPublicRoutes(queries *db.Queries, sessionTTL time.Durat
 				showLoginButton = false
 			}
 		}
-		return c.Render(
-			http.StatusOK,
-			"home",
-			map[string]any{
+		return c.Render( http.StatusOK, "base", map[string]any{
 				"Title":           branding,
 				"Subtitle":        branding,
 				"ContentTemplate": "home_content",
 				"ShowLoginButton": showLoginButton,
-			},
-		)
+			},)
 	})
 	public.GET("/login", func(c echo.Context) error {
-		return c.Render(
-			http.StatusOK,
-			"auth",
-			map[string]any{
+		return c.Render( http.StatusOK, "base", map[string]any{
 				"Title":           "Login",
 				"Subtitle":        "Sign in with SSO, user password, or client password.",
 				"FlashError":      c.QueryParam("error"),
 				"FlashSuccess":    c.QueryParam("success"),
 				"ContentTemplate": "login_content",
-			},
-		)
+			},)
 	})
 	public.GET("/request-link", func(c echo.Context) error {
-		return c.Render(
-			http.StatusOK,
-			"auth",
-			map[string]any{
+		return c.Render( http.StatusOK, "base", map[string]any{
 				"Title":           "Request Magic Link",
 				"Subtitle":        "Enter your email address to receive a one-time login token.",
 				"FlashError":      c.QueryParam("error"),
 				"FlashSuccess":    c.QueryParam("success"),
 				"MagicClientID":   c.QueryParam("client_id"),
 				"ContentTemplate": "request_link_content",
-			},
-		)
+			},)
 	})
 	public.GET("/verify-token", func(c echo.Context) error {
-		return c.Render(
-			http.StatusOK,
-			"auth",
-			map[string]any{
+		return c.Render( http.StatusOK, "base", map[string]any{
 				"Title":           "Verify Token",
 				"Subtitle":        "Enter your email address and token to sign in.",
 				"FlashError":      c.QueryParam("error"),
@@ -79,36 +64,27 @@ func (s *Server) registerPublicRoutes(queries *db.Queries, sessionTTL time.Durat
 				"MagicClientID":   c.QueryParam("client_id"),
 				"MagicToken":      c.QueryParam("token"),
 				"ContentTemplate": "verify_token_content",
-			},
-		)
+			},)
 	})
 	public.GET("/reset-password/request", func(c echo.Context) error {
-		return c.Render(
-			http.StatusOK,
-			"auth",
-			map[string]any{
+		return c.Render( http.StatusOK, "base", map[string]any{
 				"Title":           "Reset Password",
 				"Subtitle":        "Enter your email and we'll send a reset link.",
 				"FlashError":      c.QueryParam("error"),
 				"FlashSuccess":    c.QueryParam("success"),
 				"Email":           c.QueryParam("email"),
 				"ContentTemplate": "password_reset_request_content",
-			},
-		)
+			},)
 	})
 	public.GET("/reset-password/confirm", func(c echo.Context) error {
-		return c.Render(
-			http.StatusOK,
-			"auth",
-			map[string]any{
+		return c.Render( http.StatusOK, "base", map[string]any{
 				"Title":           "Set New Password",
 				"Subtitle":        "Choose a new password for your account.",
 				"FlashError":      c.QueryParam("error"),
 				"FlashSuccess":    c.QueryParam("success"),
 				"Token":           c.QueryParam("token"),
 				"ContentTemplate": "password_reset_confirm_content",
-			},
-		)
+			},)
 	})
 	public.POST("/auth/session", func(c echo.Context) error {
 		if s.cfg.Environment != "test" {
