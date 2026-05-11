@@ -45,7 +45,6 @@ release:
   git push --tags
   goreleaser release --clean
 
-
 deploy:
   go mod tidy
   just fmt
@@ -58,17 +57,15 @@ deploy:
   git push --tags
   just image-push
 
-
 image-build:
   GOOS=linux GOARCH=amd64 CGO_ENABLE=0 go build -o {{APP}}-linux-amd64 {{MAIN_FILE}}
   podman build -f ci/Dockerfile --platform=linux/amd64 -t mg/{{APP}} . | podman-pretty
-
+  rm {{APP}}-linux-amd64
 
 image-tag:
   podman tag mg/{{APP}}:latest mg/{{APP}}:{{VERSION}}
   podman tag mg/{{APP}}:latest {{REGISTRY}}/{{APP}}
   podman tag mg/{{APP}}:latest {{REGISTRY}}/{{APP}}:{{VERSION}}
-
 
 image-push:
   podman push {{REGISTRY}}/{{APP}}:{{VERSION}}

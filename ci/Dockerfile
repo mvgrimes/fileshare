@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-FROM golang:1.25-alpine as build
+FROM golang:1.26-alpine as build
 
 # Add Tini
 ENV TINI_VERSION v0.19.0
