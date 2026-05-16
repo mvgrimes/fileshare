@@ -8,6 +8,7 @@
           <span class="label-text">Email Address</span>
           <input class="input input-bordered w-full" type="email" name="client_id" required value="{{.MagicClientID}}">
         </label>
+        {{if .TurnstileEnabled}}<div class="cf-turnstile" data-sitekey="{{.TurnstileSiteKey}}"></div>{{end}}
         <button class="btn btn-primary w-full" type="submit" data-pending-text="Sending...">Send Magic Link</button>
       </form>
       <a class="link link-primary text-sm" href="/verify-token">Already have a token? Verify it</a>

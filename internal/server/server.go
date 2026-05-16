@@ -43,6 +43,7 @@ type Server struct {
 	clientPwd *auth.ClientPasswordAuthenticator
 	magic     *auth.MagicManager
 	resetPwd  *auth.PasswordResetManager
+	turnstile *turnstileVerifier
 	magicSend auth.MagicSender
 	notifier  *mail.Notifier
 	uploadSvc *files.UploadService
@@ -56,6 +57,8 @@ type TemplateRenderer struct {
 	faviconURL    string
 	logoURL       string
 	logoHeroURL   string
+	turnstileEnabled bool
+	turnstileSiteKey string
 }
 
 type dashboardAction struct {
@@ -101,6 +104,8 @@ func (r *TemplateRenderer) Render(w io.Writer, name string, data any, c echo.Con
 	viewData["BrandFavicon"] = template.URL(r.faviconURL)
 	viewData["BrandLogo"] = template.URL(r.logoURL)
 	viewData["BrandLogoHero"] = template.URL(r.logoHeroURL)
+	viewData["TurnstileEnabled"] = r.turnstileEnabled
+	viewData["TurnstileSiteKey"] = r.turnstileSiteKey
 	principal, isAuthenticated := auth.PrincipalFromContext(c)
 	viewData["IsAuthenticated"] = isAuthenticated
 	if isAuthenticated {
@@ -178,6 +183,8 @@ func New(cfg *config.Config, log *slog.Logger) *Server {
 		faviconURL:    normalizeBrandAsset(cfg.Favicon),
 		logoURL:       normalizeBrandAsset(cfg.Logo),
 		logoHeroURL:   normalizeBrandAsset(cfg.LogoHero),
+		turnstileEnabled: strings.TrimSpace(cfg.TurnstileSiteKey) != "" && strings.TrimSpace(cfg.TurnstileSecretKey) != "",
+		turnstileSiteKey: cfg.TurnstileSiteKey,
 	}
 	assetsFS := loadAssetsFS(cfg.Environment)
 	e.StaticFS("/assets", assetsFS)
@@ -236,7 +243,6 @@ func New(cfg *config.Config, log *slog.Logger) *Server {
 		},
 	}))
 	e.Use(middleware.RateLimiter(middleware.NewRateLimiterMemoryStore(20)))
-
 	sqlDB, err := sql.Open("sqlite", cfg.DatabaseURL)
 	if err != nil {
 		panic(err)
@@ -254,6 +260,7 @@ func New(cfg *config.Config, log *slog.Logger) *Server {
 	clientPwd := auth.NewClientPasswordAuthenticator(queries)
 	magic := auth.NewMagicManager(queries, 15*time.Minute, 60*time.Second)
 	resetPwd := auth.NewPasswordResetManager(queries, 15*time.Minute, 60*time.Second, 12)
+	turnstile := newTurnstileVerifier(cfg.TurnstileSiteKey, cfg.TurnstileSecretKey)
 	magicSend := auth.MagicSender(auth.NoopSender{})
 	renderer, renderErr := mail.NewHermesRenderer(brandingLabel, cfg.ServerUrl, cfg.ServerUrl)
 	if renderErr != nil {
@@ -318,6 +325,7 @@ func New(cfg *config.Config, log *slog.Logger) *Server {
 		log:       log,
 		sessions:  sessions,
 		authz:     authz,
+		turnstile: turnstile,
 		userSync:  userSync,
 		userPwd:   userPwd,
 		clientPwd: clientPwd,

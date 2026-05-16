@@ -173,6 +173,50 @@ func TestRouteGroupsRender(t *testing.T) {
 	}
 }
 
+func TestLoginPageRendersTurnstileWhenConfigured(t *testing.T) {
+	cfg := testConfig()
+	cfg.TurnstileSiteKey = "site-key"
+	cfg.TurnstileSecretKey = "secret-key"
+	s := New(cfg, slog.Default())
+
+	req := httptest.NewRequest(http.MethodGet, "/login", nil)
+	rec := httptest.NewRecorder()
+	s.e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+	}
+	body := rec.Body.String()
+	if !strings.Contains(body, "challenges.cloudflare.com/turnstile/v0/api.js") {
+		t.Fatalf("body = %q, want turnstile script", body)
+	}
+	if !strings.Contains(body, "class=\"cf-turnstile\"") {
+		t.Fatalf("body = %q, want turnstile widget", body)
+	}
+}
+
+func TestPasswordLoginRejectsMissingTurnstileResponseWhenEnabled(t *testing.T) {
+	cfg := testConfig()
+	cfg.TurnstileSiteKey = "site-key"
+	cfg.TurnstileSecretKey = "secret-key"
+	s := New(cfg, slog.Default())
+
+	body := bytes.NewBufferString("email=user@example.com&password=bad")
+	req := httptest.NewRequest(http.MethodPost, "/auth/password/login", body)
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
+	req.Header.Set(echo.HeaderAccept, echo.MIMETextHTML)
+	rec := httptest.NewRecorder()
+
+	s.e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusSeeOther)
+	}
+	if loc := rec.Header().Get(echo.HeaderLocation); !strings.HasPrefix(loc, "/login?error=") {
+		t.Fatalf("location = %q, want login error redirect", loc)
+	}
+}
+
 func TestHomeBrandingAssetsFromConfig(t *testing.T) {
 	cfg := testConfig()
 	cfg.Branding = "Company, Inc."

@@ -36,6 +36,28 @@ func (s *Server) registerPublicRoutes(queries *db.Queries, sessionTTL time.Durat
 			return c.String(http.StatusTooManyRequests, "rate limit exceeded")
 		},
 	}))
+	requireTurnstile := func(c echo.Context, htmlRedirectPath, eventName, actorType, actorID string) error {
+		if s.turnstile.verify(c) {
+			return nil
+		}
+		auditAuthEvent(
+			c,
+			queries,
+			eventName,
+			"",
+			"",
+			actorType,
+			actorID,
+			map[string]any{"outcome": "failure", "reason": "captcha_failed"},
+		)
+		if isHTMLRequest(c) {
+			return c.Redirect(
+				http.StatusSeeOther,
+				htmlRedirectPath+"?error="+url.QueryEscape("Captcha verification failed"),
+			)
+		}
+		return c.String(http.StatusForbidden, "captcha verification failed")
+	}
 	public.GET("/", func(c echo.Context) error {
 		branding := brandProductName(s.cfg.Branding)
 		showLoginButton := true
@@ -267,6 +289,9 @@ func (s *Server) registerPublicRoutes(queries *db.Queries, sessionTTL time.Durat
 	})
 
 	authFormRateLimited.POST("/auth/magic/request", func(c echo.Context) error {
+		if err := requireTurnstile(c, "/request-link", "auth.magic.request", "client", strings.TrimSpace(c.FormValue("client_id"))); err != nil {
+			return err
+		}
 		clientIdentifier := strings.TrimSpace(c.FormValue("client_id"))
 		if clientIdentifier == "" {
 			if isHTMLRequest(c) {
@@ -396,6 +421,9 @@ func (s *Server) registerPublicRoutes(queries *db.Queries, sessionTTL time.Durat
 	})
 
 	public.POST("/auth/magic/verify", func(c echo.Context) error {
+		if err := requireTurnstile(c, "/verify-token", "auth.magic.verify", "client", strings.TrimSpace(c.FormValue("client_id"))); err != nil {
+			return err
+		}
 		clientIdentifier := strings.TrimSpace(c.FormValue("client_id"))
 		token := c.FormValue("token")
 		if clientIdentifier == "" || token == "" {
@@ -519,6 +547,9 @@ func (s *Server) registerPublicRoutes(queries *db.Queries, sessionTTL time.Durat
 	})
 
 	authFormRateLimited.POST("/auth/password/login", func(c echo.Context) error {
+		if err := requireTurnstile(c, "/login", "auth.password.login", "account", strings.TrimSpace(c.FormValue("email"))); err != nil {
+			return err
+		}
 		email := strings.TrimSpace(c.FormValue("email"))
 		password := c.FormValue("password")
 		actorType := strings.TrimSpace(c.FormValue("actor_type"))
@@ -788,6 +819,9 @@ func (s *Server) registerPublicRoutes(queries *db.Queries, sessionTTL time.Durat
 	})
 
 	authFormRateLimited.POST("/auth/password/reset/request", func(c echo.Context) error {
+		if err := requireTurnstile(c, "/reset-password/request", "auth.password.reset.request", "email", strings.TrimSpace(c.FormValue("email"))); err != nil {
+			return err
+		}
 		email := strings.TrimSpace(c.FormValue("email"))
 		if email == "" {
 			if isHTMLRequest(c) {

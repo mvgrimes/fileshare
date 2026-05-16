@@ -12,6 +12,7 @@
           <span class="label-text">Token</span>
           <input class="input input-bordered w-full" type="text" name="token" required value="{{.MagicToken}}">
         </label>
+        {{if .TurnstileEnabled}}<div class="cf-turnstile" data-sitekey="{{.TurnstileSiteKey}}"></div>{{end}}
         <button class="btn btn-primary w-full" type="submit" data-pending-text="Verifying...">Verify and Sign In</button>
       </form>
       <a class="link link-primary text-sm" href="/request-link">Need a token? Request one</a>

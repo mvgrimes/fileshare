@@ -22,6 +22,8 @@ type Config struct {
 	SSOCookieName string
 	SSOIssuer     string
 	SSOAudience   string
+	TurnstileSiteKey   string
+	TurnstileSecretKey string
 
 	MailgunAPIBaseURL string
 	MailgunDomain     string
@@ -58,6 +60,8 @@ func Load() (*Config, error) {
 		SSOCookieName:       envOrDefault("FILESHARE_SSO_COOKIE_NAME", "sso_jwt"),
 		SSOIssuer:           envOrDefault("FILESHARE_SSO_ISSUER", "fileshare-sso"),
 		SSOAudience:         envOrDefault("FILESHARE_SSO_AUDIENCE", "fileshare"),
+		TurnstileSiteKey:    strings.TrimSpace(os.Getenv("FILESHARE_TURNSTILE_SITE_KEY")),
+		TurnstileSecretKey:  strings.TrimSpace(os.Getenv("FILESHARE_TURNSTILE_SECRET_KEY")),
 		MailgunAPIBaseURL: envOrDefault(
 			"FILESHARE_MAILGUN_API_BASE_URL",
 			"https://api.mailgun.net",

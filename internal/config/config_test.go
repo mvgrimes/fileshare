@@ -27,6 +27,8 @@ func TestLoadSuccess(t *testing.T) {
 	t.Setenv("FILESHARE_FAVICON", "https://assets.example/favicon.ico")
 	t.Setenv("FILESHARE_LOGO", "https://assets.example/logo.svg")
 	t.Setenv("FILESHARE_LOGO_HERO", "https://assets.example/logo-hero.svg")
+	t.Setenv("FILESHARE_TURNSTILE_SITE_KEY", "site-key")
+	t.Setenv("FILESHARE_TURNSTILE_SECRET_KEY", "secret-key")
 
 	cfg, err := Load()
 	if err != nil {
@@ -78,6 +80,12 @@ func TestLoadSuccess(t *testing.T) {
 	}
 	if cfg.Favicon != "https://assets.example/favicon.ico" {
 		t.Fatalf("Favicon = %q, want configured value", cfg.Favicon)
+	}
+	if cfg.TurnstileSiteKey != "site-key" {
+		t.Fatalf("TurnstileSiteKey = %q, want configured value", cfg.TurnstileSiteKey)
+	}
+	if cfg.TurnstileSecretKey != "secret-key" {
+		t.Fatalf("TurnstileSecretKey = %q, want configured value", cfg.TurnstileSecretKey)
 	}
 }
 
