@@ -14,10 +14,28 @@ import (
 	"fileshare/internal/mail"
 
 	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
+	"golang.org/x/time/rate"
 )
 
 func (s *Server) registerPublicRoutes(queries *db.Queries, sessionTTL time.Duration) {
 	public := s.e.Group("")
+	authFormRateLimited := public.Group("")
+	authFormRateLimited.Use(middleware.RateLimiterWithConfig(middleware.RateLimiterConfig{
+		Store: middleware.NewRateLimiterMemoryStoreWithConfig(
+			middleware.RateLimiterMemoryStoreConfig{
+				Rate:      rate.Every(time.Minute),
+				Burst:     10,
+				ExpiresIn: 2 * time.Minute,
+			},
+		),
+		DenyHandler: func(c echo.Context, identifier string, err error) error {
+			return c.String(http.StatusTooManyRequests, "rate limit exceeded")
+		},
+		ErrorHandler: func(c echo.Context, err error) error {
+			return c.String(http.StatusTooManyRequests, "rate limit exceeded")
+		},
+	}))
 	public.GET("/", func(c echo.Context) error {
 		branding := brandProductName(s.cfg.Branding)
 		showLoginButton := true
@@ -248,7 +266,7 @@ func (s *Server) registerPublicRoutes(queries *db.Queries, sessionTTL time.Durat
 		return c.NoContent(http.StatusNoContent)
 	})
 
-	public.POST("/auth/magic/request", func(c echo.Context) error {
+	authFormRateLimited.POST("/auth/magic/request", func(c echo.Context) error {
 		clientIdentifier := strings.TrimSpace(c.FormValue("client_id"))
 		if clientIdentifier == "" {
 			if isHTMLRequest(c) {
@@ -500,7 +518,7 @@ func (s *Server) registerPublicRoutes(queries *db.Queries, sessionTTL time.Durat
 		return c.NoContent(http.StatusNoContent)
 	})
 
-	public.POST("/auth/password/login", func(c echo.Context) error {
+	authFormRateLimited.POST("/auth/password/login", func(c echo.Context) error {
 		email := strings.TrimSpace(c.FormValue("email"))
 		password := c.FormValue("password")
 		actorType := strings.TrimSpace(c.FormValue("actor_type"))
@@ -769,7 +787,7 @@ func (s *Server) registerPublicRoutes(queries *db.Queries, sessionTTL time.Durat
 		return c.NoContent(http.StatusNoContent)
 	})
 
-	public.POST("/auth/password/reset/request", func(c echo.Context) error {
+	authFormRateLimited.POST("/auth/password/reset/request", func(c echo.Context) error {
 		email := strings.TrimSpace(c.FormValue("email"))
 		if email == "" {
 			if isHTMLRequest(c) {
@@ -885,7 +903,7 @@ func (s *Server) registerPublicRoutes(queries *db.Queries, sessionTTL time.Durat
 		return c.NoContent(http.StatusNoContent)
 	})
 
-	public.POST("/auth/password/reset/confirm", func(c echo.Context) error {
+	authFormRateLimited.POST("/auth/password/reset/confirm", func(c echo.Context) error {
 		token := strings.TrimSpace(c.FormValue("token"))
 		newPassword := c.FormValue("new_password")
 		actorType, actorID, err := s.resetPwd.Confirm(c.Request().Context(), token, newPassword)

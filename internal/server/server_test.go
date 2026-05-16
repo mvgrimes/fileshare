@@ -3431,6 +3431,71 @@ func TestUserPasswordLoginDisabledAndInvalidCredentials(t *testing.T) {
 	}
 }
 
+func TestPasswordLoginRateLimited(t *testing.T) {
+	s := New(testConfig(), slog.Default())
+	createUserWithPassword(t, "user-rate-limit", "user-rate-limit@example.com", "secret-pass", true, 1)
+
+	for i := 0; i < 10; i++ {
+		req := httptest.NewRequest(
+			http.MethodPost,
+			"/auth/password/login",
+			bytes.NewBufferString("email=user-rate-limit@example.com&password=wrong-pass"),
+		)
+		req.RemoteAddr = "203.0.113.10:54321"
+		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
+		rec := httptest.NewRecorder()
+		s.e.ServeHTTP(rec, req)
+		if rec.Code != http.StatusUnauthorized {
+			t.Fatalf("attempt %d status = %d, want %d", i+1, rec.Code, http.StatusUnauthorized)
+		}
+	}
+
+	blockedReq := httptest.NewRequest(
+		http.MethodPost,
+		"/auth/password/login",
+		bytes.NewBufferString("email=user-rate-limit@example.com&password=wrong-pass"),
+	)
+	blockedReq.RemoteAddr = "203.0.113.10:54321"
+	blockedReq.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
+	blockedRec := httptest.NewRecorder()
+	s.e.ServeHTTP(blockedRec, blockedReq)
+	if blockedRec.Code != http.StatusTooManyRequests {
+		t.Fatalf("blocked status = %d, want %d", blockedRec.Code, http.StatusTooManyRequests)
+	}
+}
+
+func TestPasswordResetRequestRateLimited(t *testing.T) {
+	s := New(testConfig(), slog.Default())
+
+	for i := 0; i < 10; i++ {
+		req := httptest.NewRequest(
+			http.MethodPost,
+			"/auth/password/reset/request",
+			bytes.NewBufferString("email=missing@example.com"),
+		)
+		req.RemoteAddr = "203.0.113.11:54321"
+		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
+		rec := httptest.NewRecorder()
+		s.e.ServeHTTP(rec, req)
+		if rec.Code != http.StatusNoContent {
+			t.Fatalf("attempt %d status = %d, want %d", i+1, rec.Code, http.StatusNoContent)
+		}
+	}
+
+	blockedReq := httptest.NewRequest(
+		http.MethodPost,
+		"/auth/password/reset/request",
+		bytes.NewBufferString("email=missing@example.com"),
+	)
+	blockedReq.RemoteAddr = "203.0.113.11:54321"
+	blockedReq.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
+	blockedRec := httptest.NewRecorder()
+	s.e.ServeHTTP(blockedRec, blockedReq)
+	if blockedRec.Code != http.StatusTooManyRequests {
+		t.Fatalf("blocked status = %d, want %d", blockedRec.Code, http.StatusTooManyRequests)
+	}
+}
+
 func TestPasswordLoginRejectsInvalidActorType(t *testing.T) {
 	s := New(testConfig(), slog.Default())
 	req := httptest.NewRequest(
