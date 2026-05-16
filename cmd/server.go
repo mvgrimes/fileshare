@@ -11,6 +11,7 @@ import (
 
 	"fileshare/internal/config"
 	"fileshare/internal/logger"
+	"fileshare/internal/monitoring"
 	"fileshare/internal/server"
 
 	"github.com/spf13/cobra"
@@ -33,6 +34,7 @@ func runServer(cmd *cobra.Command, args []string) error {
 	}
 
 	log := logger.New(cfg.LogLevel)
+	monitoring.Configure(cfg, log)
 	srv := server.New(cfg, log)
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)

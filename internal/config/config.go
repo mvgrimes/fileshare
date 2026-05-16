@@ -8,12 +8,13 @@ import (
 )
 
 type Config struct {
-	ServerAddress string
-	ServerPort    int
-	ServerUrl     string
-	Environment   string
-	LogLevel      string
-	SessionTTL    int
+	ServerAddress       string
+	ServerPort          int
+	ServerUrl           string
+	Environment         string
+	TestErrorMonitoring bool
+	LogLevel            string
+	SessionTTL          int
 
 	DatabaseURL   string
 	SessionSecret string
@@ -26,6 +27,7 @@ type Config struct {
 	MailgunDomain     string
 	MailgunAPIKey     string
 	MailgunFromEmail  string
+	HoneybadgerAPIKey string
 
 	AWSRegion          string
 	AWSAccessKeyID     string
@@ -43,18 +45,19 @@ type Config struct {
 
 func Load() (*Config, error) {
 	cfg := &Config{
-		ServerAddress: envOrDefault("FILESHARE_SERVER_ADDRESS", "0.0.0.0"),
-		ServerPort:    intEnvOrDefault("FILESHARE_SERVER_PORT", 8080),
-		ServerUrl:     os.Getenv("FILESHARE_SERVER_URL"),
-		Environment:   envOrDefault("FILESHARE_ENVIRONMENT", "development"),
-		LogLevel:      envOrDefault("FILESHARE_LOG_LEVEL", "info"),
-		SessionTTL:    intEnvOrDefault("FILESHARE_SESSION_TTL_HOURS", 12),
-		DatabaseURL:   os.Getenv("FILESHARE_DATABASE_URL"),
-		SessionSecret: os.Getenv("FILESHARE_SESSION_SECRET"),
-		JWTSecret:     os.Getenv("FILESHARE_JWT_SECRET"),
-		SSOCookieName: envOrDefault("FILESHARE_SSO_COOKIE_NAME", "sso_jwt"),
-		SSOIssuer:     envOrDefault("FILESHARE_SSO_ISSUER", "fileshare-sso"),
-		SSOAudience:   envOrDefault("FILESHARE_SSO_AUDIENCE", "fileshare"),
+		ServerAddress:       envOrDefault("FILESHARE_SERVER_ADDRESS", "0.0.0.0"),
+		ServerPort:          intEnvOrDefault("FILESHARE_SERVER_PORT", 8080),
+		ServerUrl:           os.Getenv("FILESHARE_SERVER_URL"),
+		Environment:         envOrDefault("FILESHARE_ENVIRONMENT", "development"),
+		TestErrorMonitoring: boolEnvOrDefault("FILESHARE_TEST_ERROR_MONITORING", false),
+		LogLevel:            envOrDefault("FILESHARE_LOG_LEVEL", "info"),
+		SessionTTL:          intEnvOrDefault("FILESHARE_SESSION_TTL_HOURS", 12),
+		DatabaseURL:         os.Getenv("FILESHARE_DATABASE_URL"),
+		SessionSecret:       os.Getenv("FILESHARE_SESSION_SECRET"),
+		JWTSecret:           os.Getenv("FILESHARE_JWT_SECRET"),
+		SSOCookieName:       envOrDefault("FILESHARE_SSO_COOKIE_NAME", "sso_jwt"),
+		SSOIssuer:           envOrDefault("FILESHARE_SSO_ISSUER", "fileshare-sso"),
+		SSOAudience:         envOrDefault("FILESHARE_SSO_AUDIENCE", "fileshare"),
 		MailgunAPIBaseURL: envOrDefault(
 			"FILESHARE_MAILGUN_API_BASE_URL",
 			"https://api.mailgun.net",
@@ -62,6 +65,7 @@ func Load() (*Config, error) {
 		MailgunDomain:      strings.TrimSpace(os.Getenv("FILESHARE_MAILGUN_DOMAIN")),
 		MailgunAPIKey:      strings.TrimSpace(os.Getenv("FILESHARE_MAILGUN_API_KEY")),
 		MailgunFromEmail:   strings.TrimSpace(os.Getenv("FILESHARE_MAILGUN_FROM_EMAIL")),
+		HoneybadgerAPIKey:  strings.TrimSpace(os.Getenv("FILESHARE_HONEYBADGER_API_KEY")),
 		AWSRegion:          envOrDefault("FILESHARE_AWS_REGION", "us-east-1"),
 		AWSAccessKeyID:     strings.TrimSpace(os.Getenv("FILESHARE_AWS_ACCESS_KEY_ID")),
 		AWSSecretAccessKey: strings.TrimSpace(os.Getenv("FILESHARE_AWS_SECRET_ACCESS_KEY")),

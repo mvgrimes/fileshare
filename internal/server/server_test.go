@@ -21,6 +21,7 @@ import (
 
 	"fileshare/internal/config"
 	"fileshare/internal/db"
+	"fileshare/internal/monitoring"
 	"fileshare/migrations"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -89,6 +90,39 @@ func TestHealthz(t *testing.T) {
 	}
 	if !strings.Contains(rec.Body.String(), `"status":"ok"`) {
 		t.Fatalf("body = %q, want status ok json", rec.Body.String())
+	}
+}
+
+func TestHTTPErrorHandlerReportsMonitoringEvent(t *testing.T) {
+	s := New(testConfig(), slog.Default())
+	reported := false
+	restore := monitoring.OverrideReporterForTest(func(err error, metadata map[string]any) {
+		reported = true
+		if err == nil {
+			t.Fatal("expected non-nil error")
+		}
+		if metadata["method"] != http.MethodGet {
+			t.Fatalf("method = %v, want GET", metadata["method"])
+		}
+		if metadata["uri"] != "/boom" {
+			t.Fatalf("uri = %v, want /boom", metadata["uri"])
+		}
+	})
+	defer restore()
+
+	s.e.GET("/boom", func(c echo.Context) error {
+		return errors.New("boom")
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/boom", nil)
+	rec := httptest.NewRecorder()
+	s.e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusInternalServerError)
+	}
+	if !reported {
+		t.Fatal("expected monitoring report to be called")
 	}
 }
 

@@ -19,6 +19,7 @@ import (
 	"fileshare/internal/db"
 	"fileshare/internal/files"
 	"fileshare/internal/mail"
+	"fileshare/internal/monitoring"
 	"fileshare/migrations"
 
 	"github.com/google/uuid"
@@ -153,12 +154,18 @@ func New(cfg *config.Config, log *slog.Logger) *Server {
 		if c.Response().Committed {
 			return
 		}
+		requestID := c.Response().Header().Get(echo.HeaderXRequestID)
 		log.Error("http internal error",
-			"request_id", c.Response().Header().Get(echo.HeaderXRequestID),
+			"request_id", requestID,
 			"method", c.Request().Method,
 			"uri", c.Request().RequestURI,
 			"error", err,
 		)
+		monitoring.Report(monitoring.WrapHTTPError(err, requestID, c.Request().Method, c.Request().RequestURI), map[string]any{
+			"request_id": requestID,
+			"method":     c.Request().Method,
+			"uri":        c.Request().RequestURI,
+		})
 		_ = c.String(http.StatusInternalServerError, "internal server error")
 	}
 

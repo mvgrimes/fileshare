@@ -18,6 +18,8 @@ func TestLoadSuccess(t *testing.T) {
 	t.Setenv("FILESHARE_MAILGUN_DOMAIN", "mg.example")
 	t.Setenv("FILESHARE_MAILGUN_API_KEY", "key-123")
 	t.Setenv("FILESHARE_MAILGUN_FROM_EMAIL", "noreply@example.com")
+	t.Setenv("FILESHARE_TEST_ERROR_MONITORING", "true")
+	t.Setenv("FILESHARE_HONEYBADGER_API_KEY", "hb-key")
 	t.Setenv("FILESHARE_AWS_REGION", "us-west-2")
 	t.Setenv("FILESHARE_S3_BUCKET", "uploads-test")
 	t.Setenv("FILESHARE_S3_FORCE_PATH_STYLE", "true")
@@ -58,6 +60,12 @@ func TestLoadSuccess(t *testing.T) {
 	}
 	if cfg.AWSRegion != "us-west-2" {
 		t.Fatalf("AWSRegion = %q, want %q", cfg.AWSRegion, "us-west-2")
+	}
+	if !cfg.TestErrorMonitoring {
+		t.Fatal("TestErrorMonitoring = false, want true")
+	}
+	if cfg.HoneybadgerAPIKey != "hb-key" {
+		t.Fatalf("HoneybadgerAPIKey = %q, want %q", cfg.HoneybadgerAPIKey, "hb-key")
 	}
 	if cfg.S3Bucket != "uploads-test" {
 		t.Fatalf("S3Bucket = %q, want %q", cfg.S3Bucket, "uploads-test")
