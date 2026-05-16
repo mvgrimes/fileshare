@@ -38,4 +38,32 @@
     </div>
   </article>
 </section>
+
+<section class="card mt-4 bg-base-100 shadow-sm">
+  <div class="card-body gap-4">
+    <h2 class="text-xl font-semibold">Files Shared With This Client</h2>
+    {{if .SharedFiles}}
+    <div class="overflow-x-auto">
+      <table class="table table-zebra">
+        <thead>
+          <tr><th>Name</th><th>Size</th><th>Shared Via</th><th>Shared At</th><th></th></tr>
+        </thead>
+        <tbody>
+          {{range .SharedFiles}}
+          <tr>
+            <td>{{.Name}}</td>
+            <td><span data-format-bytes="{{.SizeBytes}}">{{.SizeBytes}}</span></td>
+            <td>{{.SharedVia}}</td>
+            <td><span data-format-datetime="{{.SharedAt}}">{{.SharedAt}}</span></td>
+            <td><a class="btn btn-xs btn-primary" href="/user/sent/{{.ID}}">Details</a></td>
+          </tr>
+          {{end}}
+        </tbody>
+      </table>
+    </div>
+    {{else}}
+    <div class="alert" role="status"><span>No files shared with this client yet.</span></div>
+    {{end}}
+  </div>
+</section>
 {{end}}

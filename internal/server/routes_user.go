@@ -1576,11 +1576,53 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 			}
 			return c.String(http.StatusInternalServerError, "failed to load client")
 		}
+		accessibleShares, err := queries.ListClientAccessibleShares(
+			c.Request().Context(),
+			db.ListClientAccessibleSharesParams{ClientID: clientID, Limit: 200, Offset: 0},
+		)
+		if err != nil {
+			return c.String(http.StatusInternalServerError, "failed to load client shares")
+		}
+		clientGroups, err := queries.ListClientGroups(
+			c.Request().Context(),
+			db.ListClientGroupsParams{Limit: 500, Offset: 0},
+		)
+		if err != nil {
+			return c.String(http.StatusInternalServerError, "failed to load client share groups")
+		}
+		groupNames := make(map[string]string, len(clientGroups))
+		for _, group := range clientGroups {
+			groupNames[group.ID] = strings.TrimSpace(group.Name)
+		}
+		sharedFiles := make([]fileListItem, 0, len(accessibleShares))
+		for _, share := range accessibleShares {
+			sharedFile, fileErr := queries.GetFileByID(c.Request().Context(), share.FileID)
+			if fileErr != nil {
+				continue
+			}
+			sharedVia := "Direct"
+			if share.TargetType == "client_group" {
+				sharedVia = "Client Group: " + share.TargetID
+				if groupName, ok := groupNames[share.TargetID]; ok && groupName != "" {
+					sharedVia = "Client Group: " + groupName
+				}
+			}
+			sharedFiles = append(sharedFiles, fileListItem{
+				ID:          share.ID,
+				FileID:      sharedFile.ID,
+				Name:        sharedFile.OriginalFilename,
+				SizeBytes:   sharedFile.SizeBytes,
+				ContentType: sharedFile.ContentType,
+				SharedVia:   sharedVia,
+				SharedAt:    share.CreatedAt,
+			})
+		}
 		return c.Render(http.StatusOK, "base", map[string]any{
 			"Title":           "Edit Client",
 			"Subtitle":        "Update client access and reset password.",
 			"ContentTemplate": "user_client_edit_content",
 			"Client":          client,
+			"SharedFiles":     sharedFiles,
 			"FlashError":      c.QueryParam("error"),
 			"FlashSuccess":    c.QueryParam("success"),
 			"BackPath":        "/user/clients",

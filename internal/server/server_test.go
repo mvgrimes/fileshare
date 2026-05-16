@@ -2162,6 +2162,14 @@ func TestClientManagementClientEditPageRenders(t *testing.T) {
 	s := New(testConfig(), slog.Default())
 	managerCookie := login(t, s, "user", "u-manager-edit-page", "account_manager")
 	createClientWithoutPassword(t, "c-edit-page", "c-edit-page@example.com", true)
+	createFileWithUploader(t, "file-client-edit-page", "u-manager-edit-page")
+	createShareForTests(
+		t,
+		"share-client-edit-page",
+		"file-client-edit-page",
+		"client",
+		"c-edit-page",
+	)
 
 	req := httptest.NewRequest(http.MethodGet, "/user/clients/c-edit-page", nil)
 	req.AddCookie(managerCookie)
@@ -2177,6 +2185,10 @@ func TestClientManagementClientEditPageRenders(t *testing.T) {
 	}
 	if !strings.Contains(body, "Back to Clients") {
 		t.Fatalf("body = %q, want back link near title", body)
+	}
+	if !strings.Contains(body, "Files Shared With This Client") ||
+		!strings.Contains(body, "file-client-edit-page") {
+		t.Fatalf("body = %q, want shared files list on client page", body)
 	}
 }
 
