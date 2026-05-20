@@ -77,11 +77,18 @@ func (s *Server) registerPublicRoutes(queries *db.Queries, sessionTTL time.Durat
 		})
 	})
 	public.GET("/login", func(c echo.Context) error {
+		email := strings.TrimSpace(c.QueryParam("email"))
+		magicClientID := strings.TrimSpace(c.QueryParam("client_id"))
+		if magicClientID == "" {
+			magicClientID = email
+		}
 		return c.Render(http.StatusOK, "base", map[string]any{
 			"Title":           "Login",
 			"Subtitle":        "Sign in with SSO, user password, or client password.",
 			"FlashError":      c.QueryParam("error"),
 			"FlashSuccess":    c.QueryParam("success"),
+			"Email":           email,
+			"MagicClientID":   magicClientID,
 			"ContentTemplate": "login_content",
 		})
 	})

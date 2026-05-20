@@ -45,6 +45,19 @@ type stubMessageSender struct {
 	last Message
 }
 
+type captureFileSharedRenderer struct {
+	stubRenderer
+	lastFileSharedData FileSharedTemplateData
+}
+
+func (r *captureFileSharedRenderer) RenderFileShared(data FileSharedTemplateData) (RenderedTemplate, error) {
+	r.lastFileSharedData = data
+	if r.err != nil {
+		return RenderedTemplate{}, r.err
+	}
+	return r.rendered, nil
+}
+
 func (s *stubMessageSender) Send(_ context.Context, msg Message) error {
 	s.last = msg
 	return s.err
@@ -54,8 +67,13 @@ func TestNotifierNotifyFileShared(t *testing.T) {
 	t.Parallel()
 
 	sender := &stubMessageSender{}
+	renderer := &captureFileSharedRenderer{
+		stubRenderer: stubRenderer{
+			rendered: RenderedTemplate{Subject: "base", Text: "text", HTML: "<p>ok</p>"},
+		},
+	}
 	n := NewNotifier(
-		stubRenderer{rendered: RenderedTemplate{Subject: "base", Text: "text", HTML: "<p>ok</p>"}},
+		renderer,
 		sender,
 		nil,
 	)
@@ -69,6 +87,9 @@ func TestNotifierNotifyFileShared(t *testing.T) {
 	}
 	if sender.last.Subject != "base" {
 		t.Fatalf("subject = %q", sender.last.Subject)
+	}
+	if renderer.lastFileSharedData.FileListURL != "/login?email=client%40example.com" {
+		t.Fatalf("file list url = %q", renderer.lastFileSharedData.FileListURL)
 	}
 }
 

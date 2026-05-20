@@ -284,7 +284,7 @@ func TestHomeHidesLoginButtonWhenAuthenticated(t *testing.T) {
 func TestAuthPagesContainFormTargets(t *testing.T) {
 	s := New(testConfig(), slog.Default())
 
-	loginReq := httptest.NewRequest(http.MethodGet, "/login", nil)
+	loginReq := httptest.NewRequest(http.MethodGet, "/login?email=client%40example.com", nil)
 	loginRec := httptest.NewRecorder()
 	s.e.ServeHTTP(loginRec, loginReq)
 	if loginRec.Code != http.StatusOK {
@@ -303,6 +303,15 @@ func TestAuthPagesContainFormTargets(t *testing.T) {
 	if !strings.Contains(loginBody, "data-enhance=\"submission\"") ||
 		!strings.Contains(loginBody, "data-pending-text=") {
 		t.Fatalf("/login body = %q, want progressive enhancement hooks", loginBody)
+	}
+	if !strings.Contains(loginBody, "name=\"client_id\" required value=\"client@example.com\"") {
+		t.Fatalf("/login body = %q, want prefilled magic link email", loginBody)
+	}
+	if !strings.Contains(loginBody, "name=\"email\" required value=\"client@example.com\"") {
+		t.Fatalf("/login body = %q, want prefilled password email", loginBody)
+	}
+	if strings.Index(loginBody, "Magic Link Login") > strings.Index(loginBody, "Password Login") {
+		t.Fatalf("/login body = %q, want magic link section before password section", loginBody)
 	}
 
 	requestReq := httptest.NewRequest(

@@ -61,7 +61,7 @@ func (n *Notifier) NotifyFileShared(ctx context.Context, in FileSharedNotificati
 		ActorLabel:  in.ActorLabel,
 		FileName:    in.FileName,
 		Message:     in.Message,
-		FileListURL: "/client/received",
+		FileListURL: "/login?email=" + url.QueryEscape(strings.TrimSpace(in.RecipientEmail)),
 	})
 	if err != nil {
 		return err
