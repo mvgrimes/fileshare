@@ -43,6 +43,13 @@
     {{end}}
     </div>
     <script>
+      window.onLoginTurnstileSuccess = (token) => {
+        const responseInputs = document.querySelectorAll("input[data-turnstile-response]");
+        for (const input of responseInputs) {
+          input.value = token || "";
+        }
+      };
+
       (() => {
         const forms = document.querySelectorAll("form[data-enhance='submission']");
         for (const form of forms) {

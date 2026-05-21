@@ -210,8 +210,11 @@ func TestLoginPageRendersTurnstileWhenConfigured(t *testing.T) {
 	if !strings.Contains(body, "challenges.cloudflare.com/turnstile/v0/api.js") {
 		t.Fatalf("body = %q, want turnstile script", body)
 	}
-	if !strings.Contains(body, "class=\"cf-turnstile\"") {
-		t.Fatalf("body = %q, want turnstile widget", body)
+	if got := strings.Count(body, "class=\"cf-turnstile\""); got != 1 {
+		t.Fatalf("turnstile widget count = %d, want 1", got)
+	}
+	if got := strings.Count(body, "name=\"cf-turnstile-response\""); got != 2 {
+		t.Fatalf("turnstile response input count = %d, want 2", got)
 	}
 }
 

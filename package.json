@@ -1,6 +1,6 @@
 {
   "name": "fileshare-ui-assets",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "private": true,
   "scripts": {
     "css:build": "tailwindcss -i ./internal/web/assets/css/input.css -o ./internal/web/assets/dist/app.css --minify",
