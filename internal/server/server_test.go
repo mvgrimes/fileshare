@@ -126,6 +126,26 @@ func TestHTTPErrorHandlerReportsMonitoringEvent(t *testing.T) {
 	}
 }
 
+func TestHTTPErrorHandlerReturnsNotFoundForUnknownRoute(t *testing.T) {
+	s := New(testConfig(), slog.Default())
+	reported := false
+	restore := monitoring.OverrideReporterForTest(func(err error, metadata map[string]any) {
+		reported = true
+	})
+	defer restore()
+
+	req := httptest.NewRequest(http.MethodGet, "/does-not-exist", nil)
+	rec := httptest.NewRecorder()
+	s.e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusNotFound)
+	}
+	if reported {
+		t.Fatal("did not expect monitoring report for 404")
+	}
+}
+
 func TestRouteGroupsRender(t *testing.T) {
 	s := New(testConfig(), slog.Default())
 

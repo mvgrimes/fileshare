@@ -159,6 +159,14 @@ func New(cfg *config.Config, log *slog.Logger) *Server {
 		if c.Response().Committed {
 			return
 		}
+		status := http.StatusInternalServerError
+		if httpErr, ok := err.(*echo.HTTPError); ok {
+			status = httpErr.Code
+		}
+		if status < http.StatusInternalServerError {
+			_ = c.String(status, http.StatusText(status))
+			return
+		}
 		requestID := c.Response().Header().Get(echo.HeaderXRequestID)
 		log.Error("http internal error",
 			"request_id", requestID,
@@ -171,7 +179,7 @@ func New(cfg *config.Config, log *slog.Logger) *Server {
 			"method":     c.Request().Method,
 			"uri":        c.Request().RequestURI,
 		})
-		_ = c.String(http.StatusInternalServerError, "internal server error")
+		_ = c.String(status, "internal server error")
 	}
 
 	t := template.Must(loadTemplates(cfg.Environment))
