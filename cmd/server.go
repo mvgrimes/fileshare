@@ -34,8 +34,8 @@ func runServer(cmd *cobra.Command, args []string) error {
 	}
 
 	log := logger.New(cfg.LogLevel)
-	monitoring.Configure(cfg, log)
 	srv := server.New(cfg, log)
+	monitoring.Configure(cfg, log)
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
