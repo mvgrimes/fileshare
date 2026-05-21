@@ -16,12 +16,12 @@ type Config struct {
 	LogLevel            string
 	SessionTTL          int
 
-	DatabaseURL   string
-	SessionSecret string
-	JWTSecret     string
-	SSOCookieName string
-	SSOIssuer     string
-	SSOAudience   string
+	DatabaseURL        string
+	SessionSecret      string
+	JWTSecret          string
+	SSOCookieName      string
+	SSOIssuer          string
+	SSOAudience        string
 	TurnstileSiteKey   string
 	TurnstileSecretKey string
 

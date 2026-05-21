@@ -296,7 +296,13 @@ func (s *Server) registerPublicRoutes(queries *db.Queries, sessionTTL time.Durat
 	})
 
 	authFormRateLimited.POST("/auth/magic/request", func(c echo.Context) error {
-		if err := requireTurnstile(c, "/request-link", "auth.magic.request", "client", strings.TrimSpace(c.FormValue("client_id"))); err != nil {
+		if err := requireTurnstile(
+			c,
+			"/request-link",
+			"auth.magic.request",
+			"client",
+			strings.TrimSpace(c.FormValue("client_id")),
+		); err != nil {
 			return err
 		}
 		clientIdentifier := strings.TrimSpace(c.FormValue("client_id"))
@@ -428,7 +434,13 @@ func (s *Server) registerPublicRoutes(queries *db.Queries, sessionTTL time.Durat
 	})
 
 	public.POST("/auth/magic/verify", func(c echo.Context) error {
-		if err := requireTurnstile(c, "/verify-token", "auth.magic.verify", "client", strings.TrimSpace(c.FormValue("client_id"))); err != nil {
+		if err := requireTurnstile(
+			c,
+			"/verify-token",
+			"auth.magic.verify",
+			"client",
+			strings.TrimSpace(c.FormValue("client_id")),
+		); err != nil {
 			return err
 		}
 		clientIdentifier := strings.TrimSpace(c.FormValue("client_id"))
@@ -554,7 +566,13 @@ func (s *Server) registerPublicRoutes(queries *db.Queries, sessionTTL time.Durat
 	})
 
 	authFormRateLimited.POST("/auth/password/login", func(c echo.Context) error {
-		if err := requireTurnstile(c, "/login", "auth.password.login", "account", strings.TrimSpace(c.FormValue("email"))); err != nil {
+		if err := requireTurnstile(
+			c,
+			"/login",
+			"auth.password.login",
+			"account",
+			strings.TrimSpace(c.FormValue("email")),
+		); err != nil {
 			return err
 		}
 		email := strings.TrimSpace(c.FormValue("email"))
@@ -826,7 +844,13 @@ func (s *Server) registerPublicRoutes(queries *db.Queries, sessionTTL time.Durat
 	})
 
 	authFormRateLimited.POST("/auth/password/reset/request", func(c echo.Context) error {
-		if err := requireTurnstile(c, "/reset-password/request", "auth.password.reset.request", "email", strings.TrimSpace(c.FormValue("email"))); err != nil {
+		if err := requireTurnstile(
+			c,
+			"/reset-password/request",
+			"auth.password.reset.request",
+			"email",
+			strings.TrimSpace(c.FormValue("email")),
+		); err != nil {
 			return err
 		}
 		email := strings.TrimSpace(c.FormValue("email"))

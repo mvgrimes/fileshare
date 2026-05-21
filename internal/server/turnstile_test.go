@@ -18,28 +18,39 @@ func TestTurnstileVerifierVerify(t *testing.T) {
 	}{
 		{name: "success", statusCode: http.StatusOK, body: `{"success":true}`, want: true},
 		{name: "failure", statusCode: http.StatusOK, body: `{"success":false}`, want: false},
-		{name: "bad status", statusCode: http.StatusBadGateway, body: `{"success":true}`, want: false},
+		{
+			name:       "bad status",
+			statusCode: http.StatusBadGateway,
+			body:       `{"success":true}`,
+			want:       false,
+		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				if err := r.ParseForm(); err != nil {
-					t.Fatalf("ParseForm() error: %v", err)
-				}
-				if got := r.Form.Get("response"); got != "token-1" {
-					t.Fatalf("response = %q, want token-1", got)
-				}
-				w.WriteHeader(tc.statusCode)
-				_, _ = w.Write([]byte(tc.body))
-			}))
+			srv := httptest.NewServer(
+				http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					if err := r.ParseForm(); err != nil {
+						t.Fatalf("ParseForm() error: %v", err)
+					}
+					if got := r.Form.Get("response"); got != "token-1" {
+						t.Fatalf("response = %q, want token-1", got)
+					}
+					w.WriteHeader(tc.statusCode)
+					_, _ = w.Write([]byte(tc.body))
+				}),
+			)
 			defer srv.Close()
 
 			v := newTurnstileVerifier("site-key", "secret-key")
 			v.verifyURL = srv.URL
 
 			e := echo.New()
-			req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader("cf-turnstile-response=token-1"))
+			req := httptest.NewRequest(
+				http.MethodPost,
+				"/",
+				strings.NewReader("cf-turnstile-response=token-1"),
+			)
 			req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
 			rec := httptest.NewRecorder()
 			c := e.NewContext(req, rec)

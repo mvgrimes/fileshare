@@ -51,12 +51,12 @@ type Server struct {
 }
 
 type TemplateRenderer struct {
-	templates     *template.Template
-	environment   string
-	brandingLabel string
-	faviconURL    string
-	logoURL       string
-	logoHeroURL   string
+	templates        *template.Template
+	environment      string
+	brandingLabel    string
+	faviconURL       string
+	logoURL          string
+	logoHeroURL      string
 	turnstileEnabled bool
 	turnstileSiteKey string
 }
@@ -174,11 +174,14 @@ func New(cfg *config.Config, log *slog.Logger) *Server {
 			"uri", c.Request().RequestURI,
 			"error", err,
 		)
-		monitoring.Report(monitoring.WrapHTTPError(err, requestID, c.Request().Method, c.Request().RequestURI), map[string]any{
-			"request_id": requestID,
-			"method":     c.Request().Method,
-			"uri":        c.Request().RequestURI,
-		})
+		monitoring.Report(
+			monitoring.WrapHTTPError(err, requestID, c.Request().Method, c.Request().RequestURI),
+			map[string]any{
+				"request_id": requestID,
+				"method":     c.Request().Method,
+				"uri":        c.Request().RequestURI,
+			},
+		)
 		_ = c.String(status, "internal server error")
 	}
 
@@ -191,7 +194,8 @@ func New(cfg *config.Config, log *slog.Logger) *Server {
 		faviconURL:    normalizeBrandAsset(cfg.Favicon),
 		logoURL:       normalizeBrandAsset(cfg.Logo),
 		logoHeroURL:   normalizeBrandAsset(cfg.LogoHero),
-		turnstileEnabled: strings.TrimSpace(cfg.TurnstileSiteKey) != "" && strings.TrimSpace(cfg.TurnstileSecretKey) != "",
+		turnstileEnabled: strings.TrimSpace(cfg.TurnstileSiteKey) != "" &&
+			strings.TrimSpace(cfg.TurnstileSecretKey) != "",
 		turnstileSiteKey: cfg.TurnstileSiteKey,
 	}
 	assetsFS := loadAssetsFS(cfg.Environment)

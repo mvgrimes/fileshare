@@ -50,7 +50,9 @@ type captureFileSharedRenderer struct {
 	lastFileSharedData FileSharedTemplateData
 }
 
-func (r *captureFileSharedRenderer) RenderFileShared(data FileSharedTemplateData) (RenderedTemplate, error) {
+func (r *captureFileSharedRenderer) RenderFileShared(
+	data FileSharedTemplateData,
+) (RenderedTemplate, error) {
 	r.lastFileSharedData = data
 	if r.err != nil {
 		return RenderedTemplate{}, r.err

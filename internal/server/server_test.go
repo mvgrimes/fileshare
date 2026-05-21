@@ -3555,7 +3555,14 @@ func TestUserPasswordLoginDisabledAndInvalidCredentials(t *testing.T) {
 
 func TestPasswordLoginRateLimited(t *testing.T) {
 	s := New(testConfig(), slog.Default())
-	createUserWithPassword(t, "user-rate-limit", "user-rate-limit@example.com", "secret-pass", true, 1)
+	createUserWithPassword(
+		t,
+		"user-rate-limit",
+		"user-rate-limit@example.com",
+		"secret-pass",
+		true,
+		1,
+	)
 
 	for i := 0; i < 10; i++ {
 		req := httptest.NewRequest(
