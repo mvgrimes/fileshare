@@ -138,8 +138,8 @@ podman run --rm \
   -v "$(pwd)/data/minio:/data" \
   quay.io/minio/minio server /data --console-address ":9001"
 
-  mc alias set local http://127.0.0.1:9000 fileshare fileshare123
-  mc mb -p local/fileshare-uploads
+mc alias set fileshare http://127.0.0.1:9000 fileshare fileshare123
+mc mb -p local/fileshare-uploads
 ```
 
 ## CLI Commands
