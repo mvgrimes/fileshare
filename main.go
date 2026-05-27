@@ -9,12 +9,12 @@ import (
 	"github.com/joho/godotenv"
 )
 
-var version = "0.1.4"
+var version = "0.1.5"
 
 func main() {
 	err := godotenv.Load()
 	if err != nil {
-		fmt.Println("error loading .env file: ", err)
+		fmt.Println("dotenv load: ", err)
 	}
 
 	cmd.SetVersion(version)
