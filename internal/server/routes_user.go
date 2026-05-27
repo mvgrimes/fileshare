@@ -1007,8 +1007,8 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 			"Files":                items,
 			"EmptyMessage":         "No files have been received yet.",
 			"DetailBasePath":       "/user/received",
-			"DownloadBasePath":     "/user/file",
-			"DownloadUsesFileID":   true,
+			"DownloadBasePath":     "/user/received",
+			"DownloadUsesFileID":   false,
 			"ShowSharedViaColumn":  true,
 			"SharedViaColumnLabel": "Shared By",
 		})
@@ -1118,7 +1118,7 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 			},
 			"BackPath":       "/user/received",
 			"BackLabel":      "Back to Received Files",
-			"DownloadPath":   "/user/file/" + file.ID + "/download",
+			"DownloadPath":   "/user/received/" + selected.ID + "/download",
 			"FileDetailPath": "/user/file/" + file.ID,
 		})
 	})

@@ -1367,6 +1367,9 @@ func TestUserReceivedFilesListAndDetail(t *testing.T) {
 		!strings.Contains(body, "file-received-group.dat") {
 		t.Fatalf("list body = %q, missing received files", body)
 	}
+	if !strings.Contains(body, "href=\"/user/received/share-user-direct/download\"") {
+		t.Fatalf("list body = %q, want received download link", body)
+	}
 	if !strings.Contains(body, "u-seed") {
 		t.Fatalf("list body = %q, want sender name", body)
 	}
@@ -1383,6 +1386,12 @@ func TestUserReceivedFilesListAndDetail(t *testing.T) {
 	}
 	if !strings.Contains(detailRec.Body.String(), "Back to Received Files") {
 		t.Fatalf("detail body = %q, want back link near title", detailRec.Body.String())
+	}
+	if !strings.Contains(
+		detailRec.Body.String(),
+		"href=\"/user/received/share-user-direct/download\"",
+	) {
+		t.Fatalf("detail body = %q, want received detail download link", detailRec.Body.String())
 	}
 	if !strings.Contains(detailRec.Body.String(), "User: u-received") {
 		t.Fatalf("detail body = %q, want shared via display name", detailRec.Body.String())
