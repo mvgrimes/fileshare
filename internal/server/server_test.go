@@ -1492,6 +1492,28 @@ func TestUserFileDetailManageShareRenameDeleteFlow(t *testing.T) {
 	if shareRec.Code != http.StatusCreated {
 		t.Fatalf("share status = %d, want %d", shareRec.Code, http.StatusCreated)
 	}
+	deliveredEvents, err := queries.ListEmailEventsByStatus(
+		context.Background(),
+		db.ListEmailEventsByStatusParams{Status: "delivered", Limit: 50, Offset: 0},
+	)
+	if err != nil {
+		t.Fatalf("ListEmailEventsByStatus() error: %v", err)
+	}
+	hasClientShareNotification := false
+	for _, event := range deliveredEvents {
+		if event.EventType == "file.shared" &&
+			event.RecipientEmail == "c-manage-target@example.com" {
+			hasClientShareNotification = true
+			break
+		}
+	}
+	if !hasClientShareNotification {
+		t.Fatalf(
+			"expected file.shared delivered event for %q, got events: %+v",
+			"c-manage-target@example.com",
+			deliveredEvents,
+		)
+	}
 
 	shareReq2 := httptest.NewRequest(
 		http.MethodPost,

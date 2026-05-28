@@ -903,6 +903,48 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 		); err != nil {
 			return c.String(http.StatusInternalServerError, "failed to create share")
 		}
+		actorLabel := principal.ActorID
+		if user, userErr := queries.GetUserByID(
+			c.Request().Context(),
+			principal.ActorID,
+		); userErr == nil {
+			if name := strings.TrimSpace(user.FullName); name != "" {
+				actorLabel = name
+			} else if email := strings.TrimSpace(user.Email); email != "" {
+				actorLabel = email
+			}
+		}
+		recipients, recErr := resolveShareRecipientEmails(
+			c.Request().Context(),
+			queries,
+			targetType,
+			targetID,
+		)
+		if recErr == nil {
+			for _, recipient := range recipients {
+				notifyErr := s.notifier.NotifyFileShared(
+					c.Request().Context(),
+					mail.FileSharedNotification{
+						RecipientEmail: recipient,
+						RecipientName:  recipient,
+						ActorLabel:     actorLabel,
+						FileName:       file.OriginalFilename,
+						Message:        message,
+						TargetType:     targetType,
+						TargetID:       targetID,
+					},
+				)
+				if notifyErr != nil {
+					s.log.Error(
+						"share notification failed",
+						"recipient",
+						recipient,
+						"error",
+						notifyErr.Error(),
+					)
+				}
+			}
+		}
 		if isHTMLRequest(c) {
 			return c.Redirect(
 				http.StatusSeeOther,
