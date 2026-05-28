@@ -4,10 +4,12 @@
   "private": true,
   "scripts": {
     "css:build": "tailwindcss -i ./internal/web/assets/css/input.css -o ./internal/web/assets/dist/app.css --minify",
-    "css:watch": "tailwindcss -i ./internal/web/assets/css/input.css -o ./internal/web/assets/dist/app.css --minify --watch"
+    "css:watch:tailwind": "tailwindcss -i ./internal/web/assets/css/input.css -o ./internal/web/assets/dist/app.css --minify --watch",
+    "css:watch": "pnpm run css:build && chokidar \"internal/web/templates/**/*.html\" \"internal/web/assets/css/input.css\" -c \"pnpm run css:build\" --debounce 200"
   },
   "devDependencies": {
     "@tailwindcss/cli": "^4.1.7",
+    "chokidar-cli": "^3.0.0",
     "daisyui": "^5.0.35",
     "tailwindcss": "^4.1.7"
   }
