@@ -270,6 +270,71 @@ func TestHomeBrandingAssetsFromConfig(t *testing.T) {
 	}
 }
 
+func TestEmailLogoServesConfiguredBase64Image(t *testing.T) {
+	cfg := testConfig()
+	cfg.Logo = "R0lGODlhAQABAAAAACw="
+	s := New(cfg, slog.Default())
+
+	req := httptest.NewRequest(http.MethodGet, emailLogoPath, nil)
+	rec := httptest.NewRecorder()
+	s.e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+	}
+	if got := rec.Header().Get(echo.HeaderContentType); !strings.HasPrefix(got, "image/gif") {
+		t.Fatalf("Content-Type = %q, want image/gif", got)
+	}
+	if got := rec.Header().Get("Cache-Control"); got != "public, max-age=3600" {
+		t.Fatalf("Cache-Control = %q", got)
+	}
+	if rec.Body.Len() == 0 {
+		t.Fatal("body is empty")
+	}
+}
+
+func TestResolveEmailLogo(t *testing.T) {
+	t.Parallel()
+
+	t.Run("remote URL", func(t *testing.T) {
+		url, data, contentType, err := resolveEmailLogo(
+			"https://fileshare.example",
+			"https://cdn.example/logo.svg",
+		)
+		if err != nil {
+			t.Fatalf("resolveEmailLogo() error: %v", err)
+		}
+		if url != "https://cdn.example/logo.svg" || data != nil || contentType != "" {
+			t.Fatalf("resolveEmailLogo() = %q, %v, %q", url, data, contentType)
+		}
+	})
+
+	t.Run("base64 data URI", func(t *testing.T) {
+		url, data, contentType, err := resolveEmailLogo(
+			"https://fileshare.example/",
+			"data:image/gif;base64,R0lGODlhAQABAAAAACw=",
+		)
+		if err != nil {
+			t.Fatalf("resolveEmailLogo() error: %v", err)
+		}
+		if url != "https://fileshare.example"+emailLogoPath {
+			t.Fatalf("url = %q", url)
+		}
+		if len(data) == 0 || contentType != "image/gif" {
+			t.Fatalf("data length = %d, content type = %q", len(data), contentType)
+		}
+	})
+
+	t.Run("non-image data", func(t *testing.T) {
+		if _, _, _, err := resolveEmailLogo(
+			"https://fileshare.example",
+			"aGVsbG8=",
+		); err == nil {
+			t.Fatal("resolveEmailLogo() error = nil, want non-image error")
+		}
+	})
+}
+
 func TestHomeShowsLoginButtonWhenAnonymous(t *testing.T) {
 	s := New(testConfig(), slog.Default())
 	req := httptest.NewRequest(http.MethodGet, "/", nil)

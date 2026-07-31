@@ -20,6 +20,12 @@ import (
 
 func (s *Server) registerPublicRoutes(queries *db.Queries, sessionTTL time.Duration) {
 	public := s.e.Group("")
+	if len(s.emailLogo) > 0 {
+		public.GET(emailLogoPath, func(c echo.Context) error {
+			c.Response().Header().Set("Cache-Control", "public, max-age=3600")
+			return c.Blob(http.StatusOK, s.emailLogoContentType, s.emailLogo)
+		})
+	}
 	authFormRateLimited := public.Group("")
 	authFormRateLimited.Use(middleware.RateLimiterWithConfig(middleware.RateLimiterConfig{
 		Store: middleware.NewRateLimiterMemoryStoreWithConfig(

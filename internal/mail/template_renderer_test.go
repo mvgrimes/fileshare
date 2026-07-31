@@ -116,7 +116,11 @@ func TestHermesRendererRenderInvitation(t *testing.T) {
 
 func TestHermesRendererRenderFileShared(t *testing.T) {
 	t.Parallel()
-	renderer, err := NewHermesRenderer("FileShare", "https://fileshare.example", "")
+	renderer, err := NewHermesRenderer(
+		"FileShare",
+		"https://fileshare.example",
+		"https://fileshare.example/branding/logo",
+	)
 	if err != nil {
 		t.Fatalf("NewHermesRenderer() error: %v", err)
 	}
@@ -142,6 +146,9 @@ func TestHermesRendererRenderFileShared(t *testing.T) {
 	}
 	if !strings.Contains(out.Text, "asked to log in") {
 		t.Fatalf("text missing login guidance: %q", out.Text)
+	}
+	if !strings.Contains(out.HTML, "img src=\"https://fileshare.example/branding/logo\"") {
+		t.Fatalf("HTML missing configured logo: %q", out.HTML)
 	}
 
 	if _, err := renderer.RenderFileShared(FileSharedTemplateData{}); err == nil {

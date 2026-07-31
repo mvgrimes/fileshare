@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"database/sql"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"html/template"
@@ -33,22 +34,26 @@ import (
 )
 
 type Server struct {
-	e         *echo.Echo
-	cfg       *config.Config
-	log       *slog.Logger
-	sessions  *auth.Manager
-	authz     *auth.AuthorizationService
-	userSync  *auth.UserSyncer
-	userPwd   *auth.UserPasswordAuthenticator
-	clientPwd *auth.ClientPasswordAuthenticator
-	magic     *auth.MagicManager
-	resetPwd  *auth.PasswordResetManager
-	turnstile *turnstileVerifier
-	magicSend auth.MagicSender
-	notifier  *mail.Notifier
-	uploadSvc *files.UploadService
-	downSvc   *files.DownloadService
+	e                    *echo.Echo
+	cfg                  *config.Config
+	log                  *slog.Logger
+	sessions             *auth.Manager
+	authz                *auth.AuthorizationService
+	userSync             *auth.UserSyncer
+	userPwd              *auth.UserPasswordAuthenticator
+	clientPwd            *auth.ClientPasswordAuthenticator
+	magic                *auth.MagicManager
+	resetPwd             *auth.PasswordResetManager
+	turnstile            *turnstileVerifier
+	magicSend            auth.MagicSender
+	notifier             *mail.Notifier
+	uploadSvc            *files.UploadService
+	downSvc              *files.DownloadService
+	emailLogo            []byte
+	emailLogoContentType string
 }
+
+const emailLogoPath = "/branding/logo"
 
 type TemplateRenderer struct {
 	templates        *template.Template
@@ -187,6 +192,13 @@ func New(cfg *config.Config, log *slog.Logger) *Server {
 
 	t := template.Must(loadTemplates(cfg.Environment))
 	brandingLabel := brandProductName(cfg.Branding)
+	emailLogoURL, emailLogo, emailLogoContentType, logoErr := resolveEmailLogo(
+		cfg.ServerUrl,
+		cfg.Logo,
+	)
+	if logoErr != nil {
+		log.Warn("email logo is not a valid image", "error", logoErr)
+	}
 	e.Renderer = &TemplateRenderer{
 		templates:     t,
 		environment:   cfg.Environment,
@@ -274,7 +286,7 @@ func New(cfg *config.Config, log *slog.Logger) *Server {
 	resetPwd := auth.NewPasswordResetManager(queries, 15*time.Minute, 60*time.Second, 12)
 	turnstile := newTurnstileVerifier(cfg.TurnstileSiteKey, cfg.TurnstileSecretKey)
 	magicSend := auth.MagicSender(auth.NoopSender{})
-	renderer, renderErr := mail.NewHermesRenderer(brandingLabel, cfg.ServerUrl, cfg.ServerUrl)
+	renderer, renderErr := mail.NewHermesRenderer(brandingLabel, cfg.ServerUrl, emailLogoURL)
 	if renderErr != nil {
 		panic(renderErr)
 	}
@@ -332,21 +344,23 @@ func New(cfg *config.Config, log *slog.Logger) *Server {
 	}
 
 	srv := &Server{
-		e:         e,
-		cfg:       cfg,
-		log:       log,
-		sessions:  sessions,
-		authz:     authz,
-		turnstile: turnstile,
-		userSync:  userSync,
-		userPwd:   userPwd,
-		clientPwd: clientPwd,
-		magic:     magic,
-		resetPwd:  resetPwd,
-		magicSend: magicSend,
-		notifier:  notifier,
-		uploadSvc: uploadSvc,
-		downSvc:   downSvc,
+		e:                    e,
+		cfg:                  cfg,
+		log:                  log,
+		sessions:             sessions,
+		authz:                authz,
+		turnstile:            turnstile,
+		userSync:             userSync,
+		userPwd:              userPwd,
+		clientPwd:            clientPwd,
+		magic:                magic,
+		resetPwd:             resetPwd,
+		magicSend:            magicSend,
+		notifier:             notifier,
+		uploadSvc:            uploadSvc,
+		downSvc:              downSvc,
+		emailLogo:            emailLogo,
+		emailLogoContentType: emailLogoContentType,
 	}
 	e.Use(auth.LoadSession(sessions))
 
@@ -680,6 +694,49 @@ func normalizeBrandAsset(raw string) string {
 		return v
 	}
 	return "data:image/png;base64," + v
+}
+
+func resolveEmailLogo(serverURL, raw string) (string, []byte, string, error) {
+	v := strings.TrimSpace(raw)
+	if v == "" {
+		return "", nil, "", nil
+	}
+	lower := strings.ToLower(v)
+	if strings.HasPrefix(lower, "http://") || strings.HasPrefix(lower, "https://") {
+		return v, nil, "", nil
+	}
+	if strings.HasPrefix(v, "/") {
+		return strings.TrimRight(serverURL, "/") + v, nil, "", nil
+	}
+
+	encoded := v
+	declaredContentType := ""
+	if strings.HasPrefix(lower, "data:") {
+		header, payload, ok := strings.Cut(v, ",")
+		if !ok || !strings.HasSuffix(strings.ToLower(header), ";base64") {
+			return "", nil, "", fmt.Errorf("logo data URI must be base64 encoded")
+		}
+		encoded = payload
+		mediaType := strings.TrimSpace(strings.TrimSuffix(header[5:], ";base64"))
+		if separator := strings.IndexByte(mediaType, ';'); separator >= 0 {
+			mediaType = mediaType[:separator]
+		}
+		declaredContentType = strings.ToLower(mediaType)
+	}
+
+	data, err := base64.StdEncoding.DecodeString(encoded)
+	if err != nil {
+		return "", nil, "", fmt.Errorf("decode logo base64: %w", err)
+	}
+	contentType := http.DetectContentType(data)
+	if strings.HasPrefix(declaredContentType, "image/") {
+		contentType = declaredContentType
+	}
+	if !strings.HasPrefix(contentType, "image/") {
+		return "", nil, "", fmt.Errorf("detected content type %q is not an image", contentType)
+	}
+
+	return strings.TrimRight(serverURL, "/") + emailLogoPath, data, contentType, nil
 }
 
 func brandProductName(raw string) string {
