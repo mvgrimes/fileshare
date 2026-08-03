@@ -10,8 +10,9 @@
 tmp/
 _tmp/
 .DS_Store
-trees/
-.tickets/
+/trees/
+/.tickets/
+/.tickets
 /data/
 
 # Editor
