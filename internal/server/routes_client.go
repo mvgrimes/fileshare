@@ -184,6 +184,14 @@ func (s *Server) registerClientRoutes(queries *db.Queries) {
 				return c.String(http.StatusInternalServerError, "failed to update password")
 			}
 		}
+		s.log.Info(
+			"profile updated",
+			"actor_type", "client",
+			"actor_id", principal.ActorID,
+			"profile_type", "client",
+			"profile_id", principal.ActorID,
+			"password_changed", newPassword != "",
+		)
 		if isHTMLRequest(c) {
 			return c.Redirect(
 				http.StatusSeeOther,
@@ -313,6 +321,12 @@ func (s *Server) registerClientRoutes(queries *db.Queries) {
 			"file",
 			fileID,
 			map[string]any{"outcome": "allowed"},
+		)
+		s.log.Info(
+			"file downloaded",
+			"actor_type", "client",
+			"actor_id", principal.ActorID,
+			"file_id", fileID,
 		)
 		if isHTMLRequest(c) {
 			return c.Redirect(http.StatusSeeOther, signedURL)
@@ -585,6 +599,14 @@ func (s *Server) registerClientRoutes(queries *db.Queries) {
 			}
 			return c.String(http.StatusInternalServerError, "failed to record file")
 		}
+		s.log.Info(
+			"file uploaded",
+			"actor_type", "client",
+			"actor_id", principal.ActorID,
+			"file_id", fileID,
+			"filename", filename,
+			"size_bytes", sizeBytes,
+		)
 		shareID := uuid.NewString()
 		msgNull := sql.NullString{}
 		if message != "" {
@@ -619,6 +641,15 @@ func (s *Server) registerClientRoutes(queries *db.Queries) {
 			targetType,
 			targetID,
 			map[string]any{"file_id": fileID, "share_id": shareID},
+		)
+		s.log.Info(
+			"file shared",
+			"actor_type", "client",
+			"actor_id", principal.ActorID,
+			"file_id", fileID,
+			"share_id", shareID,
+			"target_type", targetType,
+			"target_id", targetID,
 		)
 
 		recipients, recErr := resolveClientUploadRecipients(
@@ -659,6 +690,12 @@ func (s *Server) registerClientRoutes(queries *db.Queries) {
 						recipient,
 						"error",
 						notifyErr.Error(),
+					)
+				} else {
+					s.log.Info(
+						"email sent",
+						"email_type", "client_upload",
+						"recipient", recipient,
 					)
 				}
 			}

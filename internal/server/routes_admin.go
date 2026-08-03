@@ -147,6 +147,12 @@ func (s *Server) registerAdminRoutes(queries *db.Queries) {
 		); err != nil {
 			return c.String(http.StatusInternalServerError, "failed to assign role")
 		}
+		s.log.Info(
+			"user created",
+			"actor_id", principal.ActorID,
+			"user_id", userID,
+			"email", email,
+		)
 		if isHTMLRequest(c) {
 			return c.Redirect(
 				http.StatusSeeOther,
@@ -210,6 +216,13 @@ func (s *Server) registerAdminRoutes(queries *db.Queries) {
 		); err != nil {
 			return c.String(http.StatusInternalServerError, "failed to assign role")
 		}
+		s.log.Info(
+			"profile updated",
+			"actor_type", principal.ActorType,
+			"actor_id", principal.ActorID,
+			"profile_type", "user",
+			"profile_id", user.ID,
+		)
 		if isHTMLRequest(c) {
 			return c.Redirect(
 				http.StatusSeeOther,

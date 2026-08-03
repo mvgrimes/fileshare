@@ -222,7 +222,7 @@ func New(cfg *config.Config, log *slog.Logger) *Server {
 		LogRequestID: true,
 		HandleError:  true,
 		LogValuesFunc: func(c echo.Context, v middleware.RequestLoggerValues) error {
-			log.Info("http request",
+			log.Debug("http request",
 				"request_id", v.RequestID,
 				"method", v.Method,
 				"uri", v.URI,
@@ -437,6 +437,16 @@ func auditAuthEvent(
 		EntityID:     nullableString(entityID),
 		MetadataJson: sql.NullString{Valid: len(metadataJSON) > 0, String: string(metadataJSON)},
 	})
+}
+
+func (s *Server) logLoginFailed(method, actorType, identifier, reason string) {
+	s.log.Info(
+		"login failed",
+		"method", method,
+		"actor_type", actorType,
+		"actor_identifier", identifier,
+		"reason", reason,
+	)
 }
 
 func nullableString(v string) sql.NullString {

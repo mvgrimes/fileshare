@@ -36,6 +36,12 @@ func (s *Server) registerPublicRoutes(queries *db.Queries, sessionTTL time.Durat
 			},
 		),
 		DenyHandler: func(c echo.Context, identifier string, err error) error {
+			switch c.Request().URL.Path {
+			case "/auth/password/login":
+				s.logLoginFailed("password", "account", "", "rate_limited")
+			case "/auth/magic/verify":
+				s.logLoginFailed("magic_link", "client", "", "rate_limited")
+			}
 			return c.String(http.StatusTooManyRequests, "rate limit exceeded")
 		},
 		ErrorHandler: func(c echo.Context, err error) error {
@@ -56,6 +62,11 @@ func (s *Server) registerPublicRoutes(queries *db.Queries, sessionTTL time.Durat
 			actorID,
 			map[string]any{"outcome": "failure", "reason": "captcha_failed"},
 		)
+		if eventName == "auth.magic.verify" {
+			s.logLoginFailed("magic_link", actorType, actorID, "captcha_failed")
+		} else if eventName == "auth.password.login" {
+			s.logLoginFailed("password", actorType, actorID, "captcha_failed")
+		}
 		if isHTMLRequest(c) {
 			return c.Redirect(
 				http.StatusSeeOther,
@@ -202,6 +213,7 @@ func (s *Server) registerPublicRoutes(queries *db.Queries, sessionTTL time.Durat
 	public.POST("/auth/sso/login", func(c echo.Context) error {
 		ssoCookie, err := c.Cookie(s.cfg.SSOCookieName)
 		if err != nil || ssoCookie.Value == "" {
+			s.logLoginFailed("sso", "user", "", "missing_cookie")
 			if isHTMLRequest(c) {
 				return c.Redirect(
 					http.StatusSeeOther,
@@ -223,6 +235,7 @@ func (s *Server) registerPublicRoutes(queries *db.Queries, sessionTTL time.Durat
 		validator := auth.NewSSOValidator(s.cfg.JWTSecret, s.cfg.SSOIssuer, s.cfg.SSOAudience)
 		claims, err := validator.Validate(ssoCookie.Value)
 		if err != nil {
+			s.logLoginFailed("sso", "user", "", "invalid_token")
 			if isHTMLRequest(c) {
 				return c.Redirect(
 					http.StatusSeeOther,
@@ -243,6 +256,7 @@ func (s *Server) registerPublicRoutes(queries *db.Queries, sessionTTL time.Durat
 		}
 		actorID, err := s.userSync.UpsertFromSSOClaims(c.Request().Context(), claims)
 		if err != nil {
+			s.logLoginFailed("sso", "user", claims.UserID, "invalid_claims")
 			if isHTMLRequest(c) {
 				return c.Redirect(
 					http.StatusSeeOther,
@@ -266,6 +280,7 @@ func (s *Server) registerPublicRoutes(queries *db.Queries, sessionTTL time.Durat
 			auth.Principal{ActorType: "user", ActorID: actorID, Roles: claims.Roles},
 		)
 		if err != nil {
+			s.logLoginFailed("sso", "user", actorID, "session_create_failed")
 			if isHTMLRequest(c) {
 				return c.Redirect(
 					http.StatusSeeOther,
@@ -294,6 +309,7 @@ func (s *Server) registerPublicRoutes(queries *db.Queries, sessionTTL time.Durat
 			actorID,
 			map[string]any{"outcome": "success"},
 		)
+		s.log.Info("login succeeded", "method", "sso", "actor_type", "user", "actor_id", actorID)
 		setSessionCookie(c, s.cfg.Environment, token, sessionTTL)
 		if isHTMLRequest(c) {
 			return c.Redirect(http.StatusSeeOther, "/user/dashboard")
@@ -430,6 +446,7 @@ func (s *Server) registerPublicRoutes(queries *db.Queries, sessionTTL time.Durat
 			clientIdentifier,
 			map[string]any{"outcome": "success"},
 		)
+		s.log.Info("email sent", "email_type", "magic_link", "recipient", clientIdentifier)
 		if isHTMLRequest(c) {
 			return c.Redirect(
 				http.StatusSeeOther,
@@ -452,6 +469,7 @@ func (s *Server) registerPublicRoutes(queries *db.Queries, sessionTTL time.Durat
 		clientIdentifier := strings.TrimSpace(c.FormValue("client_id"))
 		token := c.FormValue("token")
 		if clientIdentifier == "" || token == "" {
+			s.logLoginFailed("magic_link", "client", clientIdentifier, "missing_input")
 			if isHTMLRequest(c) {
 				return c.Redirect(
 					http.StatusSeeOther,
@@ -472,6 +490,7 @@ func (s *Server) registerPublicRoutes(queries *db.Queries, sessionTTL time.Durat
 		}
 		clientID, err := resolvedClientID(queries, c.Request().Context(), clientIdentifier)
 		if err != nil {
+			s.logLoginFailed("magic_link", "client", clientIdentifier, "client_not_found")
 			if isHTMLRequest(c) {
 				return c.Redirect(
 					http.StatusSeeOther,
@@ -492,6 +511,13 @@ func (s *Server) registerPublicRoutes(queries *db.Queries, sessionTTL time.Durat
 		}
 		_, err = s.magic.Consume(c.Request().Context(), clientID, token)
 		if err != nil {
+			reason := "verify_failed"
+			if errors.Is(err, auth.ErrMagicLinkExpired) ||
+				errors.Is(err, auth.ErrMagicLinkConsumed) ||
+				errors.Is(err, auth.ErrMagicLinkNotFound) {
+				reason = "invalid_or_expired"
+			}
+			s.logLoginFailed("magic_link", "client", clientIdentifier, reason)
 			switch err {
 			case auth.ErrMagicLinkExpired, auth.ErrMagicLinkConsumed, auth.ErrMagicLinkNotFound:
 				if isHTMLRequest(c) {
@@ -536,6 +562,7 @@ func (s *Server) registerPublicRoutes(queries *db.Queries, sessionTTL time.Durat
 			auth.Principal{ActorType: "client", ActorID: clientID},
 		)
 		if err != nil {
+			s.logLoginFailed("magic_link", "client", clientID, "session_create_failed")
 			if isHTMLRequest(c) {
 				return c.Redirect(
 					http.StatusSeeOther,
@@ -564,6 +591,12 @@ func (s *Server) registerPublicRoutes(queries *db.Queries, sessionTTL time.Durat
 			clientID,
 			map[string]any{"outcome": "success"},
 		)
+		s.log.Info(
+			"login succeeded",
+			"method", "magic_link",
+			"actor_type", "client",
+			"actor_id", clientID,
+		)
 		setSessionCookie(c, s.cfg.Environment, sessionToken, sessionTTL)
 		if isHTMLRequest(c) {
 			return c.Redirect(http.StatusSeeOther, "/client/dashboard")
@@ -591,6 +624,11 @@ func (s *Server) registerPublicRoutes(queries *db.Queries, sessionTTL time.Durat
 				email,
 			)
 			if err != nil {
+				reason := "actor_resolve_failed"
+				if errors.Is(err, errPasswordLoginEmailConflict) {
+					reason = "email_conflict"
+				}
+				s.logLoginFailed("password", "account", email, reason)
 				if errors.Is(err, errPasswordLoginEmailConflict) {
 					if isHTMLRequest(c) {
 						return c.Redirect(
@@ -635,6 +673,13 @@ func (s *Server) registerPublicRoutes(queries *db.Queries, sessionTTL time.Durat
 		if actorType == "user" {
 			user, roles, err := s.userPwd.Authenticate(c.Request().Context(), email, password)
 			if err != nil {
+				reason := "auth_failed"
+				if errors.Is(err, auth.ErrUserPasswordDisabled) {
+					reason = "disabled"
+				} else if errors.Is(err, auth.ErrInvalidUserCredentials) {
+					reason = "invalid_credentials"
+				}
+				s.logLoginFailed("password", "user", email, reason)
 				switch err {
 				case auth.ErrUserPasswordDisabled:
 					if isHTMLRequest(c) {
@@ -697,6 +742,7 @@ func (s *Server) registerPublicRoutes(queries *db.Queries, sessionTTL time.Durat
 				auth.Principal{ActorType: "user", ActorID: user.ID, Roles: roles},
 			)
 			if err != nil {
+				s.logLoginFailed("password", "user", user.ID, "session_create_failed")
 				if isHTMLRequest(c) {
 					return c.Redirect(
 						http.StatusSeeOther,
@@ -725,6 +771,12 @@ func (s *Server) registerPublicRoutes(queries *db.Queries, sessionTTL time.Durat
 				user.ID,
 				map[string]any{"outcome": "success"},
 			)
+			s.log.Info(
+				"login succeeded",
+				"method", "password",
+				"actor_type", "user",
+				"actor_id", user.ID,
+			)
 			setSessionCookie(c, s.cfg.Environment, token, sessionTTL)
 			if isHTMLRequest(c) {
 				return c.Redirect(http.StatusSeeOther, "/user/dashboard")
@@ -732,6 +784,7 @@ func (s *Server) registerPublicRoutes(queries *db.Queries, sessionTTL time.Durat
 			return c.NoContent(http.StatusNoContent)
 		}
 		if actorType != "client" {
+			s.logLoginFailed("password", actorType, email, "invalid_actor_type")
 			if isHTMLRequest(c) {
 				return c.Redirect(
 					http.StatusSeeOther,
@@ -752,6 +805,13 @@ func (s *Server) registerPublicRoutes(queries *db.Queries, sessionTTL time.Durat
 		}
 		client, err := s.clientPwd.Authenticate(c.Request().Context(), email, password)
 		if err != nil {
+			reason := "auth_failed"
+			if errors.Is(err, auth.ErrClientPasswordDisabled) {
+				reason = "disabled"
+			} else if errors.Is(err, auth.ErrInvalidClientCredentials) {
+				reason = "invalid_credentials"
+			}
+			s.logLoginFailed("password", "client", email, reason)
 			switch err {
 			case auth.ErrClientPasswordDisabled:
 				if isHTMLRequest(c) {
@@ -814,6 +874,7 @@ func (s *Server) registerPublicRoutes(queries *db.Queries, sessionTTL time.Durat
 			auth.Principal{ActorType: "client", ActorID: client.ID},
 		)
 		if err != nil {
+			s.logLoginFailed("password", "client", client.ID, "session_create_failed")
 			if isHTMLRequest(c) {
 				return c.Redirect(
 					http.StatusSeeOther,
@@ -841,6 +902,12 @@ func (s *Server) registerPublicRoutes(queries *db.Queries, sessionTTL time.Durat
 			"client",
 			client.ID,
 			map[string]any{"outcome": "success"},
+		)
+		s.log.Info(
+			"login succeeded",
+			"method", "password",
+			"actor_type", "client",
+			"actor_id", client.ID,
 		)
 		setSessionCookie(c, s.cfg.Environment, token, sessionTTL)
 		if isHTMLRequest(c) {
@@ -938,6 +1005,12 @@ func (s *Server) registerPublicRoutes(queries *db.Queries, sessionTTL time.Durat
 					result.Email,
 					"error",
 					notifyErr.Error(),
+				)
+			} else {
+				s.log.Info(
+					"email sent",
+					"email_type", "password_reset",
+					"recipient", result.Email,
 				)
 			}
 			auditAuthEvent(

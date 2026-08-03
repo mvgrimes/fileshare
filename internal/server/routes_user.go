@@ -285,6 +285,14 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 				return c.String(http.StatusInternalServerError, "failed to update password")
 			}
 		}
+		s.log.Info(
+			"profile updated",
+			"actor_type", "user",
+			"actor_id", principal.ActorID,
+			"profile_type", "user",
+			"profile_id", principal.ActorID,
+			"password_changed", newPassword != "",
+		)
 		if isHTMLRequest(c) {
 			return c.Redirect(
 				http.StatusSeeOther,
@@ -448,6 +456,12 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 			}
 			return c.String(http.StatusInternalServerError, "failed to authorize download")
 		}
+		s.log.Info(
+			"file downloaded",
+			"actor_type", "user",
+			"actor_id", principal.ActorID,
+			"file_id", fileID,
+		)
 		if isHTMLRequest(c) {
 			return c.Redirect(http.StatusSeeOther, signedURL)
 		}
@@ -623,6 +637,13 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 		if err := queries.DeleteShare(c.Request().Context(), shareID); err != nil {
 			return c.String(http.StatusInternalServerError, "failed to remove share")
 		}
+		s.log.Info(
+			"share deleted",
+			"actor_type", "user",
+			"actor_id", principal.ActorID,
+			"file_id", share.FileID,
+			"share_id", shareID,
+		)
 		if isHTMLRequest(c) {
 			return c.Redirect(
 				http.StatusSeeOther,
@@ -803,6 +824,13 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 		); err != nil {
 			return c.String(http.StatusInternalServerError, "failed to rename file")
 		}
+		s.log.Info(
+			"file renamed",
+			"actor_type", "user",
+			"actor_id", principal.ActorID,
+			"file_id", fileID,
+			"filename", name,
+		)
 		if isHTMLRequest(c) {
 			return c.Redirect(
 				http.StatusSeeOther,
@@ -828,6 +856,12 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 		if err := queries.DeleteFile(c.Request().Context(), fileID); err != nil {
 			return c.String(http.StatusInternalServerError, "failed to delete file")
 		}
+		s.log.Info(
+			"file deleted",
+			"actor_type", "user",
+			"actor_id", principal.ActorID,
+			"file_id", fileID,
+		)
 		if isHTMLRequest(c) {
 			return c.Redirect(
 				http.StatusSeeOther,
@@ -903,6 +937,14 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 		); err != nil {
 			return c.String(http.StatusInternalServerError, "failed to create share")
 		}
+		s.log.Info(
+			"file shared",
+			"actor_type", "user",
+			"actor_id", principal.ActorID,
+			"file_id", fileID,
+			"target_type", targetType,
+			"target_id", targetID,
+		)
 		actorLabel := principal.ActorID
 		if user, userErr := queries.GetUserByID(
 			c.Request().Context(),
@@ -941,6 +983,12 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 						recipient,
 						"error",
 						notifyErr.Error(),
+					)
+				} else {
+					s.log.Info(
+						"email sent",
+						"email_type", "file_shared",
+						"recipient", recipient,
 					)
 				}
 			}
@@ -981,6 +1029,13 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 		if err := queries.DeleteShare(c.Request().Context(), shareID); err != nil {
 			return c.String(http.StatusInternalServerError, "failed to remove share")
 		}
+		s.log.Info(
+			"share deleted",
+			"actor_type", "user",
+			"actor_id", principal.ActorID,
+			"file_id", fileID,
+			"share_id", shareID,
+		)
 		if isHTMLRequest(c) {
 			return c.Redirect(
 				http.StatusSeeOther,
@@ -1188,6 +1243,13 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 					}
 					return c.String(http.StatusInternalServerError, "failed to authorize download")
 				}
+				s.log.Info(
+					"file downloaded",
+					"actor_type", "user",
+					"actor_id", principal.ActorID,
+					"file_id", sh.FileID,
+					"share_id", shareID,
+				)
 				if isHTMLRequest(c) {
 					return c.Redirect(http.StatusSeeOther, signedURL)
 				}
@@ -1308,6 +1370,14 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 			}
 			return c.String(http.StatusInternalServerError, "failed to record file")
 		}
+		s.log.Info(
+			"file uploaded",
+			"actor_type", "user",
+			"actor_id", principal.ActorID,
+			"file_id", fileID,
+			"filename", filename,
+			"size_bytes", sizeBytes,
+		)
 		shareID := uuid.NewString()
 		msgNull := sql.NullString{}
 		if message != "" {
@@ -1333,6 +1403,15 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 			}
 			return c.String(http.StatusInternalServerError, "failed to create share")
 		}
+		s.log.Info(
+			"file shared",
+			"actor_type", "user",
+			"actor_id", principal.ActorID,
+			"file_id", fileID,
+			"share_id", shareID,
+			"target_type", targetType,
+			"target_id", targetID,
+		)
 		actorLabel := principal.ActorID
 		if user, userErr := queries.GetUserByID(
 			c.Request().Context(),
@@ -1371,6 +1450,12 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 						recipient,
 						"error",
 						notifyErr.Error(),
+					)
+				} else {
+					s.log.Info(
+						"email sent",
+						"email_type", "file_shared",
+						"recipient", recipient,
 					)
 				}
 			}
@@ -1585,6 +1670,15 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 					"failed to assign client group membership",
 				)
 			}
+			s.log.Info(
+				"group member added",
+				"actor_type", principal.ActorType,
+				"actor_id", principal.ActorID,
+				"group_type", "client_group",
+				"group_id", groupID,
+				"member_type", "client",
+				"member_id", clientID,
+			)
 		}
 		auditAuthEvent(
 			c,
@@ -1595,6 +1689,12 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 			"client",
 			email,
 			map[string]any{"outcome": "success"},
+		)
+		s.log.Info(
+			"client created",
+			"actor_id", principal.ActorID,
+			"client_id", clientID,
+			"email", email,
 		)
 		if isHTMLRequest(c) {
 			return c.Redirect(
@@ -1722,6 +1822,13 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 			}
 			return c.String(http.StatusInternalServerError, "failed to update client")
 		}
+		s.log.Info(
+			"profile updated",
+			"actor_type", principal.ActorType,
+			"actor_id", principal.ActorID,
+			"profile_type", "client",
+			"profile_id", client.ID,
+		)
 		if isHTMLRequest(c) {
 			return c.Redirect(
 				http.StatusSeeOther,
@@ -1790,10 +1897,11 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 			}
 			return c.String(http.StatusBadRequest, "name is required")
 		}
+		groupID := uuid.NewString()
 		if err := queries.CreateClientGroup(
 			c.Request().Context(),
 			db.CreateClientGroupParams{
-				ID:              uuid.NewString(),
+				ID:              groupID,
 				Name:            name,
 				CreatedByUserID: sql.NullString{Valid: true, String: principal.ActorID},
 			},
@@ -1823,8 +1931,16 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 			principal.ActorType,
 			principal.ActorID,
 			"client_group",
-			name,
+			groupID,
 			map[string]any{"outcome": "success"},
+		)
+		s.log.Info(
+			"group created",
+			"actor_type", principal.ActorType,
+			"actor_id", principal.ActorID,
+			"group_type", "client_group",
+			"group_id", groupID,
+			"name", name,
 		)
 		if isHTMLRequest(c) {
 			return c.Redirect(
@@ -1885,6 +2001,15 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 			groupID,
 			map[string]any{"outcome": "success", "client_id": clientID},
 		)
+		s.log.Info(
+			"group member added",
+			"actor_type", principal.ActorType,
+			"actor_id", principal.ActorID,
+			"group_type", "client_group",
+			"group_id", groupID,
+			"member_type", "client",
+			"member_id", clientID,
+		)
 		if isHTMLRequest(c) {
 			return c.Redirect(
 				http.StatusSeeOther,
@@ -1933,6 +2058,14 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 			}
 			return c.String(http.StatusInternalServerError, "failed to update client group")
 		}
+		s.log.Info(
+			"group edited",
+			"actor_type", principal.ActorType,
+			"actor_id", principal.ActorID,
+			"group_type", "client_group",
+			"group_id", groupID,
+			"name", name,
+		)
 		if isHTMLRequest(c) {
 			return c.Redirect(
 				http.StatusSeeOther,
@@ -1974,6 +2107,15 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 			}
 			return c.String(http.StatusInternalServerError, "failed to add membership")
 		}
+		s.log.Info(
+			"group member added",
+			"actor_type", principal.ActorType,
+			"actor_id", principal.ActorID,
+			"group_type", "client_group",
+			"group_id", groupID,
+			"member_type", "client",
+			"member_id", clientID,
+		)
 		if isHTMLRequest(c) {
 			return c.Redirect(
 				http.StatusSeeOther,
@@ -2004,6 +2146,15 @@ func (s *Server) registerUserRoutes(queries *db.Queries) {
 			}
 			return c.String(http.StatusInternalServerError, "failed to remove membership")
 		}
+		s.log.Info(
+			"group member removed",
+			"actor_type", principal.ActorType,
+			"actor_id", principal.ActorID,
+			"group_type", "client_group",
+			"group_id", groupID,
+			"member_type", "client",
+			"member_id", clientID,
+		)
 		if isHTMLRequest(c) {
 			return c.Redirect(
 				http.StatusSeeOther,
