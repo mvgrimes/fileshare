@@ -1340,10 +1340,31 @@ func TestUserSharedFilesListAndDetail(t *testing.T) {
 	}
 	if !strings.Contains(ownerDetailRec.Body.String(), "First Viewed") ||
 		!strings.Contains(ownerDetailRec.Body.String(), "Last Viewed") ||
-		!strings.Contains(ownerDetailRec.Body.String(), "View Count") {
+		!strings.Contains(ownerDetailRec.Body.String(), "View Count") ||
+		!strings.Contains(ownerDetailRec.Body.String(), "c-viewer-owned@example.com") ||
+		!strings.Contains(ownerDetailRec.Body.String(), ">1</td>") {
 		t.Fatalf(
-			"owner detail body = %q, want expanded viewing history columns",
+			"owner detail body = %q, want viewing history",
 			ownerDetailRec.Body.String(),
+		)
+	}
+
+	unviewedDetailReq := httptest.NewRequest(
+		http.MethodGet,
+		"/user/sent/share-owned-client",
+		nil,
+	)
+	unviewedDetailReq.AddCookie(ownerCookie)
+	unviewedDetailRec := httptest.NewRecorder()
+	s.e.ServeHTTP(unviewedDetailRec, unviewedDetailReq)
+	if unviewedDetailRec.Code != http.StatusOK {
+		t.Fatalf("unviewed detail status = %d, want %d", unviewedDetailRec.Code, http.StatusOK)
+	}
+	if !strings.Contains(unviewedDetailRec.Body.String(), "Viewing History") ||
+		!strings.Contains(unviewedDetailRec.Body.String(), "No views yet.") {
+		t.Fatalf(
+			"unviewed detail body = %q, want empty viewing history",
+			unviewedDetailRec.Body.String(),
 		)
 	}
 

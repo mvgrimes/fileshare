@@ -187,9 +187,9 @@
       <button class="btn btn-sm btn-warning" type="submit" data-pending-text="Removing...">Unshare</button>
     </form>
     {{end}}
-    {{if .ViewHistory}}
     <div class="divider my-1"></div>
     <h3 class="text-lg font-semibold">Viewing History</h3>
+    {{if .ViewHistory}}
     <div class="overflow-x-auto">
       <table class="table table-zebra table-sm">
         <thead>
@@ -207,6 +207,8 @@
         </tbody>
       </table>
     </div>
+    {{else}}
+    <p class="text-sm opacity-70">No views yet.</p>
     {{end}}
   </div>
 </section>
