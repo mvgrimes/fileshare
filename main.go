@@ -9,7 +9,7 @@ import (
 	"github.com/joho/godotenv"
 )
 
-var version = "0.1.7"
+var version = "0.1.8"
 
 func main() {
 	err := godotenv.Load()

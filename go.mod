@@ -1,6 +1,6 @@
 module fileshare
 
-go 1.26.3
+go 1.26.10
 
 require (
 	github.com/aws/aws-sdk-go-v2 v1.41.7
@@ -12,12 +12,12 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/honeybadger-io/honeybadger-go v0.9.0
 	github.com/joho/godotenv v1.5.1
-	github.com/labstack/echo/v4 v4.13.4
+	github.com/labstack/echo/v4 v4.15.3
 	github.com/matcornic/hermes/v2 v2.1.0
 	github.com/pressly/goose/v3 v3.27.1
 	github.com/spf13/cobra v1.9.1
-	golang.org/x/crypto v0.52.0
-	golang.org/x/time v0.11.0
+	golang.org/x/crypto v0.58.0
+	golang.org/x/time v0.15.0
 	modernc.org/sqlite v1.50.0
 )
 
@@ -55,10 +55,10 @@ require (
 	github.com/imdario/mergo v0.3.6 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/jaytaylor/html2text v0.0.0-20180606194806-57d518f124b0 // indirect
-	github.com/labstack/gommon v0.4.2 // indirect
+	github.com/labstack/gommon v0.5.0 // indirect
 	github.com/lucasb-eyer/go-colorful v1.2.0 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
-	github.com/mattn/go-isatty v0.0.21 // indirect
+	github.com/mattn/go-isatty v0.0.22 // indirect
 	github.com/mattn/go-runewidth v0.0.16 // indirect
 	github.com/mfridman/interpolate v0.0.2 // indirect
 	github.com/muesli/termenv v0.16.0 // indirect
@@ -80,10 +80,10 @@ require (
 	github.com/yusufpapurcu/wmi v1.2.3 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	golang.org/x/exp v0.0.0-20260410095643-746e56fc9e2f // indirect
-	golang.org/x/net v0.55.0 // indirect
-	golang.org/x/sync v0.20.0 // indirect
-	golang.org/x/sys v0.45.0 // indirect
-	golang.org/x/text v0.37.0 // indirect
+	golang.org/x/net v0.62.0 // indirect
+	golang.org/x/sync v0.24.0 // indirect
+	golang.org/x/sys v0.49.0 // indirect
+	golang.org/x/text v0.43.0 // indirect
 	modernc.org/libc v1.72.1 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.11.0 // indirect
